@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #1c1917;
+  --ink3: #78716c;
+  --ln: #e8e3db;
+  --cr: #faf8f4;
+  --cr-d: #f0ede6;
+  --tc: #2d7a5a;
+  --tc-d: #1a5040;
+  --tc-l: #d4ede3;
+  --ac: #9b5e35;
+  --ac-l: #f0ddd0;
+  --rb-l: #fceaea;
+  --sp-l: #d8e6fa;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --r: 8px;
+  --r-lg: 14px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--cr);
+  color: #1c1917;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sb {
+  width: 210px;
+  flex-shrink: 0;
+  background: #0d2b20;
+  display: flex;
+  flex-direction: column;
+}
+
+.sb-logo {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sb-logo-name {
+  font-family: var(--font-serif);
+  color: #fff;
+  line-height: 1.3;
+}
+
+.sb-logo-url {
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 9.5px;
+  margin-top: 4px;
+}
+
+.sb-sec {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.22);
+  text-transform: uppercase;
+  padding: 14px 16px 5px;
+}
+
+.sb-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.48);
+  border-left: 2px solid transparent;
+}
+
+.sb-item.on {
+  color: #fff;
+  border-left-color: var(--tc);
+  background: rgba(45, 122, 90, 0.15);
+}
+
+.main {
+  flex: 1;
+}
+
+.topbar {
+  padding: 13px 26px;
+  border-bottom: 1px solid var(--ln);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar-title {
+  font-family: var(--font-serif);
+  font-size: 18px;
+}
+
+.topbar-sub {
+  font-size: 11px;
+  color: var(--ink3);
+}
+
+.pb {
+  padding: 22px 26px;
+}
+
+.g2,
+.g4 {
+  display: grid;
+  gap: 12px;
+}
+
+.g2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.g4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.card,
+.kpi,
+.tw {
+  background: #fff;
+  border: 1px solid var(--ln);
+  border-radius: var(--r-lg);
+}
+
+.card,
+.kpi {
+  padding: 16px;
+}
+
+.kpi-lbl {
+  font-size: 10px;
+  color: var(--ink3);
+  text-transform: uppercase;
+}
+
+.kpi-val {
+  font-family: var(--font-serif);
+  font-size: 28px;
+}
+
+.btn {
+  border: none;
+  border-radius: var(--r);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.btn-p {
+  background: var(--tc);
+  color: #fff;
+}
+
+.btn-s {
+  background: var(--cr-d);
+  border: 1px solid var(--ln);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ln);
+  color: var(--ink3);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ln);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}

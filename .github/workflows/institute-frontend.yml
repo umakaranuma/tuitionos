@@ -1,0 +1,23 @@
+name: Institute Frontend CI/CD
+on:
+  push:
+    branches: [main]
+    paths: ["frontend/institute/**", "shared/**"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: cd frontend/institute && npm ci
+      - run: cd frontend/institute && npm run lint
+      - run: cd frontend/institute && npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm i -g vercel && vercel --cwd frontend/institute --prod --yes --token ${{ secrets.VERCEL_TOKEN }}

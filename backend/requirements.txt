@@ -1,0 +1,15 @@
+﻿Django==5.0.4
+djangorestframework==3.15.1
+django-cors-headers==4.3.1
+django-celery-beat==2.6.0
+mysqlclient==2.2.4
+dj-database-url==2.1.0
+celery==5.3.6
+redis==5.0.4
+Pillow==10.3.0
+WeasyPrint==61.2
+cryptography==42.0.5
+environs==11.0.0
+supabase==2.3.5
+stripe==9.4.0
+requests==2.31.0

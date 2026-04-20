@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TuitionOS — St. Patrick's Institute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1C1917;--ink2:#44403C;--ink3:#78716C;--ln:#E8E3DB;
+  --cr:#FAF8F4;--cr-d:#F0EDE6;
+  --tc:#2D7A5A;--tc-l:#D4EDE3;--tc-d:#1A5040;
+  --ac:#9B5E35;--ac-l:#F0DDD0;
+  --rb:#B83030;--rb-l:#FCEAEA;
+  --sf:#C07B1A;--sf-l:#FEF3D7;
+  --sp:#2A5FA8;--sp-l:#D8E6FA;
+  --pr:#6B3EA8;--pr-l:#EDE8FC;
+  --font-serif:'Instrument Serif',Georgia,serif;
+  --font-body:'Plus Jakarta Sans',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --r:8px;--r-lg:14px;--r-xl:20px;
+  --sh:0 1px 3px rgba(28,25,23,.06),0 1px 2px rgba(28,25,23,.04);
+  --sh-md:0 4px 16px rgba(28,25,23,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--font-body);background:var(--cr);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--ln);border-radius:99px}
+
+/* SIDEBAR */
+.sb{width:210px;flex-shrink:0;background:#0D2B20;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-logo-badge{background:var(--tc);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.06em;display:inline-block;margin-bottom:6px}
+.sb-logo-name{font-family:var(--font-serif);font-size:15px;color:#fff;line-height:1.3}
+.sb-logo-url{font-size:9.5px;color:rgba(255,255,255,.3);margin-top:4px;font-family:var(--font-mono)}
+.sb-plan{margin:10px 16px 0;background:rgba(45,122,90,.25);border:1px solid rgba(45,122,90,.4);border-radius:var(--r);padding:7px 10px;font-size:10.5px;color:rgba(255,255,255,.7)}
+.sb-plan-t{font-weight:600;color:#fff;margin-bottom:1px}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.22);padding:14px 16px 5px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 16px;font-size:12.5px;color:rgba(255,255,255,.48);cursor:pointer;border-left:2px solid transparent;transition:all 120ms}
+.sb-item:hover{color:rgba(255,255,255,.8);background:rgba(255,255,255,.04)}
+.sb-item.on{color:#fff;border-left-color:var(--tc);background:rgba(45,122,90,.15);font-weight:500}
+.sb-item svg{width:14px;height:14px;opacity:.7;flex-shrink:0}
+.sb-item.on svg{opacity:1}
+.sb-badge{margin-left:auto;background:var(--rb);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px}
+.sb-prem-lock{margin-left:auto;background:var(--ac-l);color:var(--ac);font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px}
+.sb-foot{margin-top:auto;padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:9px}
+.sb-ava{width:26px;height:26px;border-radius:50%;background:var(--tc);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.sb-user{font-size:11.5px;color:rgba(255,255,255,.65);font-weight:500}
+.sb-role{font-size:9.5px;color:rgba(255,255,255,.28)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;background:var(--cr)}
+.topbar{display:flex;align-items:center;gap:14px;padding:13px 26px;background:rgba(250,248,244,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:20}
+.topbar-title{font-family:var(--font-serif);font-size:18px;color:var(--ink);letter-spacing:-.01em}
+.topbar-sub{font-size:11px;color:var(--ink3);margin-top:1px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pb{padding:22px 26px}
+.scr{display:none}.scr.on{display:block}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-body);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:var(--r);border:none;cursor:pointer;transition:all 120ms;white-space:nowrap;line-height:1}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--tc);color:#fff}.btn-p:hover{background:var(--tc-d)}
+.btn-s{background:var(--cr-d);color:var(--ink2);border:1px solid var(--ln)}.btn-s:hover{border-color:var(--ink3)}
+.btn-g{background:transparent;color:var(--ink3);border:1px solid transparent}.btn-g:hover{background:var(--cr-d);color:var(--ink)}
+.btn-d{background:var(--rb-l);color:var(--rb);border:1px solid #F5C5C5}
+.btn-ok{background:var(--tc-l);color:var(--tc-d);border:1px solid #B8DDD0}
+.btn-ac{background:var(--ac-l);color:var(--ac);border:1px solid #E0C0A8}
+.btn-sm{padding:5px 11px;font-size:11.5px}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:6px}
+
+/* LAYOUT */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+
+/* KPI */
+.kpi{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--sh);position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kc,var(--tc));border-radius:var(--r-lg) var(--r-lg) 0 0}
+.kpi-lbl{font-size:10.5px;font-weight:600;color:var(--ink3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px}
+.kpi-val{font-family:var(--font-serif);font-size:28px;color:var(--ink);line-height:1;margin-bottom:5px}
+.kpi-tr{font-size:11px;display:flex;align-items:center;gap:3px}
+.up{color:var(--tc)}.dn{color:var(--rb)}.nt{color:var(--ink3)}
+
+/* CARDS */
+.card{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);padding:16px;box-shadow:var(--sh)}
+
+/* TABLE */
+.tw{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{text-align:left;padding:9px 13px;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.07em;text-transform:uppercase;background:var(--cr);border-bottom:1px solid var(--ln)}
+tbody td{padding:10px 13px;border-bottom:1px solid var(--ln);color:var(--ink);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--cr);cursor:pointer}
+.td-nm{display:flex;align-items:center;gap:9px}
+.ava{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+
+/* BADGES */
+.bdg{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:99px}
+.b-present{background:var(--tc-l);color:var(--tc-d)}
+.b-absent{background:var(--rb-l);color:var(--rb)}
+.b-paid{background:var(--tc-l);color:var(--tc-d)}
+.b-due{background:var(--sf-l);color:var(--sf)}
+.b-prem{background:var(--ac-l);color:var(--ac)}
+.b-basic{background:var(--sp-l);color:var(--sp)}
+.b-promote{background:var(--tc-l);color:var(--tc-d)}
+.b-retain{background:var(--sp-l);color:var(--sp)}
+.b-remove{background:var(--rb-l);color:var(--rb)}
+.b-wa{background:var(--tc-l);color:var(--tc-d)}
+.b-sms{background:var(--sp-l);color:var(--sp)}
+.b-pdf{background:var(--pr-l);color:var(--pr)}
+
+/* FORM */
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg-full{grid-column:1/-1}
+label{font-size:11.5px;font-weight:600;color:var(--ink2)}
+input,select,textarea{font-family:var(--font-body);font-size:12.5px;color:var(--ink);background:var(--cr);border:1.5px solid var(--ln);border-radius:var(--r);padding:8px 11px;outline:none;width:100%;transition:border-color 120ms}
+input:focus,select:focus,textarea:focus{border-color:var(--tc);background:#fff}
+input::placeholder,textarea::placeholder{color:var(--ink3)}
+.hint{font-size:10.5px;color:var(--ink3)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* TOGGLE */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--ln)}
+.tog-row:last-child{border-bottom:none}
+.tog-lbl{font-size:12.5px;font-weight:500;color:var(--ink)}
+.tog-sub{font-size:10.5px;color:var(--ink3);margin-top:1px}
+.toggle{width:36px;height:20px;border-radius:99px;background:var(--ln);cursor:pointer;position:relative;transition:background 180ms;border:none;flex-shrink:0}
+.toggle.on{background:var(--tc)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform 180ms;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.toggle.on::after{transform:translateX(16px)}
+
+/* PROGRESS */
+.prog-w{margin-bottom:12px}
+.prog-hdr{display:flex;justify-content:space-between;margin-bottom:5px}
+.prog-lbl{font-size:11.5px;font-weight:500;color:var(--ink2)}
+.prog-val{font-size:11.5px;font-family:var(--font-mono);color:var(--ink);font-weight:500}
+.prog-tr{height:6px;background:var(--cr-d);border-radius:99px;overflow:hidden}
+.prog-fi{height:100%;border-radius:99px}
+
+/* ATTENDANCE GRID */
+.att-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.att-card{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);padding:14px;box-shadow:var(--sh)}
+.att-subject{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.att-btns{display:flex;gap:6px}
+.att-btn{flex:1;padding:8px 0;border-radius:var(--r);border:1.5px solid var(--ln);background:transparent;font-size:12px;font-weight:600;cursor:pointer;transition:all 140ms;color:var(--ink3)}
+.att-btn.present{background:var(--tc-l);border-color:var(--tc);color:var(--tc-d)}
+.att-btn.absent{background:var(--rb-l);border-color:var(--rb);color:var(--rb)}
+.att-count{font-size:10.5px;color:var(--ink3);margin-top:8px;text-align:center}
+
+/* PROMO CARD */
+.promo-card{display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fff;border:1px solid var(--ln);border-radius:var(--r);margin-bottom:7px;transition:all 120ms}
+.promo-card.promoted{border-color:#B8DDD0;background:var(--tc-l)}
+.promo-card.retained{border-color:#C5D9F5;background:var(--sp-l)}
+.promo-card.removed{border-color:#F5C5C5;opacity:.75}
+.promo-name{font-size:12.5px;font-weight:500;color:var(--ink)}
+.promo-sub{font-size:10.5px;color:var(--ink3)}
+.promo-sel{margin-left:auto;font-size:11.5px;padding:4px 7px;border:1px solid var(--ln);border-radius:6px;background:transparent;color:var(--ink2);cursor:pointer}
+
+/* NOTIF ROW */
+.notif-r{display:flex;align-items:center;gap:11px;padding:11px 14px;border-bottom:1px solid var(--ln)}
+.notif-r:last-child{border-bottom:none}
+.notif-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.notif-tl{font-size:12.5px;font-weight:500;color:var(--ink)}
+.notif-sb{font-size:10.5px;color:var(--ink3);margin-top:2px}
+.notif-time{font-size:10.5px;font-family:var(--font-mono);color:var(--ink3);margin-top:2px}
+.notif-cost{margin-left:auto;text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--ink3)}
+
+/* TIMETABLE */
+.tt-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.tt-day{font-size:10.5px;font-weight:700;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;padding:6px 10px;text-align:center}
+.tt-slot{background:#fff;border:1px solid var(--ln);border-radius:var(--r);padding:10px;text-align:center;box-shadow:var(--sh);cursor:pointer;transition:all 120ms}
+.tt-slot:hover{border-color:var(--tc);box-shadow:var(--sh-md)}
+.tt-slot.empty{background:var(--cr-d);border-style:dashed;color:var(--ink3);font-size:11px}
+.tt-sub{font-size:11.5px;font-weight:600;color:var(--ink)}
+.tt-time{font-size:10px;color:var(--ink3);font-family:var(--font-mono);margin-top:3px}
+.tt-teacher{font-size:10px;color:var(--tc-d);margin-top:2px}
+
+/* MISC */
+hr.dv{border:none;border-top:1px solid var(--ln);margin:14px 0}
+.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--ink2)}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.sec-title{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.premium-gate{background:var(--ac-l);border:1px solid #E0C0A8;border-radius:var(--r-lg);padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.premium-gate svg{flex-shrink:0}
+.premium-gate-t{font-size:12.5px;font-weight:600;color:var(--ac)}
+.premium-gate-s{font-size:11px;color:var(--ac);opacity:.8;margin-top:1px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fadeUp 300ms cubic-bezier(.16,1,.3,1) both}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sb">
+  <div class="sb-logo">
+    <div class="sb-logo-badge">INSTITUTE</div>
+    <div class="sb-logo-name">St. Patrick's<br>Institute</div>
+    <div class="sb-logo-url">stpatricks.tuitionos.lk</div>
+  </div>
+  <div class="sb-plan">
+    <div class="sb-plan-t">Premium plan</div>
+    Jaffna · Unlimited students
+  </div>
+
+  <div class="sb-sec">Overview</div>
+  <div class="sb-item on" onclick="go('dashboard',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
+    Dashboard
+  </div>
+
+  <div class="sb-sec">Academic setup</div>
+  <div class="sb-item" onclick="go('subjects',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M5 7h4M7 5v4"/></svg>
+    Subjects
+  </div>
+  <div class="sb-item" onclick="go('teachers',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="4.5" r="2.5"/><path d="M2.5 12a4.5 4.5 0 019 0"/></svg>
+    Teachers
+  </div>
+  <div class="sb-item" onclick="go('batches',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M4 3V1.5M10 3V1.5M1 6h12"/></svg>
+    Batches
+  </div>
+
+  <div class="sb-sec">Students</div>
+  <div class="sb-item" onclick="go('students',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="4" r="2.5"/><path d="M1 12a4 4 0 018 0"/><path d="M10.5 6.5l2 2-2 2"/><path d="M10 5h3"/></svg>
+    Students
+  </div>
+  <div class="sb-item" onclick="go('attendance',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M2 7l3 3 7-7"/><rect x="1" y="1" width="12" height="12" rx="1.5"/></svg>
+    Attendance
+    <span class="sb-badge">Today</span>
+  </div>
+
+  <div class="sb-sec">Finance</div>
+  <div class="sb-item" onclick="go('fees',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M2.5 2h9a.5.5 0 01.5.5v10l-1.5-1L9 12.5 7.5 11.5 6 12.5 4.5 11.5 3 12.5V2.5a.5.5 0 01.5-.5z"/><path d="M4.5 5h5M4.5 7.5h3.5"/></svg>
+    Fee tracking
+  </div>
+
+  <div class="sb-sec">Operations <span style="color:rgba(255,255,255,.25);font-size:8px;font-weight:400">(Premium)</span></div>
+  <div class="sb-item" onclick="go('notifications',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M7 1.5a3.5 3.5 0 013.5 3.5v2.5l1 2H2.5l1-2V5A3.5 3.5 0 017 1.5z"/><path d="M5.5 11a1.5 1.5 0 003 0"/></svg>
+    Notifications
+    <span class="sb-prem-lock">PRO</span>
+  </div>
+  <div class="sb-item" onclick="go('timetable',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="12" height="10" rx="1.5"/><path d="M1 5.5h12M4.5 2v2M9.5 2v2"/></svg>
+    Timetable
+    <span class="sb-prem-lock">PRO</span>
+  </div>
+  <div class="sb-item" onclick="go('promotion',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M7 11V3M4 6l3-3 3 3"/><path d="M3 11h8"/></svg>
+    Year-end promotion
+    <span class="sb-prem-lock">PRO</span>
+  </div>
+
+  <div class="sb-foot">
+    <div class="sb-ava">SK</div>
+    <div><div class="sb-user">Sundar Kumar</div><div class="sb-role">Institute Admin</div></div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="scr on fi" id="s-dashboard">
+  <div class="topbar"><div><div class="topbar-title">Dashboard</div><div class="topbar-sub">St. Patrick's Institute · April 2026</div></div><div class="tb-right"><button class="btn btn-s btn-sm">Download report</button></div></div>
+  <div class="pb">
+    <div class="g4" style="margin-bottom:18px">
+      <div class="kpi" style="--kc:var(--tc)"><div class="kpi-lbl">Total Students</div><div class="kpi-val">312</div><div class="kpi-tr up"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>+18 this month</div></div>
+      <div class="kpi" style="--kc:var(--sp)"><div class="kpi-lbl">Active Batches</div><div class="kpi-val">8</div><div class="kpi-tr nt">4 subjects each</div></div>
+      <div class="kpi" style="--kc:var(--sf)"><div class="kpi-lbl">Fees Due</div><div class="kpi-val">47</div><div class="kpi-tr nt">Students this month</div></div>
+      <div class="kpi" style="--kc:var(--rb)"><div class="kpi-lbl">Absent Today</div><div class="kpi-val">23</div><div class="kpi-tr dn">Parents notified</div></div>
+    </div>
+    <div class="g2">
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Fee collection — April</span><button class="btn btn-g btn-sm" onclick="go('fees',document.querySelectorAll('.sb-item')[8])">View all →</button></div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="prog-w"><div class="prog-hdr"><span class="prog-lbl">Collected</span><span class="prog-val">265 / 312</span></div><div class="prog-tr"><div class="prog-fi" style="width:85%;background:var(--tc)"></div></div></div>
+          <div class="prog-w" style="margin:0"><div class="prog-hdr"><span class="prog-lbl">Outstanding (LKR)</span><span class="prog-val">141,000</span></div><div class="prog-tr"><div class="prog-fi" style="width:15%;background:var(--rb)"></div></div></div>
+        </div>
+        <div class="sec-hdr"><span class="sec-title">Attendance this week</span><button class="btn btn-g btn-sm" onclick="go('attendance',document.querySelectorAll('.sb-item')[7])">Mark today →</button></div>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Batch</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Rate</th></tr></thead>
+            <tbody>
+              <tr><td>Grade 7 — A</td><td><span class="bdg b-present">96%</span></td><td><span class="bdg b-present">94%</span></td><td><span class="bdg b-present">98%</span></td><td class="mono">96%</td></tr>
+              <tr><td>Grade 10 — O/L</td><td><span class="bdg b-present">91%</span></td><td><span class="bdg b-absent">78%</span></td><td><span class="bdg b-present">89%</span></td><td class="mono" style="color:var(--sf)">86%</td></tr>
+              <tr><td>Grade 11 — A/L Sci</td><td><span class="bdg b-present">95%</span></td><td><span class="bdg b-present">93%</span></td><td><span class="bdg b-present">97%</span></td><td class="mono">95%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Recent absent alerts sent</span></div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--rb-l)"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--rb)" stroke-width="1.75"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v4M7.5 10.5h.01"/></svg></div>
+            <div><div class="notif-tl">Aarav Kumar — absent</div><div class="notif-sb">Physics · Grade 10 O/L</div><div class="notif-time">Today · 6:00 PM</div></div>
+            <div class="notif-cost"><span class="bdg b-wa">WA</span><div style="margin-top:3px">LKR 2</div></div>
+          </div>
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--rb-l)"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--rb)" stroke-width="1.75"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v4M7.5 10.5h.01"/></svg></div>
+            <div><div class="notif-tl">Priya Selvan — absent</div><div class="notif-sb">Chemistry + Maths · Grade 10 O/L</div><div class="notif-time">Today · 6:00 PM · batched</div></div>
+            <div class="notif-cost"><span class="bdg b-wa">WA</span><div style="margin-top:3px">LKR 2</div></div>
+          </div>
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--tc-l)"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--tc-d)" stroke-width="1.75"><path d="M2 8l4 4 7-7"/></svg></div>
+            <div><div class="notif-tl">Fee paid — Dinesh Raj</div><div class="notif-sb">LKR 6,000 · April 2026</div><div class="notif-time">Yesterday · 3:12 PM</div></div>
+            <div class="notif-cost"><span class="bdg b-wa">WA</span><div style="margin-top:3px">LKR 2</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SUBJECTS ═══ -->
+<div class="scr fi" id="s-subjects">
+  <div class="topbar"><div><div class="topbar-title">Subjects</div><div class="topbar-sub">Define what you teach</div></div><div class="tb-right"><button class="btn btn-p btn-sm">+ Add subject</button></div></div>
+  <div class="pb">
+    <div class="g3">
+      <div class="card" style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:9px;background:var(--sp-l);display:flex;align-items:center;justify-content:center;font-size:16px">∑</div><div><div style="font-size:13px;font-weight:600;color:var(--ink)">Mathematics</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">3 batches · Teacher: Mr. Rajan</div></div><button class="btn btn-xs btn-s" style="margin-left:auto">Edit</button></div>
+      <div class="card" style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:9px;background:var(--tc-l);display:flex;align-items:center;justify-content:center;font-size:16px">⚛</div><div><div style="font-size:13px;font-weight:600;color:var(--ink)">Physics</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">2 batches · Teacher: Ms. Geetha</div></div><button class="btn btn-xs btn-s" style="margin-left:auto">Edit</button></div>
+      <div class="card" style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:9px;background:var(--rb-l);display:flex;align-items:center;justify-content:center;font-size:16px">🧪</div><div><div style="font-size:13px;font-weight:600;color:var(--ink)">Chemistry</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">2 batches · Teacher: Mr. Arjun</div></div><button class="btn btn-xs btn-s" style="margin-left:auto">Edit</button></div>
+      <div class="card" style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:9px;background:var(--sf-l);display:flex;align-items:center;justify-content:center;font-size:16px">📖</div><div><div style="font-size:13px;font-weight:600;color:var(--ink)">English</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">4 batches · Teacher: Ms. Ramya</div></div><button class="btn btn-xs btn-s" style="margin-left:auto">Edit</button></div>
+      <div class="card" style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:36px;border-radius:9px;background:var(--pr-l);display:flex;align-items:center;justify-content:center;font-size:16px">📐</div><div><div class="btn" style="font-size:13px;font-weight:600;color:var(--ink);padding:0">Tamil</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">3 batches · Teacher: Ms. Valli</div></div><button class="btn btn-xs btn-s" style="margin-left:auto">Edit</button></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;border-style:dashed;cursor:pointer;color:var(--ink3);gap:6px;font-size:12.5px" onclick=""><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>Add subject</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TEACHERS ═══ -->
+<div class="scr fi" id="s-teachers">
+  <div class="topbar"><div><div class="topbar-title">Teachers</div><div class="topbar-sub">Staff directory</div></div><div class="tb-right"><button class="btn btn-p btn-sm">+ Add teacher</button></div></div>
+  <div class="pb">
+    <div class="tw">
+      <table>
+        <thead><tr><th>Teacher</th><th>Subject</th><th>Mobile</th><th>Batches</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--sp-l);color:var(--sp)">RN</div>Mr. Rajan Nair</div></td><td>Mathematics</td><td class="mono">+94 77 234 5678</td><td class="mono">3</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">Edit</button><button class="btn btn-xs btn-d">Remove</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--tc-l);color:var(--tc-d)">GS</div>Ms. Geetha S.</div></td><td>Physics</td><td class="mono">+94 77 345 6789</td><td class="mono">2</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">Edit</button><button class="btn btn-xs btn-d">Remove</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--rb-l);color:var(--rb)">AK</div>Mr. Arjun K.</div></td><td>Chemistry</td><td class="mono">+94 77 456 7890</td><td class="mono">2</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">Edit</button><button class="btn btn-xs btn-d">Remove</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--sf-l);color:var(--sf)">RM</div>Ms. Ramya M.</div></td><td>English</td><td class="mono">+94 77 567 8901</td><td class="mono">4</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">Edit</button><button class="btn btn-xs btn-d">Remove</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--pr-l);color:var(--pr)">VF</div>Ms. Valli F.</div></td><td>Tamil Literature</td><td class="mono">+94 77 678 9012</td><td class="mono">3</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">Edit</button><button class="btn btn-xs btn-d">Remove</button></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BATCHES ═══ -->
+<div class="scr fi" id="s-batches">
+  <div class="topbar"><div><div class="topbar-title">Batches</div><div class="topbar-sub">Grade groups and packages</div></div><div class="tb-right"><button class="btn btn-p btn-sm">+ Create batch</button></div></div>
+  <div class="pb">
+    <div class="g2">
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><div><div style="font-size:13px;font-weight:700;color:var(--ink)">Grade 7 — Batch A</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">18 students · LKR 3,000/mo</div></div><button class="btn btn-xs btn-s">Edit</button></div><hr class="dv"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Subjects</div><div style="display:flex;gap:5px;flex-wrap:wrap"><span class="bdg" style="background:var(--sp-l);color:var(--sp)">Mathematics</span><span class="bdg" style="background:var(--tc-l);color:var(--tc-d)">Science</span><span class="bdg" style="background:var(--sf-l);color:var(--sf)">English</span><span class="bdg" style="background:var(--pr-l);color:var(--pr)">Tamil</span></div></div>
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><div><div style="font-size:13px;font-weight:700;color:var(--ink)">Grade 10 — O/L Batch</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">25 students · LKR 5,500/mo</div></div><button class="btn btn-xs btn-s">Edit</button></div><hr class="dv"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Subjects</div><div style="display:flex;gap:5px;flex-wrap:wrap"><span class="bdg" style="background:var(--sp-l);color:var(--sp)">Mathematics</span><span class="bdg" style="background:var(--tc-l);color:var(--tc-d)">Physics</span><span class="bdg" style="background:var(--rb-l);color:var(--rb)">Chemistry</span><span class="bdg" style="background:var(--sf-l);color:var(--sf)">English</span></div></div>
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><div><div style="font-size:13px;font-weight:700;color:var(--ink)">Grade 11 — A/L Science</div><div style="font-size:11px;color:var(--ink3);margin-top:2px">19 students · LKR 7,000/mo</div></div><button class="btn btn-xs btn-s">Edit</button></div><hr class="dv"><div style="font-size:11px;color:var(--ink3);margin-bottom:4px">Subjects</div><div style="display:flex;gap:5px;flex-wrap:wrap"><span class="bdg" style="background:var(--tc-l);color:var(--tc-d)">Physics</span><span class="bdg" style="background:var(--rb-l);color:var(--rb)">Chemistry</span><span class="bdg" style="background:var(--sp-l);color:var(--sp)">Combined Maths</span></div></div>
+      <div class="card" style="display:flex;align-items:center;justify-content:center;border-style:dashed;cursor:pointer;color:var(--ink3);gap:6px;font-size:12.5px;min-height:100px"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>Create new batch</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STUDENTS ═══ -->
+<div class="scr fi" id="s-students">
+  <div class="topbar"><div><div class="topbar-title">Students</div><div class="topbar-sub">312 enrolled</div></div><div class="tb-right"><input placeholder="Search students…" style="width:180px"><button class="btn btn-p btn-sm">+ Enroll student</button></div></div>
+  <div class="pb">
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="btn btn-p btn-sm">All (312)</button>
+      <button class="btn btn-s btn-sm">Grade 7 (42)</button>
+      <button class="btn btn-s btn-sm">Grade 10 (95)</button>
+      <button class="btn btn-s btn-sm">Grade 11 (62)</button>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Student</th><th>Batch</th><th>Parent mobile</th><th>Fee status</th><th>Attendance</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--tc-l);color:var(--tc-d)">AK</div>Aarav Kumar</div></td><td style="color:var(--ink3)">Grade 10 O/L</td><td class="mono">+94 77 123 4567</td><td><span class="bdg b-paid">Paid</span></td><td class="mono" style="color:var(--tc)">94%</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">View</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--sp-l);color:var(--sp)">PS</div>Priya Selvan</div></td><td style="color:var(--ink3)">Grade 10 O/L</td><td class="mono">+94 77 234 5678</td><td><span class="bdg b-due">Due</span></td><td class="mono" style="color:var(--sf)">81%</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-ok">Mark paid</button><button class="btn btn-xs btn-s">View</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--rb-l);color:var(--rb)">DR</div>Dinesh Raj</div></td><td style="color:var(--ink3)">Grade 11 A/L</td><td class="mono">+94 77 345 6789</td><td><span class="bdg b-paid">Paid</span></td><td class="mono" style="color:var(--tc)">97%</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">View</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--sf-l);color:var(--sf)">KM</div>Kavitha M.</div></td><td style="color:var(--ink3)">Grade 7 Batch A</td><td class="mono">+94 77 456 7890</td><td><span class="bdg b-paid">Paid</span></td><td class="mono" style="color:var(--tc)">99%</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">View</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--pr-l);color:var(--pr)">ST</div>Surya T.</div></td><td style="color:var(--ink3)">Grade 10 O/L</td><td class="mono">+94 77 567 8901</td><td><span class="bdg b-due">Due</span></td><td class="mono" style="color:var(--rb)">72%</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-ok">Mark paid</button><button class="btn btn-xs btn-s">View</button></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ATTENDANCE ═══ -->
+<div class="scr fi" id="s-attendance">
+  <div class="topbar"><div><div class="topbar-title">Attendance</div><div class="topbar-sub">Today · Wednesday 17 April 2026</div></div><div class="tb-right"><select style="width:auto"><option>Grade 10 — O/L Batch</option><option>Grade 7 — Batch A</option><option>Grade 11 — A/L Sci</option></select><button class="btn btn-p btn-sm">Save & send alerts</button></div></div>
+  <div class="pb">
+    <div style="background:var(--tc-l);border:1px solid #B8DDD0;border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:12px;color:var(--tc-d)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="6"/><path d="M7 4.5v3.5l2 1"/></svg>
+      Absent alerts will fire at 6:00 PM as a daily digest — one WhatsApp message per parent.
+    </div>
+    <div style="margin-bottom:12px"><div class="sec-hdr"><span class="sec-title">Mark by subject — Grade 10 O/L</span></div></div>
+    <div class="att-grid" id="att-grid"></div>
+    <div style="margin-top:18px">
+      <div class="sec-hdr"><span class="sec-title">Student list — Grade 10 O/L (25 students)</span></div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Student</th><th>Mathematics</th><th>Physics</th><th>Chemistry</th><th>English</th></tr></thead>
+          <tbody>
+            <tr><td><div class="td-nm"><div class="ava" style="background:var(--tc-l);color:var(--tc-d)">AK</div>Aarav Kumar</div></td><td><span class="bdg b-present">Present</span></td><td><span class="bdg b-absent">Absent</span></td><td><span class="bdg b-present">Present</span></td><td><span class="bdg b-present">Present</span></td></tr>
+            <tr><td><div class="td-nm"><div class="ava" style="background:var(--sp-l);color:var(--sp)">PS</div>Priya Selvan</div></td><td><span class="bdg b-absent">Absent</span></td><td><span class="bdg b-absent">Absent</span></td><td><span class="bdg b-present">Present</span></td><td><span class="bdg b-present">Present</span></td></tr>
+            <tr><td><div class="td-nm"><div class="ava" style="background:var(--rb-l);color:var(--rb)">ST</div>Surya T.</div></td><td><span class="bdg b-present">Present</span></td><td><span class="bdg b-present">Present</span></td><td><span class="bdg b-present">Present</span></td><td><span class="bdg b-present">Present</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FEE TRACKING ═══ -->
+<div class="scr fi" id="s-fees">
+  <div class="topbar"><div><div class="topbar-title">Fee tracking</div><div class="topbar-sub">April 2026</div></div><div class="tb-right"><button class="btn btn-s btn-sm">Export PDF</button><button class="btn btn-p btn-sm">Send reminders</button></div></div>
+  <div class="pb">
+    <div class="g4" style="margin-bottom:18px">
+      <div class="kpi" style="--kc:var(--tc)"><div class="kpi-lbl">Collected</div><div class="kpi-val">265</div><div class="kpi-tr up">85% students</div></div>
+      <div class="kpi" style="--kc:var(--sf)"><div class="kpi-lbl">Outstanding</div><div class="kpi-val">47</div><div class="kpi-tr nt">LKR 141,000</div></div>
+      <div class="kpi" style="--kc:var(--sp)"><div class="kpi-lbl">Total revenue</div><div class="kpi-val">936K</div><div class="kpi-tr nt">This month</div></div>
+      <div class="kpi" style="--kc:var(--rb)"><div class="kpi-lbl">Overdue 10+ days</div><div class="kpi-val">12</div><div class="kpi-tr dn">Need follow-up</div></div>
+    </div>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Student</th><th>Batch</th><th>Amount (LKR)</th><th>Status</th><th>Due date</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--tc-l);color:var(--tc-d)">AK</div>Aarav Kumar</div></td><td style="color:var(--ink3)">Grade 10 O/L</td><td class="mono">5,500</td><td><span class="bdg b-paid">Paid</span></td><td class="mono">Apr 5</td><td><button class="btn btn-xs btn-s">Receipt</button></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--sp-l);color:var(--sp)">PS</div>Priya Selvan</div></td><td style="color:var(--ink3)">Grade 10 O/L</td><td class="mono">5,500</td><td><span class="bdg b-due">Due</span></td><td class="mono">Apr 10</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-ok">Mark paid</button><button class="btn btn-xs btn-s">Remind</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--rb-l);color:var(--rb)">ST</div>Surya T.</div></td><td style="color:var(--ink3)">Grade 10 O/L</td><td class="mono">5,500</td><td><span class="bdg b-due">Due</span></td><td class="mono">Apr 10</td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-ok">Mark paid</button><button class="btn btn-xs btn-s">Remind</button></div></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--sf-l);color:var(--sf)">KM</div>Kavitha M.</div></td><td style="color:var(--ink3)">Grade 7 A</td><td class="mono">3,000</td><td><span class="bdg b-paid">Paid</span></td><td class="mono">Apr 4</td><td><button class="btn btn-xs btn-s">Receipt</button></td></tr>
+          <tr><td><div class="td-nm"><div class="ava" style="background:var(--pr-l);color:var(--pr)">DR</div>Dinesh Raj</div></td><td style="color:var(--ink3)">Grade 11 A/L</td><td class="mono">7,000</td><td><span class="bdg b-paid">Paid</span></td><td class="mono">Apr 3</td><td><button class="btn btn-xs btn-s">Receipt</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ NOTIFICATIONS ═══ -->
+<div class="scr fi" id="s-notifications">
+  <div class="topbar"><div><div class="topbar-title">Notifications</div><div class="topbar-sub">Premium · WhatsApp delivery settings</div></div></div>
+  <div class="pb">
+    <div class="g2">
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Notification toggles</span></div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="tog-row"><div><div class="tog-lbl">Fee reminder — 1st of month</div><div class="tog-sub">All parents at 9:00 AM</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="tog-row"><div><div class="tog-lbl">Fee paid confirmation</div><div class="tog-sub">Immediate · always on</div></div><button class="toggle on" style="opacity:.5;cursor:not-allowed"></button></div>
+          <div class="tog-row"><div><div class="tog-lbl">Timetable change alert</div><div class="tog-sub">Admin decides per change</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="tog-row"><div><div class="tog-lbl">Daily absent digest at 6 PM</div><div class="tog-sub">One message per parent per day</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+        </div>
+        <div class="sec-hdr"><span class="sec-title">Annual timetable PDF</span></div>
+        <div class="card">
+          <div style="font-size:12.5px;color:var(--ink2);margin-bottom:12px">Send personalised timetable PDF to all 312 parents via WhatsApp. Est. cost: <strong style="color:var(--ink)">LKR 936</strong> total.</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ac">Send annual timetable PDF</button>
+            <button class="btn btn-s btn-sm">Preview PDF</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Notification history</span></div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--sf-l)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--sf)" stroke-width="1.75"><rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M4.5 5h5M4.5 7.5h3.5"/></svg></div>
+            <div><div class="notif-tl">Fee reminders — April 2026</div><div class="notif-sb">312 messages sent · 9:00 AM</div><div class="notif-time">Apr 1 2026</div></div>
+            <div class="notif-cost"><span class="bdg b-wa">WA</span><div>LKR 624</div></div>
+          </div>
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--tc-l)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--tc-d)" stroke-width="1.75"><path d="M2 7l3 3 7-7"/></svg></div>
+            <div><div class="notif-tl">Fee paid — Dinesh Raj</div><div class="notif-sb">LKR 7,000 · Ref: PAY-0382</div><div class="notif-time">Apr 3 2026 · 3:12 PM</div></div>
+            <div class="notif-cost"><span class="bdg b-wa">WA</span><div>LKR 2</div></div>
+          </div>
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--sp-l)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--sp)" stroke-width="1.75"><rect x="1" y="2" width="12" height="9" rx="1.5"/><path d="M1 5h12"/></svg></div>
+            <div><div class="notif-tl">Timetable change — Physics</div><div class="notif-sb">44 students · Grade 10 batch</div><div class="notif-time">Apr 8 2026 · 11:30 AM</div></div>
+            <div class="notif-cost"><span class="bdg b-wa">WA</span><div>LKR 88</div></div>
+          </div>
+          <div class="notif-r">
+            <div class="notif-ic" style="background:var(--ac-l)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ac)" stroke-width="1.75"><path d="M2 12l2.5-3.5 2.5 2.5 3-5L12 9"/><rect x="1" y="1" width="12" height="11" rx="1.5"/></svg></div>
+            <div><div class="notif-tl">Annual timetable PDF — 2026</div><div class="notif-sb">312 students · Jan blast</div><div class="notif-time">Jan 8 2026 · 10:00 AM</div></div>
+            <div class="notif-cost"><span class="bdg b-pdf">PDF</span><div>LKR 936</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TIMETABLE ═══ -->
+<div class="scr fi" id="s-timetable">
+  <div class="topbar"><div><div class="topbar-title">Timetable</div><div class="topbar-sub">Weekly schedule</div></div><div class="tb-right"><select style="width:auto"><option>Grade 10 — O/L Batch</option><option>Grade 7 — Batch A</option><option>Grade 11 — A/L</option></select><button class="btn btn-p btn-sm">Save & notify parents</button></div></div>
+  <div class="pb">
+    <div style="background:var(--ac-l);border:1px solid #E0C0A8;border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:12px;color:var(--ac)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="6"/><path d="M7 4.5v3.5l2 1"/></svg>
+      Click any slot to edit. Changes affecting 3+ sessions will trigger a PDF notification to parents.
+    </div>
+    <div class="tt-grid" style="margin-bottom:8px">
+      <div class="tt-day">Monday</div>
+      <div class="tt-day">Tuesday</div>
+      <div class="tt-day">Wednesday</div>
+      <div class="tt-day">Thursday</div>
+      <div class="tt-day">Friday</div>
+    </div>
+    <div class="tt-grid">
+      <div class="tt-slot"><div class="tt-sub">Mathematics</div><div class="tt-time">8:00 – 9:30 AM</div><div class="tt-teacher">Mr. Rajan</div></div>
+      <div class="tt-slot"><div class="tt-sub">Physics</div><div class="tt-time">8:00 – 9:30 AM</div><div class="tt-teacher">Ms. Geetha</div></div>
+      <div class="tt-slot empty">+ Add class</div>
+      <div class="tt-slot"><div class="tt-sub">Chemistry</div><div class="tt-time">8:00 – 9:30 AM</div><div class="tt-teacher">Mr. Arjun</div></div>
+      <div class="tt-slot empty">+ Add class</div>
+      <div class="tt-slot empty">+ Add class</div>
+      <div class="tt-slot"><div class="tt-sub">Mathematics</div><div class="tt-time">10:00 – 11:30 AM</div><div class="tt-teacher">Mr. Rajan</div></div>
+      <div class="tt-slot"><div class="tt-sub">English</div><div class="tt-time">10:00 – 11:30 AM</div><div class="tt-teacher">Ms. Ramya</div></div>
+      <div class="tt-slot empty">+ Add class</div>
+      <div class="tt-slot"><div class="tt-sub">Physics</div><div class="tt-time">3:00 – 4:30 PM</div><div class="tt-teacher">Ms. Geetha</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ YEAR-END PROMOTION ═══ -->
+<div class="scr fi" id="s-promotion">
+  <div class="topbar"><div><div class="topbar-title">Year-end promotion</div><div class="topbar-sub">2026 → 2027 · Move students to next grade</div></div><div class="tb-right"><button class="btn btn-s btn-sm" onclick="bulkPromote()">Promote all</button><button class="btn btn-p btn-sm" onclick="alert('Confirmed! WhatsApp notifications queued for 18 promoted students.')">Confirm & notify parents</button></div></div>
+  <div class="pb">
+    <div style="background:var(--tc-l);border:1px solid #B8DDD0;border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:12px;color:var(--tc-d)">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="7" cy="7" r="6"/><path d="M7 4.5v3.5l2 1"/></svg>
+      Promoted students will receive a WhatsApp message with their new timetable PDF attached.
+    </div>
+    <div style="display:grid;grid-template-columns:200px 1fr;gap:18px">
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Select batch</span></div>
+        <div id="batch-sidebar"></div>
+      </div>
+      <div>
+        <div class="sec-hdr">
+          <span class="sec-title" id="promo-title">Grade 7 — Batch A → Grade 8 — Batch A</span>
+          <div style="display:flex;gap:6px" id="promo-summary"></div>
+        </div>
+        <div id="promo-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const batches=[
+  {name:"Grade 7 — Batch A",next:"Grade 8 — Batch A",n:18},
+  {name:"Grade 10 — O/L",next:"Grade 11 — A/L",n:25},
+  {name:"Grade 11 — A/L Sci",next:"[Complete — Remove]",n:19},
+];
+const studs=[
+  ["Aarav Kumar","Priya Selvan","Dinesh Raj","Kavitha M","Surya T","Nithya V","Arun P","Deepa J","Sanjay L","Meena C","Rajan N","Anitha B","Mohan D","Lakshmi F","Kumar H","Thilaga W","Vijay X","Selvi Y"],
+  ["Ramesh A","Geetha B","Suresh C","Kamala D","Prabhu E","Valli F","Arjun G","Saranya H","Ganesh I","Nirmala J","Selvam K","Yamuna L","Bala M","Rohini N","Muthu O","Sumathi P","Deva Q","Malar R","Ragu S","Siva T","Uma U","Veni V","Kala W","Sakthi X","Muthu Y"],
+  ["Abhi A","Brinda B","Chidambaram C","Dharani D","Elan E","Fabia F","Gobi G","Hepzi H","Ilavarasi I","Jeyam J","Krishnan K","Lavanya L","Murali M","Neeraja N","Ojas O","Priya P","Quentin Q","Rajkumar R","Saroja S"],
+];
+let selB=0,decs={};
+const colors=[['var(--tc-l)','var(--tc-d)'],['var(--sp-l)','var(--sp)'],['var(--rb-l)','var(--rb)'],['var(--sf-l)','var(--sf)'],['var(--pr-l)','var(--pr)']];
+
+function initD(bi){
+  if(!decs[bi]){const isT=batches[bi].next.includes('Complete');decs[bi]=studs[bi].map(()=>({a:isT?'remove':'promote'}));}
+}
+function renderBatchSidebar(){
+  document.getElementById('batch-sidebar').innerHTML=batches.map((b,i)=>`
+    <div onclick="selBatch(${i})" style="padding:9px 11px;border-radius:var(--r);border:1px solid ${i===selB?'var(--tc)':'var(--ln)'};background:${i===selB?'var(--tc-l)':'#fff'};cursor:pointer;margin-bottom:7px">
+      <div style="font-size:12px;font-weight:600;color:${i===selB?'var(--tc-d)':'var(--ink)'}">${b.name}</div>
+      <div style="font-size:10.5px;color:var(--ink3);margin-top:1px">${b.n} students</div>
+    </div>`).join('');
+}
+function renderStudents(){
+  initD(selB);const d=decs[selB],b=batches[selB];
+  document.getElementById('promo-title').textContent=b.name+' → '+b.next;
+  const c={promote:0,retain:0,remove:0};
+  d.forEach(x=>c[x.a]++);
+  document.getElementById('promo-summary').innerHTML=`<span class="bdg b-promote">${c.promote} promote</span><span class="bdg b-retain">${c.retain} retain</span><span class="bdg b-remove">${c.remove} remove</span>`;
+  document.getElementById('promo-grid').innerHTML=studs[selB].map((name,i)=>{
+    const [bg,fg]=colors[i%5];const a=d[i].a;const ini=name.split(' ').slice(0,2).map(w=>w[0]).join('');
+    return `<div class="promo-card ${a}" id="pc${selB}${i}">
+      <div class="ava" style="background:${bg};color:${fg};width:26px;height:26px;font-size:10px">${ini}</div>
+      <div><div class="promo-name">${name}</div><div class="promo-sub">${a==='promote'?'→ '+b.next.split('—')[0]:a==='retain'?'Same batch':'Deactivating'}</div></div>
+      <select class="promo-sel" onchange="setD(${i},this)">
+        <option value="promote" ${a==='promote'?'selected':''}>Promote</option>
+        <option value="retain" ${a==='retain'?'selected':''}>Retain</option>
+        <option value="remove" ${a==='remove'?'selected':''}>Remove</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+function selBatch(i){selB=i;renderBatchSidebar();renderStudents();}
+function setD(i,s){decs[selB][i].a=s.value;renderStudents();}
+function bulkPromote(){initD(selB);decs[selB].forEach(d=>d.a='promote');renderStudents();}
+
+/* Attendance grid */
+function buildAtt(){
+  const subjs=['Mathematics','Physics','Chemistry','English'];
+  const el=document.getElementById('att-grid');
+  if(!el)return;
+  el.innerHTML=subjs.map(s=>`<div class="att-card">
+    <div class="att-subject">${s}</div>
+    <div class="att-btns">
+      <button class="att-btn present" onclick="toggleAtt(this,'present')">Present</button>
+      <button class="att-btn absent" onclick="toggleAtt(this,'absent')">Absent</button>
+    </div>
+    <div class="att-count">All 25 students</div>
+  </div>`).join('');
+}
+function toggleAtt(btn,state){
+  const wrap=btn.parentElement;
+  wrap.querySelectorAll('.att-btn').forEach(b=>{b.classList.remove('present','absent');});
+  btn.classList.add(state);
+}
+
+function go(id,el){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  const t=document.getElementById('s-'+id);if(t)t.classList.add('on');
+  document.querySelectorAll('.sb-item').forEach(l=>l.classList.remove('on'));
+  if(el)el.classList.add('on');
+}
+
+renderBatchSidebar();renderStudents();buildAtt();
+</script>
+</body></html>

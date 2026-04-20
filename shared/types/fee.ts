@@ -1,0 +1,1 @@
+﻿export interface FeePayment { id: number; studentId: number; batchId: number; month: string; amount: number; status: 'pending' | 'paid'; paidAt: string | null; collectedBy: string; createdAt: string; }

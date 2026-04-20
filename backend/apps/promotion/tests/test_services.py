@@ -1,0 +1,2 @@
+﻿# TODO: promotion service tests
+

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TuitionOS — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1C1917;--ink2:#44403C;--ink3:#78716C;--ln:#E8E3DB;
+  --cr:#FAF8F4;--cr-d:#F0EDE6;
+  --tc:#9B5E35;--tc-l:#F0DDD0;--tc-d:#6B3E20;
+  --jd:#2D7A5A;--jd-l:#D4EDE3;
+  --rb:#B83030;--rb-l:#FCEAEA;
+  --sf:#C07B1A;--sf-l:#FEF3D7;
+  --sp:#2A5FA8;--sp-l:#D8E6FA;
+  --font-serif:'Instrument Serif',Georgia,serif;
+  --font-body:'Plus Jakarta Sans',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+  --r:8px;--r-lg:14px;--r-xl:20px;
+  --sh:0 1px 3px rgba(28,25,23,.06),0 1px 2px rgba(28,25,23,.04);
+  --sh-md:0 4px 16px rgba(28,25,23,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--font-body);background:var(--cr);color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--ln);border-radius:99px}
+
+/* SIDEBAR */
+.sb{width:210px;flex-shrink:0;background:var(--ink);display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.sb-logo{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sb-logo-top{display:flex;align-items:center;gap:8px}
+.sb-logo-badge{background:var(--tc);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.06em}
+.sb-logo-name{font-family:var(--font-serif);font-size:17px;color:#fff}
+.sb-logo-url{font-size:10px;color:rgba(255,255,255,.3);margin-top:5px;font-family:var(--font-mono)}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.22);padding:14px 18px 5px}
+.sb-item{display:flex;align-items:center;gap:9px;padding:8px 18px;font-size:12.5px;color:rgba(255,255,255,.48);cursor:pointer;border-left:2px solid transparent;transition:all 120ms}
+.sb-item:hover{color:rgba(255,255,255,.8);background:rgba(255,255,255,.04)}
+.sb-item.on{color:#fff;border-left-color:var(--tc);background:rgba(155,94,53,.14);font-weight:500}
+.sb-item svg{width:14px;height:14px;opacity:.7;flex-shrink:0}
+.sb-item.on svg{opacity:1}
+.sb-badge{margin-left:auto;background:var(--rb);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px}
+.sb-foot{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;gap:9px}
+.sb-ava{width:26px;height:26px;border-radius:50%;background:var(--tc);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.sb-user{font-size:11.5px;color:rgba(255,255,255,.65);font-weight:500}
+.sb-role{font-size:9.5px;color:rgba(255,255,255,.28)}
+
+/* MAIN */
+.main{flex:1;overflow-y:auto;background:var(--cr)}
+.topbar{display:flex;align-items:center;gap:14px;padding:13px 28px;background:rgba(250,248,244,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:20}
+.topbar-title{font-family:var(--font-serif);font-size:18px;color:var(--ink);letter-spacing:-.01em}
+.topbar-sub{font-size:11px;color:var(--ink3);margin-top:1px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pb{padding:24px 28px}
+
+/* SCREENS */
+.scr{display:none}.scr.on{display:block}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-body);font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:var(--r);border:none;cursor:pointer;transition:all 120ms;white-space:nowrap;line-height:1}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--tc);color:#fff}.btn-p:hover{background:var(--tc-d)}
+.btn-s{background:var(--cr-d);color:var(--ink2);border:1px solid var(--ln)}.btn-s:hover{border-color:var(--ink3)}
+.btn-g{background:transparent;color:var(--ink3);border:1px solid transparent}.btn-g:hover{background:var(--cr-d);color:var(--ink)}
+.btn-d{background:var(--rb-l);color:var(--rb);border:1px solid #F5C5C5}.btn-d:hover{background:#F5CACA}
+.btn-ok{background:var(--jd-l);color:var(--jd);border:1px solid #B8DDD0}.btn-ok:hover{background:#C0E5D5}
+.btn-sm{padding:5px 11px;font-size:11.5px}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:6px}
+
+/* CARDS */
+.card{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);padding:18px;box-shadow:var(--sh)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+
+/* KPI */
+.kpi{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--sh);position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kc,var(--tc));border-radius:var(--r-lg) var(--r-lg) 0 0}
+.kpi-lbl{font-size:10.5px;font-weight:600;color:var(--ink3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:7px}
+.kpi-val{font-family:var(--font-serif);font-size:28px;color:var(--ink);line-height:1;letter-spacing:-.01em;margin-bottom:5px}
+.kpi-tr{font-size:11px;display:flex;align-items:center;gap:3px}
+.up{color:var(--jd)}.dn{color:var(--rb)}.nt{color:var(--ink3)}
+
+/* TABLE */
+.tw{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--sh)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{text-align:left;padding:9px 13px;font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.07em;text-transform:uppercase;background:var(--cr);border-bottom:1px solid var(--ln)}
+tbody td{padding:10px 13px;border-bottom:1px solid var(--ln);color:var(--ink);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--cr);cursor:pointer}
+.td-nm{display:flex;align-items:center;gap:9px}
+.ava{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+
+/* BADGES */
+.bdg{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:99px}
+.b-prem{background:var(--tc-l);color:var(--tc-d)}
+.b-basic{background:var(--sp-l);color:var(--sp)}
+.b-paid{background:var(--jd-l);color:var(--jd)}
+.b-due{background:var(--sf-l);color:var(--sf)}
+.b-over{background:var(--rb-l);color:var(--rb)}
+.b-trial{background:var(--cr-d);color:var(--ink3);border:1px solid var(--ln)}
+
+/* FORM */
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg-full{grid-column:1/-1}
+label{font-size:11.5px;font-weight:600;color:var(--ink2)}
+input,select,textarea{font-family:var(--font-body);font-size:12.5px;color:var(--ink);background:var(--cr);border:1.5px solid var(--ln);border-radius:var(--r);padding:8px 11px;outline:none;width:100%;transition:border-color 120ms}
+input:focus,select:focus,textarea:focus{border-color:var(--tc);background:#fff}
+input::placeholder,textarea::placeholder{color:var(--ink3)}
+.hint{font-size:10.5px;color:var(--ink3)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* TOGGLE */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--ln)}
+.tog-row:last-child{border-bottom:none}
+.tog-lbl{font-size:12.5px;font-weight:500;color:var(--ink)}
+.tog-sub{font-size:10.5px;color:var(--ink3);margin-top:1px}
+.toggle{width:36px;height:20px;border-radius:99px;background:var(--ln);cursor:pointer;position:relative;transition:background 180ms;border:none;flex-shrink:0}
+.toggle.on{background:var(--tc)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform 180ms;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.toggle.on::after{transform:translateX(16px)}
+
+/* PROGRESS */
+.prog-w{margin-bottom:12px}
+.prog-hdr{display:flex;justify-content:space-between;margin-bottom:5px}
+.prog-lbl{font-size:11.5px;font-weight:500;color:var(--ink2)}
+.prog-val{font-size:11.5px;font-family:var(--font-mono);color:var(--ink);font-weight:500}
+.prog-tr{height:6px;background:var(--cr-d);border-radius:99px;overflow:hidden}
+.prog-fi{height:100%;border-radius:99px;transition:width .5s}
+
+/* MISC */
+hr.dv{border:none;border-top:1px solid var(--ln);margin:16px 0}
+.mono{font-family:var(--font-mono);font-size:11.5px;color:var(--ink2)}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.sec-title{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.02em}
+.alert-c{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;background:#fff;border:1px solid var(--ln);border-radius:var(--r);margin-bottom:9px;box-shadow:var(--sh)}
+.alert-ic{width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.alert-tl{font-size:12.5px;font-weight:600;color:var(--ink)}
+.alert-sb{font-size:11px;color:var(--ink3);margin-top:2px}
+.alert-ac{display:flex;gap:6px;margin-top:7px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:fadeUp 300ms cubic-bezier(.16,1,.3,1) both}
+.tier-c{background:#fff;border:1px solid var(--ln);border-radius:var(--r-xl);padding:24px;box-shadow:var(--sh)}
+.tier-c.feat{border-color:var(--tc);border-width:2px;position:relative}
+.tier-c.feat::before{content:'Recommended';position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--tc);color:#fff;font-size:10px;font-weight:700;padding:2px 12px;border-radius:99px;white-space:nowrap}
+.tier-nm{font-family:var(--font-serif);font-size:20px;color:var(--ink);margin-bottom:4px}
+.tier-pr{font-family:var(--font-serif);font-size:32px;color:var(--ink);letter-spacing:-.02em;line-height:1}
+.tier-pr sub{font-size:13px;font-family:var(--font-body);color:var(--ink3)}
+.tier-pr sup{font-size:14px;vertical-align:top;margin-top:5px;display:inline-block}
+.tier-feat{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);padding:6px 0;border-bottom:1px solid var(--ln)}
+.tier-feat:last-of-type{border:none}
+.bar-ch{display:flex;align-items:flex-end;gap:6px;height:100px;padding-top:8px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.bar{width:100%;border-radius:3px 3px 0 0;transition:height .5s}
+.bar-lbl{font-size:9.5px;color:var(--ink3);text-align:center}
+.sb-settings{background:#fff;border:1px solid var(--ln);border-radius:var(--r-lg);padding:18px;box-shadow:var(--sh);margin-bottom:14px}
+.sb-settings-t{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.sb-settings-d{font-size:10.5px;color:var(--ink3);margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sb">
+  <div class="sb-logo">
+    <div class="sb-logo-top">
+      <span class="sb-logo-badge">ADMIN</span>
+      <span class="sb-logo-name">TuitionOS</span>
+    </div>
+    <div class="sb-logo-url">admin.tuitionos.lk</div>
+  </div>
+
+  <div class="sb-sec">Overview</div>
+  <div class="sb-item on" onclick="go('dashboard',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
+    Dashboard
+  </div>
+
+  <div class="sb-sec">Institutes</div>
+  <div class="sb-item" onclick="go('institutes',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M2 12V6.5L7 2l5 4.5V12"/><rect x="5" y="8" width="2.5" height="4" rx=".5"/><rect x="6.5" y="8" width="2.5" height="4" rx=".5"/></svg>
+    All institutes
+  </div>
+  <div class="sb-item" onclick="go('add-inst',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M7 3v8M3 7h8"/></svg>
+    Add institute
+  </div>
+
+  <div class="sb-sec">Finance</div>
+  <div class="sb-item" onclick="go('income',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M1 10l3.5-3.5 2.5 2.5 3.5-4.5L13 6.5"/><rect x="1" y="1" width="12" height="11" rx="1.5"/></svg>
+    Income
+  </div>
+  <div class="sb-item" onclick="go('invoices',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M2.5 2h9a.5.5 0 01.5.5v10l-1.5-1L9 12.5 7.5 11.5 6 12.5 4.5 11.5 3 12.5V2.5a.5.5 0 01.5-.5z"/><path d="M4.5 5h5M4.5 7.5h3.5"/></svg>
+    Invoices
+  </div>
+
+  <div class="sb-sec">Platform</div>
+  <div class="sb-item" onclick="go('alerts',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M7 1.5a3.5 3.5 0 013.5 3.5v2.5l1 2H2.5l1-2V5A3.5 3.5 0 017 1.5z"/><path d="M5.5 11a1.5 1.5 0 003 0"/></svg>
+    Alerts
+    <span class="sb-badge">3</span>
+  </div>
+  <div class="sb-item" onclick="go('settings',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="2"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41"/></svg>
+    Settings
+  </div>
+  <div class="sb-item" onclick="go('pricing',this)">
+    <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" stroke-width="1.5"><path d="M1.5 7l5.5-5.5 5.5 5.5v5.5a.5.5 0 01-.5.5h-10a.5.5 0 01-.5-.5z"/><rect x="5" y="8" width="4" height="5" rx=".5"/></svg>
+    Pricing
+  </div>
+
+  <div class="sb-foot">
+    <div class="sb-ava">SD</div>
+    <div><div class="sb-user">Solo Developer</div><div class="sb-role">Super Admin</div></div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══ DASHBOARD ═══ -->
+<div class="scr on fi" id="s-dashboard">
+  <div class="topbar"><div><div class="topbar-title">Dashboard</div><div class="topbar-sub">April 2026 · Platform overview</div></div><div class="tb-right"><button class="btn btn-s btn-sm">Export report</button><button class="btn btn-p btn-sm" onclick="go('add-inst',document.querySelectorAll('.sb-item')[2])">+ Add institute</button></div></div>
+  <div class="pb">
+    <div class="g4" style="margin-bottom:18px">
+      <div class="kpi" style="--kc:var(--tc)"><div class="kpi-lbl">Total MRR</div><div class="kpi-val">387K</div><div class="kpi-tr up"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>+12% vs Mar</div></div>
+      <div class="kpi" style="--kc:var(--jd)"><div class="kpi-lbl">Active Institutes</div><div class="kpi-val">68</div><div class="kpi-tr up"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>+5 this month</div></div>
+      <div class="kpi" style="--kc:var(--rb)"><div class="kpi-lbl">Overdue</div><div class="kpi-val">7</div><div class="kpi-tr dn"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3.5l3.5 3.5 3.5-3.5"/></svg>Action needed</div></div>
+      <div class="kpi" style="--kc:var(--sf)"><div class="kpi-lbl">Trials Expiring</div><div class="kpi-val">4</div><div class="kpi-tr nt">Next 7 days</div></div>
+    </div>
+    <div class="g2">
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Recent activity</span><button class="btn btn-g btn-sm" onclick="go('institutes',document.querySelectorAll('.sb-item')[1])">View all →</button></div>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Institute</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+              <tr><td><div class="td-nm"><div class="ava" style="background:var(--tc-l);color:var(--tc-d)">SP</div>St. Patrick's</div></td><td><span class="bdg b-prem">Premium</span></td><td><span class="bdg b-paid">Paid</span></td><td class="mono">Apr 17</td></tr>
+              <tr><td><div class="td-nm"><div class="ava" style="background:var(--sp-l);color:var(--sp)">AL</div>Alpha Lanka</div></td><td><span class="bdg b-basic">Basic</span></td><td><span class="bdg b-trial">Trial</span></td><td class="mono">Apr 16</td></tr>
+              <tr><td><div class="td-nm"><div class="ava" style="background:var(--sf-l);color:var(--sf)">BM</div>Bright Minds</div></td><td><span class="bdg b-basic">Basic</span></td><td><span class="bdg b-due">Due</span></td><td class="mono">Apr 15</td></tr>
+              <tr><td><div class="td-nm"><div class="ava" style="background:var(--jd-l);color:var(--jd)">NS</div>Nova Science</div></td><td><span class="bdg b-prem">Premium</span></td><td><span class="bdg b-paid">Paid</span></td><td class="mono">Apr 14</td></tr>
+              <tr><td><div class="td-nm"><div class="ava" style="background:var(--rb-l);color:var(--rb)">EL</div>Edu Leaders</div></td><td><span class="bdg b-basic">Basic</span></td><td><span class="bdg b-over">Overdue</span></td><td class="mono">Apr 3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:14px">
+          <div class="sec-hdr"><span class="sec-title">USD goal tracker</span></div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+              <div><div style="font-family:var(--font-serif);font-size:22px;color:var(--ink)">$1,248</div><div style="font-size:10.5px;color:var(--ink3)">Current MRR</div></div>
+              <div style="text-align:center"><div style="font-size:10.5px;color:var(--ink3)">Goal</div><div style="font-size:13px;font-weight:600;color:var(--ink)">$2,000/mo</div></div>
+              <div style="text-align:right"><div style="font-family:var(--font-serif);font-size:22px;color:var(--rb)">$752</div><div style="font-size:10.5px;color:var(--ink3)">Remaining</div></div>
+            </div>
+            <div class="prog-tr" style="height:8px"><div class="prog-fi" style="width:62%;background:var(--tc)"></div></div>
+            <div style="font-size:10.5px;color:var(--ink3);margin-top:6px;text-align:center">62% of target · Need ~18 more Premium institutes</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Monthly MRR (2026)</span></div>
+        <div class="card" style="padding:16px">
+          <div class="bar-ch" id="dash-bars"></div>
+          <div style="display:flex;gap:12px;margin-top:10px">
+            <span style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink3)"><span style="width:9px;height:9px;border-radius:2px;background:var(--tc);display:inline-block"></span>Basic</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink3)"><span style="width:9px;height:9px;border-radius:2px;background:var(--jd);display:inline-block"></span>Premium</span>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="sec-hdr"><span class="sec-title">Revenue breakdown</span></div>
+          <div class="card" style="padding:16px">
+            <div class="prog-w"><div class="prog-hdr"><span class="prog-lbl">Premium collected (23)</span><span class="prog-val">LKR 138K</span></div><div class="prog-tr"><div class="prog-fi" style="width:43%;background:var(--tc)"></div></div></div>
+            <div class="prog-w"><div class="prog-hdr"><span class="prog-lbl">Basic collected (45)</span><span class="prog-val">LKR 183K</span></div><div class="prog-tr"><div class="prog-fi" style="width:57%;background:var(--jd)"></div></div></div>
+            <div class="prog-w" style="margin-bottom:0"><div class="prog-hdr"><span class="prog-lbl">Outstanding (7)</span><span class="prog-val">LKR 66K</span></div><div class="prog-tr"><div class="prog-fi" style="width:17%;background:var(--rb)"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ INSTITUTES ═══ -->
+<div class="scr fi" id="s-institutes">
+  <div class="topbar"><div><div class="topbar-title">All institutes</div><div class="topbar-sub">68 active · 4 on trial</div></div><div class="tb-right"><input placeholder="Search…" style="width:200px"><button class="btn btn-p btn-sm" onclick="go('add-inst',document.querySelectorAll('.sb-item')[2])">+ Add institute</button></div></div>
+  <div class="pb">
+    <div style="display:flex;gap:6px;margin-bottom:14px" id="inst-tabs">
+      <button class="btn btn-p btn-sm" onclick="filt('all',this)">All (68)</button>
+      <button class="btn btn-s btn-sm" onclick="filt('premium',this)">Premium (23)</button>
+      <button class="btn btn-s btn-sm" onclick="filt('basic',this)">Basic (45)</button>
+      <button class="btn btn-d btn-sm" onclick="filt('overdue',this)">Overdue (7)</button>
+    </div>
+    <div class="tw"><table><thead><tr><th>Institute</th><th>District</th><th>Plan</th><th>Students</th><th>Next bill</th><th>Status</th><th>Actions</th></tr></thead><tbody id="inst-body"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ═══ ADD INSTITUTE ═══ -->
+<div class="scr fi" id="s-add-inst">
+  <div class="topbar"><div><div class="topbar-title">Add institute</div><div class="topbar-sub">Manual onboarding</div></div><div class="tb-right"><button class="btn btn-g btn-sm" onclick="go('institutes',document.querySelectorAll('.sb-item')[1])">← Back</button></div></div>
+  <div class="pb">
+    <div class="card" style="max-width:600px">
+      <div class="fgrid">
+        <div class="fg" style="grid-column:1/-1"><label>Institute name *</label><input placeholder="e.g. St. Patrick's Academy, Jaffna"></div>
+        <div class="fg"><label>District</label><select><option>Jaffna</option><option>Colombo</option><option>Kandy</option><option>Gampaha</option><option>Vavuniya</option></select></div>
+        <div class="fg"><label>Mobile (WhatsApp)</label><input placeholder="+94 77 123 4567"></div>
+        <div class="fg"><label>Contact email</label><input type="email" placeholder="admin@institute.lk"></div>
+        <div class="fg"><label>Plan</label><select><option>Basic — LKR 3,000/mo</option><option>Premium — LKR 6,000/mo</option><option>14-day free trial</option></select></div>
+        <div class="fg" style="grid-column:1/-1"><label>Subdomain</label><div style="display:flex;gap:0"><input placeholder="stpatricks" style="border-radius:var(--r) 0 0 var(--r);border-right:none"><span style="padding:8px 11px;background:var(--cr-d);border:1.5px solid var(--ln);border-left:none;border-radius:0 var(--r) var(--r) 0;font-size:12px;color:var(--ink3)">.tuitionos.lk</span></div><div class="hint">Institute's login URL</div></div>
+      </div>
+      <hr class="dv">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-s" onclick="go('institutes',null)">Cancel</button>
+        <button class="btn btn-p" onclick="go('institutes',null)">Create institute</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ INCOME ═══ -->
+<div class="scr fi" id="s-income">
+  <div class="topbar"><div><div class="topbar-title">Income</div><div class="topbar-sub">April 2026</div></div><div class="tb-right"><button class="btn btn-s btn-sm">Export CSV</button></div></div>
+  <div class="pb">
+    <div class="g4" style="margin-bottom:18px">
+      <div class="kpi" style="--kc:var(--tc)"><div class="kpi-lbl">This Month MRR</div><div class="kpi-val">387K</div><div class="kpi-tr nt mono">≈ USD 1,248</div></div>
+      <div class="kpi" style="--kc:var(--jd)"><div class="kpi-lbl">Collected</div><div class="kpi-val">321K</div><div class="kpi-tr up"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>61 institutes</div></div>
+      <div class="kpi" style="--kc:var(--rb)"><div class="kpi-lbl">Outstanding</div><div class="kpi-val">66K</div><div class="kpi-tr dn">7 institutes</div></div>
+      <div class="kpi" style="--kc:var(--sf)"><div class="kpi-lbl">Notif Spend</div><div class="kpi-val">18.2K</div><div class="kpi-tr nt">4.7% of MRR</div></div>
+    </div>
+    <div class="g2">
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Monthly breakdown</span></div>
+        <div class="tw">
+          <table>
+            <thead><tr><th>Month</th><th>Basic</th><th>Premium</th><th>Total LKR</th><th>USD</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Apr 2026</td><td class="mono">135,000</td><td class="mono">138,000</td><td class="mono" style="font-weight:600">387,000</td><td class="mono">$1,248</td><td><span class="bdg b-due">Collecting</span></td></tr>
+              <tr><td>Mar 2026</td><td class="mono">126,000</td><td class="mono">120,000</td><td class="mono" style="font-weight:600">345,000</td><td class="mono">$1,113</td><td><span class="bdg b-paid">Done</span></td></tr>
+              <tr><td>Feb 2026</td><td class="mono">111,000</td><td class="mono">108,000</td><td class="mono" style="font-weight:600">309,000</td><td class="mono">$997</td><td><span class="bdg b-paid">Done</span></td></tr>
+              <tr><td>Jan 2026</td><td class="mono">96,000</td><td class="mono">90,000</td><td class="mono" style="font-weight:600">276,000</td><td class="mono">$890</td><td><span class="bdg b-paid">Done</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Revenue by plan</span></div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="prog-w"><div class="prog-hdr"><span class="prog-lbl">Premium revenue</span><span class="prog-val">LKR 138K</span></div><div class="prog-tr"><div class="prog-fi" style="width:43%;background:var(--tc)"></div></div></div>
+          <div class="prog-w"><div class="prog-hdr"><span class="prog-lbl">Basic revenue</span><span class="prog-val">LKR 183K</span></div><div class="prog-tr"><div class="prog-fi" style="width:57%;background:var(--sp)"></div></div></div>
+          <div class="prog-w" style="margin:0"><div class="prog-hdr"><span class="prog-lbl">Outstanding</span><span class="prog-val">LKR 66K</span></div><div class="prog-tr"><div class="prog-fi" style="width:17%;background:var(--rb)"></div></div></div>
+        </div>
+        <div class="sec-hdr"><span class="sec-title">$2,000 goal tracker</span></div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px">
+            <div><div style="font-family:var(--font-serif);font-size:20px">$1,248</div><div style="font-size:10px;color:var(--ink3)">Current MRR</div></div>
+            <div style="font-size:10px;color:var(--ink3)">Target: $2,000</div>
+            <div style="text-align:right"><div style="font-family:var(--font-serif);font-size:20px;color:var(--rb)">$752</div><div style="font-size:10px;color:var(--ink3)">Remaining</div></div>
+          </div>
+          <div class="prog-tr" style="height:8px"><div class="prog-fi" style="width:62%;background:var(--tc)"></div></div>
+          <div style="font-size:10px;color:var(--ink3);margin-top:5px;text-align:center">62% · Need ~18 more Premium institutes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ INVOICES ═══ -->
+<div class="scr fi" id="s-invoices">
+  <div class="topbar"><div><div class="topbar-title">Invoices</div><div class="topbar-sub">Billing across all institutes</div></div><div class="tb-right"><button class="btn btn-p btn-sm">+ Manual invoice</button></div></div>
+  <div class="pb">
+    <div class="tw">
+      <table>
+        <thead><tr><th>Invoice #</th><th>Institute</th><th>Amount</th><th>Plan</th><th>Issued</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">#INV-0081</td><td>St. Patrick's, Jaffna</td><td class="mono">LKR 6,000</td><td><span class="bdg b-prem">Premium</span></td><td class="mono">Apr 1</td><td class="mono">Apr 10</td><td><span class="bdg b-paid">Paid</span></td><td><button class="btn btn-xs btn-s">PDF</button></td></tr>
+          <tr><td class="mono">#INV-0080</td><td>Alpha Lanka, Colombo</td><td class="mono">LKR 3,000</td><td><span class="bdg b-basic">Basic</span></td><td class="mono">Apr 1</td><td class="mono">Apr 10</td><td><span class="bdg b-trial">Trial</span></td><td><button class="btn btn-xs btn-s">PDF</button></td></tr>
+          <tr><td class="mono">#INV-0079</td><td>Bright Minds, Kandy</td><td class="mono">LKR 3,000</td><td><span class="bdg b-basic">Basic</span></td><td class="mono">Apr 1</td><td class="mono">Apr 10</td><td><span class="bdg b-due">Due</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-ok">Remind</button><button class="btn btn-xs btn-s">PDF</button></div></td></tr>
+          <tr><td class="mono">#INV-0078</td><td>Edu Leaders, Vavuniya</td><td class="mono">LKR 3,000</td><td><span class="bdg b-basic">Basic</span></td><td class="mono">Mar 1</td><td class="mono">Mar 10</td><td><span class="bdg b-over">Overdue</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-d">Suspend</button><button class="btn btn-xs btn-ok">Mark paid</button></div></td></tr>
+          <tr><td class="mono">#INV-0077</td><td>Nova Science, Gampaha</td><td class="mono">LKR 6,000</td><td><span class="bdg b-prem">Premium</span></td><td class="mono">Apr 1</td><td class="mono">Apr 10</td><td><span class="bdg b-paid">Paid</span></td><td><button class="btn btn-xs btn-s">PDF</button></td></tr>
+          <tr><td class="mono">#INV-0076</td><td>Sunrise Tutors, Kandy</td><td class="mono">LKR 3,000</td><td><span class="bdg b-basic">Basic</span></td><td class="mono">Apr 1</td><td class="mono">Apr 10</td><td><span class="bdg b-paid">Paid</span></td><td><button class="btn btn-xs btn-s">PDF</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ALERTS ═══ -->
+<div class="scr fi" id="s-alerts">
+  <div class="topbar"><div><div class="topbar-title">Alerts</div><div class="topbar-sub">3 items need action</div></div></div>
+  <div class="pb">
+    <div class="g2">
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Requiring action now</span></div>
+        <div class="alert-c" style="border-left:3px solid var(--rb)">
+          <div class="alert-ic" style="background:var(--rb-l)"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--rb)" stroke-width="1.75"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v4M7.5 10.5h.01"/></svg></div>
+          <div class="alert-body"><div class="alert-tl">Edu Leaders — 14 days overdue</div><div class="alert-sb">LKR 3,000 · Basic · +94 771 234 567</div><div class="alert-ac"><button class="btn btn-xs btn-ok">Mark paid</button><button class="btn btn-xs btn-d">Suspend</button></div></div>
+        </div>
+        <div class="alert-c" style="border-left:3px solid var(--sf)">
+          <div class="alert-ic" style="background:var(--sf-l)"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--sf)" stroke-width="1.75"><path d="M7.5 2L1 13h13L7.5 2zM7.5 6v4M7.5 11.5h.01"/></svg></div>
+          <div class="alert-body"><div class="alert-tl">Bright Minds — due today</div><div class="alert-sb">LKR 3,000 · Basic · #INV-0079</div><div class="alert-ac"><button class="btn btn-xs btn-ok">Mark paid</button><button class="btn btn-xs btn-s">Send reminder</button></div></div>
+        </div>
+        <div class="alert-c" style="border-left:3px solid var(--sp)">
+          <div class="alert-ic" style="background:var(--sp-l)"><svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--sp)" stroke-width="1.75"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 6.5v4M7.5 5h.01"/></svg></div>
+          <div class="alert-body"><div class="alert-tl">Alpha Lanka — trial ends in 3 days</div><div class="alert-sb">Basic trial · admin@alphalanka.lk</div><div class="alert-ac"><button class="btn btn-xs btn-p">Send upgrade nudge</button><button class="btn btn-xs btn-d">End trial</button></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="sec-hdr"><span class="sec-title">Auto-action settings</span></div>
+        <div class="card">
+          <div class="tog-row"><div><div class="tog-lbl">WhatsApp reminder — day 3 overdue</div><div class="tog-sub">Auto-message overdue institutes</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="tog-row"><div><div class="tog-lbl">Auto-suspend — day 21 overdue</div><div class="tog-sub">Locks institute login</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="tog-row"><div><div class="tog-lbl">Trial expiry email — 3 days before</div><div class="tog-sub">Includes upgrade link</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+          <div class="tog-row"><div><div class="tog-lbl">Monthly income summary to developer</div><div class="tog-sub">Sent on 1st of each month</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="scr fi" id="s-settings">
+  <div class="topbar"><div><div class="topbar-title">Settings</div><div class="topbar-sub">Platform configuration</div></div><div class="tb-right"><button class="btn btn-p btn-sm">Save changes</button></div></div>
+  <div class="pb">
+    <div class="g2">
+      <div class="sb-settings"><div class="sb-settings-t">Pricing</div><div class="sb-settings-d">Changes apply to next billing cycle</div>
+        <div class="fg" style="margin-bottom:10px"><label>Basic tier (per month)</label><input value="LKR 3,000" style="font-family:var(--font-mono);font-size:14px;font-weight:500"></div>
+        <div class="fg" style="margin-bottom:10px"><label>Premium tier (per month)</label><input value="LKR 6,000" style="font-family:var(--font-mono);font-size:14px;font-weight:500"></div>
+        <div class="fg"><label>Free trial period</label><input value="14 days" style="max-width:100px"></div>
+      </div>
+      <div class="sb-settings"><div class="sb-settings-t">Feature flags</div><div class="sb-settings-d">Toggle features platform-wide</div>
+        <div class="tog-row"><div><div class="tog-lbl">Basic: 200 student cap</div><div class="tog-sub">Enforced at enrollment</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+        <div class="tog-row"><div><div class="tog-lbl">SMS alerts — Premium only</div><div class="tog-sub">Block notifications on Basic plan</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+        <div class="tog-row"><div><div class="tog-lbl">New registrations open</div><div class="tog-sub">Allow public institute signups</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
+      </div>
+      <div class="sb-settings"><div class="sb-settings-t">WhatsApp / SMS gateway</div><div class="sb-settings-d">Notification API credentials</div>
+        <div class="fg" style="margin-bottom:10px"><label>Meta Cloud API token</label><input type="password" value="••••••••••••••••••••"></div>
+        <div class="fg" style="margin-bottom:10px"><label>Dialog SMS API key</label><input type="password" value="••••••••••••••••"></div>
+        <div class="fg"><label>WhatsApp cost per message (LKR)</label><input value="2" style="max-width:80px"></div>
+      </div>
+      <div class="sb-settings"><div class="sb-settings-t">Tech stack</div><div class="sb-settings-d">Current deployment — read only</div>
+        <table style="width:100%;font-size:11.5px"><tr><td style="color:var(--ink3);padding:4px 0">Backend</td><td class="mono">Django 5 · Railway</td></tr><tr><td style="color:var(--ink3);padding:4px 0">Frontend</td><td class="mono">Next.js 14 · Vercel</td></tr><tr><td style="color:var(--ink3);padding:4px 0">Database</td><td class="mono">MySQL 8 · PlanetScale</td></tr><tr><td style="color:var(--ink3);padding:4px 0">Storage</td><td class="mono">Supabase S3</td></tr><tr><td style="color:var(--ink3);padding:4px 0">Queue</td><td class="mono">Celery + Redis</td></tr><tr><td style="color:var(--ink3);padding:4px 0">PDF</td><td class="mono">WeasyPrint</td></tr><tr><td style="color:var(--ink3);padding:4px 0">Payments</td><td class="mono">Stripe</td></tr><tr><td style="color:var(--ink3);padding:4px 0">Infra cost</td><td class="mono" style="color:var(--jd);font-weight:600">~USD 10–15/mo</td></tr></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PRICING ═══ -->
+<div class="scr fi" id="s-pricing">
+  <div class="topbar"><div><div class="topbar-title">Pricing</div><div class="topbar-sub">Tier comparison · Revenue milestones</div></div></div>
+  <div class="pb">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:660px;margin-bottom:28px">
+      <div class="tier-c">
+        <div class="tier-nm">Basic</div>
+        <div style="margin:10px 0 16px"><div class="tier-pr"><sup>LKR</sup>3,000<sub>/mo</sub></div></div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Up to 200 students</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Up to 10 batches · 1 GB storage</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Attendance + fee tracking</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Attendance PDF reports</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ln)" stroke-width="2"><path d="M3 3l8 8M11 3l-8 8"/></svg><span style="color:var(--ink3)">No WhatsApp notifications</span></div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ln)" stroke-width="2"><path d="M3 3l8 8M11 3l-8 8"/></svg><span style="color:var(--ink3)">No annual PDF blast</span></div>
+        <div style="margin-top:16px"><button class="btn btn-s" style="width:100%">Email support 72h</button></div>
+      </div>
+      <div class="tier-c feat">
+        <div class="tier-nm">Premium</div>
+        <div style="margin:10px 0 16px"><div class="tier-pr"><sup>LKR</sup>6,000<sub>/mo</sub></div></div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Unlimited students + batches</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>5 GB storage · All PDF reports</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>All 5 WhatsApp notifications</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Annual timetable PDF blast</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>Year-end auto promotion + notify</div>
+        <div class="tier-feat"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--jd)" stroke-width="2"><path d="M2 7l3 3 7-7"/></svg>WhatsApp + email 24h support</div>
+        <div style="margin-top:16px"><button class="btn btn-p" style="width:100%">Recommended</button></div>
+      </div>
+    </div>
+    <div class="sec-hdr"><span class="sec-title">Revenue milestones to $2,000 USD/mo</span></div>
+    <div class="tw" style="max-width:660px">
+      <table>
+        <thead><tr><th>Milestone</th><th>Basic</th><th>Premium</th><th>MRR (LKR)</th><th>MRR (USD)</th></tr></thead>
+        <tbody>
+          <tr><td>Q1 — Launch</td><td class="mono">5</td><td class="mono">2</td><td class="mono">27,000</td><td class="mono">~$87</td></tr>
+          <tr><td>Q2 — Growth</td><td class="mono">20</td><td class="mono">8</td><td class="mono">108,000</td><td class="mono">~$348</td></tr>
+          <tr><td>Q3 — Scale</td><td class="mono">45</td><td class="mono">20</td><td class="mono">255,000</td><td class="mono">~$823</td></tr>
+          <tr><td>Q4 — Target</td><td class="mono">55</td><td class="mono">20</td><td class="mono">285,000</td><td class="mono">~$919</td></tr>
+          <tr style="background:var(--tc-l)"><td style="font-weight:700">$2,000 goal ✓</td><td class="mono" style="font-weight:700">80</td><td class="mono" style="font-weight:700">30</td><td class="mono" style="font-weight:700">420,000</td><td class="mono" style="font-weight:700;color:var(--tc-d)">~$1,355</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const insts=[
+  {n:"St. Patrick's",d:"Jaffna",plan:"premium",s:312,bill:"May 1",st:"paid",bg:"var(--tc-l)",fg:"var(--tc-d)"},
+  {n:"Alpha Lanka",d:"Colombo",plan:"basic",s:87,bill:"May 1",st:"trial",bg:"var(--sp-l)",fg:"var(--sp)"},
+  {n:"Bright Minds",d:"Kandy",plan:"basic",s:145,bill:"Apr 10",st:"due",bg:"var(--sf-l)",fg:"var(--sf)"},
+  {n:"Nova Science",d:"Gampaha",plan:"premium",s:203,bill:"May 1",st:"paid",bg:"var(--jd-l)",fg:"var(--jd)"},
+  {n:"Edu Leaders",d:"Vavuniya",plan:"basic",s:68,bill:"Mar 10",st:"overdue",bg:"var(--rb-l)",fg:"var(--rb)"},
+  {n:"Vision Academy",d:"Colombo",plan:"premium",s:280,bill:"May 1",st:"paid",bg:"var(--tc-l)",fg:"var(--tc-d)"},
+  {n:"Mathura Edu",d:"Jaffna",plan:"basic",s:110,bill:"May 1",st:"paid",bg:"var(--sp-l)",fg:"var(--sp)"},
+  {n:"Sunrise Tutors",d:"Kandy",plan:"basic",s:55,bill:"May 1",st:"paid",bg:"var(--jd-l)",fg:"var(--jd)"},
+];
+let instFilt='all';
+function renderInsts(){
+  const rows=insts.filter(i=>instFilt==='all'?true:instFilt==='premium'?i.plan==='premium':instFilt==='basic'?i.plan==='basic':(i.st==='overdue'||i.st==='due'));
+  const pb=p=>p==='premium'?'<span class="bdg b-prem">Premium</span>':'<span class="bdg b-basic">Basic</span>';
+  const sb=s=>({paid:'<span class="bdg b-paid">Paid</span>',due:'<span class="bdg b-due">Due</span>',overdue:'<span class="bdg b-over">Overdue</span>',trial:'<span class="bdg b-trial">Trial</span>'})[s]||s;
+  const ini=n=>n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  document.getElementById('inst-body').innerHTML=rows.map(i=>`<tr>
+    <td><div class="td-nm"><div class="ava" style="background:${i.bg};color:${i.fg}">${ini(i.n)}</div>${i.n}</div></td>
+    <td style="color:var(--ink3)">${i.d}</td><td>${pb(i.plan)}</td>
+    <td class="mono">${i.s}</td>
+    <td class="mono" style="color:${i.st==='overdue'?'var(--rb)':i.st==='due'?'var(--sf)':'var(--ink3)'}">${i.bill}</td>
+    <td>${sb(i.st)}</td>
+    <td><div style="display:flex;gap:4px"><button class="btn btn-xs btn-s">View</button>${i.st==='overdue'?'<button class="btn btn-xs btn-d">Suspend</button>':''}</div></td>
+  </tr>`).join('');
+}
+function filt(f,el){
+  instFilt=f;
+  document.querySelectorAll('#inst-tabs .btn').forEach(b=>{b.classList.remove('btn-p');b.classList.add('btn-s')});
+  el.classList.remove('btn-s');el.classList.add('btn-p');
+  renderInsts();
+}
+function go(id,el){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  const t=document.getElementById('s-'+id);
+  if(t){t.classList.add('on');}
+  document.querySelectorAll('.sb-item').forEach(l=>l.classList.remove('on'));
+  if(el)el.classList.add('on');
+}
+function buildBars(){
+  const months=['Jan','Feb','Mar','Apr'];
+  const basic=[96,111,126,135],prem=[90,108,120,138],mx=280;
+  const el=document.getElementById('dash-bars');
+  if(!el)return;
+  el.innerHTML=months.map((m,i)=>`<div class="bar-col">
+    <div style="display:flex;gap:2px;align-items:flex-end;height:90px">
+      <div class="bar" style="height:${Math.round(basic[i]/mx*85)}px;background:var(--tc);width:16px;opacity:.75"></div>
+      <div class="bar" style="height:${Math.round(prem[i]/mx*85)}px;background:var(--jd);width:16px"></div>
+    </div>
+    <div class="bar-lbl">${m}</div>
+  </div>`).join('');
+}
+renderInsts();buildBars();
+</script>
+</body></html>

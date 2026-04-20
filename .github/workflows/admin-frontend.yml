@@ -1,0 +1,23 @@
+name: Admin Frontend CI/CD
+on:
+  push:
+    branches: [main]
+    paths: ["frontend/admin/**", "shared/**"]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: cd frontend/admin && npm ci
+      - run: cd frontend/admin && npm run lint
+      - run: cd frontend/admin && npm run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm i -g vercel && vercel --cwd frontend/admin --prod --yes --token ${{ secrets.VERCEL_TOKEN }}

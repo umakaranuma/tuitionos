@@ -1,0 +1,2 @@
+﻿# TODO: attendance view tests
+

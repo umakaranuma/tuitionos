@@ -1,0 +1,2 @@
+﻿# TODO: promotion model tests
+
