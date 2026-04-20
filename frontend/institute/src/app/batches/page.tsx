@@ -1,80 +1,180 @@
+"use client";
+import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { Modal } from "@/components/ui/Modal";
 
-const batches = [
-  {
-    name: "Grade 7 — Batch A", students: 18, fee: "LKR 3,000/mo",
-    subjects: [
-      { name: "Mathematics", bg: "var(--sp-l)", fg: "var(--sp)" },
-      { name: "Science", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-      { name: "English", bg: "var(--sf-l)", fg: "var(--sf)" },
-      { name: "Tamil", bg: "var(--pr-l)", fg: "var(--pr)" },
-    ],
-  },
-  {
-    name: "Grade 10 — O/L Batch", students: 25, fee: "LKR 5,500/mo",
-    subjects: [
-      { name: "Mathematics", bg: "var(--sp-l)", fg: "var(--sp)" },
-      { name: "Physics", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-      { name: "Chemistry", bg: "var(--rb-l)", fg: "var(--rb)" },
-      { name: "English", bg: "var(--sf-l)", fg: "var(--sf)" },
-    ],
-  },
-  {
-    name: "Grade 11 — A/L Science", students: 19, fee: "LKR 7,000/mo",
-    subjects: [
-      { name: "Physics", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-      { name: "Chemistry", bg: "var(--rb-l)", fg: "var(--rb)" },
-      { name: "Combined Maths", bg: "var(--sp-l)", fg: "var(--sp)" },
-      { name: "Biology", bg: "var(--jd-l,#d4ede3)", fg: "var(--tc-d)" },
-    ],
-  },
-  {
-    name: "Grade 8 — Batch B", students: 22, fee: "LKR 3,000/mo",
-    subjects: [
-      { name: "Mathematics", bg: "var(--sp-l)", fg: "var(--sp)" },
-      { name: "English", bg: "var(--sf-l)", fg: "var(--sf)" },
-      { name: "Tamil", bg: "var(--pr-l)", fg: "var(--pr)" },
-    ],
-  },
+const ALL_SUBJECTS = ["Mathematics", "Physics", "Chemistry", "English", "Tamil Literature", "Biology", "Combined Maths"];
+const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
+
+type SubjectChip = { name: string; bg: string; fg: string };
+type Batch = {
+  id: number; name: string; grade: string; students: number;
+  fee: string; subjects: SubjectChip[];
+};
+
+const CHIP_COLORS: [string, string][] = [
+  ["var(--sp-l)","var(--sp)"], ["var(--tc-l)","var(--tc-d)"], ["var(--rb-l)","var(--rb)"],
+  ["var(--sf-l)","var(--sf)"], ["var(--pr-l)","var(--pr)"],
 ];
 
+function makeChips(names: string[]): SubjectChip[] {
+  return names.map((name, i) => {
+    const [bg, fg] = CHIP_COLORS[i % CHIP_COLORS.length];
+    return { name, bg, fg };
+  });
+}
+
+const INIT_BATCHES: Batch[] = [
+  { id: 1, name: "Grade 7 — Batch A",      grade: "Grade 7",  students: 18, fee: "3,000",
+    subjects: makeChips(["Mathematics","Science","English","Tamil"]) },
+  { id: 2, name: "Grade 10 — O/L Batch",   grade: "Grade 10", students: 25, fee: "5,500",
+    subjects: makeChips(["Mathematics","Physics","Chemistry","English"]) },
+  { id: 3, name: "Grade 11 — A/L Science", grade: "Grade 11", students: 19, fee: "7,000",
+    subjects: makeChips(["Physics","Chemistry","Combined Maths","Biology"]) },
+  { id: 4, name: "Grade 8 — Batch B",      grade: "Grade 8",  students: 22, fee: "3,000",
+    subjects: makeChips(["Mathematics","English","Tamil"]) },
+];
+
+function blankForm() {
+  return { name: "", grade: "", fee: "", subjects: [] as string[] };
+}
+
 export default function BatchesPage() {
+  const [batches, setBatches] = useState<Batch[]>(INIT_BATCHES);
+  const [modal, setModal]     = useState<"add" | "edit" | null>(null);
+  const [editTarget, setEditTarget] = useState<Batch | null>(null);
+  const [form, setForm]       = useState(blankForm());
+  const [nextId, setNextId]   = useState(INIT_BATCHES.length + 1);
+
+  const openAdd = () => { setForm(blankForm()); setEditTarget(null); setModal("add"); };
+  const openEdit = (b: Batch) => {
+    setForm({ name: b.name, grade: b.grade, fee: b.fee, subjects: b.subjects.map(s => s.name) });
+    setEditTarget(b);
+    setModal("edit");
+  };
+  const close = () => setModal(null);
+
+  const toggleSubject = (subj: string) =>
+    setForm(f => ({
+      ...f,
+      subjects: f.subjects.includes(subj) ? f.subjects.filter(s => s !== subj) : [...f.subjects, subj],
+    }));
+
+  const save = () => {
+    if (!form.name.trim() || !form.grade) return;
+    if (modal === "add") {
+      setBatches(prev => [...prev, {
+        id: nextId, name: form.name, grade: form.grade,
+        students: 0, fee: form.fee || "0",
+        subjects: makeChips(form.subjects),
+      }]);
+      setNextId(n => n + 1);
+    } else if (editTarget) {
+      setBatches(prev => prev.map(b =>
+        b.id === editTarget.id
+          ? { ...b, name: form.name, grade: form.grade, fee: form.fee, subjects: makeChips(form.subjects) }
+          : b
+      ));
+    }
+    close();
+  };
+
+  const modalBody = (
+    <div className="form-gap">
+      <div className="field-row">
+        <div>
+          <label className="flbl freq">Batch name</label>
+          <input placeholder="e.g. Grade 9 — Batch A" value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+        </div>
+        <div>
+          <label className="flbl freq">Grade level</label>
+          <select value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))}>
+            <option value="">— Pick grade —</option>
+            {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className="flbl">Monthly fee (LKR)</label>
+        <input type="number" placeholder="e.g. 5500" value={form.fee}
+          onChange={e => setForm(f => ({ ...f, fee: e.target.value }))} />
+        <div className="fhint">Leave blank for custom / per-subject pricing</div>
+      </div>
+      <div>
+        <label className="flbl">Subjects in this batch</label>
+        <div className="check-grid">
+          {ALL_SUBJECTS.map(subj => {
+            const checked = form.subjects.includes(subj);
+            return (
+              <label
+                key={subj}
+                className={`check-item${checked ? " checked" : ""}`}
+                onClick={() => toggleSubject(subj)}
+              >
+                <input type="checkbox" checked={checked} onChange={() => {}} />
+                {subj}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+      {/* Preview */}
+      {form.subjects.length > 0 && (
+        <div style={{ background: "var(--cr)", borderRadius: 10, padding: "10px 14px" }}>
+          <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 6 }}>Preview — subject chips</div>
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {makeChips(form.subjects).map(s => (
+              <span key={s.name} className="bdg" style={{ background: s.bg, color: s.fg }}>{s.name}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <PageShell>
       <Topbar
         title="Batches"
         subtitle="Grade groups and packages"
-        right={<button className="btn btn-p btn-sm">+ Create batch</button>}
+        right={<button className="btn btn-p btn-sm" onClick={openAdd}>+ Create batch</button>}
       />
       <div className="pb fi">
         <div className="g2">
-          {batches.map((b) => (
-            <div key={b.name} className="card">
+          {batches.map(b => (
+            <div key={b.id} className="card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{b.name}</div>
                   <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>
-                    {b.students} students · {b.fee}
+                    {b.students} students · LKR {b.fee}/mo
                   </div>
                 </div>
-                <button className="btn btn-xs btn-s">Edit</button>
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button className="btn btn-xs btn-s" onClick={() => openEdit(b)}>Edit</button>
+                  <button className="btn btn-xs btn-d"
+                    onClick={() => setBatches(prev => prev.filter(x => x.id !== b.id))}>✕</button>
+                </div>
               </div>
               <hr className="dv" />
               <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 6 }}>Subjects</div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {b.subjects.map((s) => (
+                {b.subjects.map(s => (
                   <span key={s.name} className="bdg" style={{ background: s.bg, color: s.fg }}>{s.name}</span>
                 ))}
+                {b.subjects.length === 0 && <span style={{ fontSize: 11, color: "var(--ink3)" }}>No subjects added yet</span>}
               </div>
             </div>
           ))}
           <div
             className="card"
+            onClick={openAdd}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               borderStyle: "dashed", cursor: "pointer", color: "var(--ink3)", gap: 6,
-              fontSize: 12.5, minHeight: 120,
+              fontSize: 12.5, minHeight: 120, transition: "all 140ms",
             }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -84,6 +184,23 @@ export default function BatchesPage() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={modal !== null}
+        onClose={close}
+        title={modal === "add" ? "Create batch" : `Edit — ${editTarget?.name}`}
+        wide
+        footer={
+          <>
+            <button className="btn btn-s btn-sm" onClick={close}>Cancel</button>
+            <button className="btn btn-p btn-sm" onClick={save} disabled={!form.name.trim() || !form.grade}>
+              {modal === "add" ? "Create batch" : "Save changes"}
+            </button>
+          </>
+        }
+      >
+        {modalBody}
+      </Modal>
     </PageShell>
   );
 }

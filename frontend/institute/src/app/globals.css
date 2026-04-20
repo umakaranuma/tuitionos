@@ -311,3 +311,71 @@ hr.dv { border: none; border-top: 1px solid var(--ln); margin: 14px 0; }
   to { opacity: 1; transform: translateY(0); }
 }
 .fi { animation: fadeUp 300ms cubic-bezier(.16,1,.3,1) both; }
+
+@keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(24px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── MODAL ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(28,25,23,.5); backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  animation: backdropIn 180ms ease both;
+}
+.modal-box {
+  background: #fff; border-radius: 18px; width: 100%; max-width: 480px;
+  box-shadow: 0 24px 64px rgba(28,25,23,.18), 0 4px 12px rgba(28,25,23,.1);
+  animation: modalIn 220ms cubic-bezier(.16,1,.3,1) both;
+  max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-box.wide { max-width: 560px; }
+.modal-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 22px 16px; border-bottom: 1px solid var(--ln); flex-shrink: 0;
+}
+.modal-title { font-family: var(--font-serif); font-size: 18px; color: var(--ink); }
+.modal-close {
+  width: 28px; height: 28px; border-radius: 8px; border: 1.5px solid var(--ln);
+  background: var(--cr); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--ink3); font-size: 16px; line-height: 1;
+  transition: all 130ms; flex-shrink: 0;
+}
+.modal-close:hover { background: var(--rb-l); color: var(--rb); border-color: #f5c5c5; }
+.modal-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+.modal-ftr {
+  padding: 14px 22px; border-top: 1px solid var(--ln);
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0;
+}
+
+/* ── FORM HELPERS ── */
+.form-gap { display: flex; flex-direction: column; gap: 14px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-full { grid-column: 1 / -1; }
+.flbl { font-size: 11.5px; font-weight: 600; color: var(--ink2); margin-bottom: 4px; display: block; }
+.freq::after { content: ' *'; color: var(--rb); }
+.fhint { font-size: 10.5px; color: var(--ink3); margin-top: 3px; }
+
+/* ── EMOJI PICKER ── */
+.emoji-wrap { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.emoji-btn {
+  width: 34px; height: 34px; border-radius: 8px; font-size: 18px; border: 2px solid transparent;
+  background: var(--cr-d); cursor: pointer; transition: all 120ms;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+.emoji-btn:hover { background: var(--tc-l); }
+.emoji-btn.sel { border-color: var(--tc); background: var(--tc-l); }
+
+/* ── CHECKBOXES / MULTI-SELECT ── */
+.check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.check-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border: 1.5px solid var(--ln); border-radius: 8px; cursor: pointer;
+  transition: all 130ms; font-size: 12.5px; color: var(--ink2); user-select: none;
+}
+.check-item:hover { border-color: var(--tc); background: var(--cr); }
+.check-item.checked { border-color: var(--tc); background: var(--tc-l); color: var(--tc-d); font-weight: 600; }
+.check-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--tc); cursor: pointer; flex-shrink: 0; }
+
