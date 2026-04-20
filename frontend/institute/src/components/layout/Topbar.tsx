@@ -1,21 +1,19 @@
-"use client";
+import React from "react";
 
-export function Topbar({
-  title,
-  subtitle,
-  actions,
-}: {
+interface TopbarProps {
   title: string;
   subtitle?: string;
-  actions?: React.ReactNode;
-}) {
+  right?: React.ReactNode;
+}
+
+export function Topbar({ title, subtitle, right }: TopbarProps) {
   return (
-    <header className="topbar">
+    <div className="topbar">
       <div>
         <div className="topbar-title">{title}</div>
-        {subtitle ? <div className="topbar-sub">{subtitle}</div> : null}
+        {subtitle && <div className="topbar-sub">{subtitle}</div>}
       </div>
-      {actions ? <div style={{ display: "flex", gap: 8 }}>{actions}</div> : null}
-    </header>
+      {right && <div className="tb-right">{right}</div>}
+    </div>
   );
 }
