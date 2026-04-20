@@ -3,137 +3,210 @@ import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { BatchTabs } from "@/components/ui/BatchTabs";
+import { StudentProfileModal } from "@/components/ui/StudentProfileModal";
+import { BATCHES, ALL_STUDENTS, Student, BatchId } from "@/lib/batchData";
 
 const PAYMENT_METHODS = ["Cash", "Bank transfer", "Online (card)", "Cheque"];
 
-type FeeStatus = "paid" | "due" | "overdue";
-type FeeRow = {
-  id: number; initials: string; name: string; batch: string;
-  amount: string; status: FeeStatus; due: string; month: string;
-  bg: string; fg: string; receiptNo?: string; paidDate?: string;
-};
+type FeeState = Record<number, { status: "paid" | "due" | "overdue"; receiptNo?: string; paidDate?: string }>;
 
-const INIT_FEES: FeeRow[] = [
-  { id:1, initials:"AK", name:"Aarav Kumar",  batch:"Grade 10 O/L", amount:"5,500", status:"paid",    due:"Apr 5",  month:"April 2026", bg:"var(--tc-l)", fg:"var(--tc-d)", receiptNo:"RCP-0041", paidDate:"2026-04-05" },
-  { id:2, initials:"PS", name:"Priya Selvan", batch:"Grade 10 O/L", amount:"5,500", status:"due",     due:"Apr 10", month:"April 2026", bg:"var(--sp-l)", fg:"var(--sp)" },
-  { id:3, initials:"ST", name:"Surya T.",     batch:"Grade 10 O/L", amount:"5,500", status:"due",     due:"Apr 10", month:"April 2026", bg:"var(--rb-l)", fg:"var(--rb)" },
-  { id:4, initials:"KM", name:"Kavitha M.",   batch:"Grade 7 A",    amount:"3,000", status:"paid",    due:"Apr 4",  month:"April 2026", bg:"var(--sf-l)", fg:"var(--sf)", receiptNo:"RCP-0038", paidDate:"2026-04-04" },
-  { id:5, initials:"DR", name:"Dinesh Raj",   batch:"Grade 11 A/L", amount:"7,000", status:"paid",    due:"Apr 3",  month:"April 2026", bg:"var(--pr-l)", fg:"var(--pr)", receiptNo:"RCP-0037", paidDate:"2026-04-03" },
-  { id:6, initials:"NV", name:"Nithya V.",    batch:"Grade 7 A",    amount:"3,000", status:"paid",    due:"Apr 4",  month:"April 2026", bg:"var(--tc-l)", fg:"var(--tc-d)", receiptNo:"RCP-0039", paidDate:"2026-04-04" },
-  { id:7, initials:"MJ", name:"Meena J.",     batch:"Grade 10 O/L", amount:"5,500", status:"overdue", due:"Mar 10", month:"March 2026", bg:"var(--sf-l)", fg:"var(--sf)" },
-  { id:8, initials:"RP", name:"Rajan P.",     batch:"Grade 11 A/L", amount:"7,000", status:"paid",    due:"Apr 3",  month:"April 2026", bg:"var(--sp-l)", fg:"var(--sp)", receiptNo:"RCP-0040", paidDate:"2026-04-03" },
-];
-
-const statusBadge = (s: FeeStatus) => {
-  if (s === "paid")    return <span className="bdg b-paid">Paid</span>;
-  if (s === "due")     return <span className="bdg b-due">Due</span>;
-  return <span style={{ background:"var(--rb-l)", color:"var(--rb)", fontSize:10.5, fontWeight:600, padding:"2px 8px", borderRadius:99, display:"inline-flex" }}>Overdue</span>;
-};
+function initFeeState(): FeeState {
+  const state: FeeState = {};
+  ALL_STUDENTS.forEach(s => {
+    state[s.id] = { status: s.fee };
+  });
+  return state;
+}
 
 export default function FeesPage() {
-  const [fees, setFees]         = useState<FeeRow[]>(INIT_FEES);
-  const [markTarget, setMarkTarget] = useState<FeeRow | null>(null);
-  const [receiptTarget, setReceiptTarget] = useState<FeeRow | null>(null);
-  const [payForm, setPayForm]   = useState({ method: "Cash", receiptNo: "", paidDate: new Date().toISOString().slice(0,10) });
+  const [selBatch, setSelBatch]         = useState<BatchId>("g10");
+  const [feeState, setFeeState]         = useState<FeeState>(initFeeState);
+  const [markTarget, setMarkTarget]     = useState<Student | null>(null);
+  const [receiptTarget, setReceiptTarget] = useState<Student | null>(null);
+  const [viewProfile, setViewProfile]     = useState<Student | null>(null);
+  const [payForm, setPayForm]           = useState({ method: "Cash", receiptNo: "", paidDate: new Date().toISOString().slice(0, 10) });
+  const [reminderSent, setReminderSent] = useState<Set<number>>(new Set());
 
-  const openMarkPaid = (f: FeeRow) => {
-    setPayForm({ method: "Cash", receiptNo: `RCP-${String(fees.length + 50).padStart(4,"0")}`, paidDate: new Date().toISOString().slice(0,10) });
-    setMarkTarget(f);
+  const batch    = BATCHES.find(b => b.id === selBatch)!;
+  const students = ALL_STUDENTS.filter(s => s.batch === selBatch);
+
+  const getStatus = (s: Student) => feeState[s.id]?.status ?? s.fee;
+  const getReceiptNo = (s: Student) => feeState[s.id]?.receiptNo;
+  const getPaidDate  = (s: Student) => feeState[s.id]?.paidDate;
+
+  const paid      = students.filter(s => getStatus(s) === "paid").length;
+  const due       = students.filter(s => getStatus(s) !== "paid").length;
+  const revenue   = students.filter(s => getStatus(s) === "paid").reduce((a, s) => a + s.feeAmount, 0);
+  const outstanding = students.filter(s => getStatus(s) !== "paid").reduce((a, s) => a + s.feeAmount, 0);
+
+  const changeBatch = (id: BatchId) => setSelBatch(id);
+
+  const openMarkPaid = (s: Student) => {
+    setPayForm({ method: "Cash", receiptNo: `RCP-${String(ALL_STUDENTS.indexOf(s) + 50).padStart(4, "0")}`, paidDate: new Date().toISOString().slice(0, 10) });
+    setMarkTarget(s);
   };
-  const openReceipt  = (f: FeeRow) => setReceiptTarget(f);
-  const closeAll     = () => { setMarkTarget(null); setReceiptTarget(null); };
+  const openReceipt = (s: Student) => setReceiptTarget(s);
+  const closeAll    = () => { setMarkTarget(null); setReceiptTarget(null); };
 
   const confirmPaid = () => {
     if (!markTarget) return;
-    setFees(prev => prev.map(f => f.id === markTarget.id
-      ? { ...f, status: "paid", receiptNo: payForm.receiptNo, paidDate: payForm.paidDate }
-      : f
-    ));
+    setFeeState(prev => ({
+      ...prev,
+      [markTarget.id]: { status: "paid", receiptNo: payForm.receiptNo, paidDate: payForm.paidDate },
+    }));
     closeAll();
   };
 
-  const paid    = fees.filter(f => f.status === "paid").length;
-  const due     = fees.filter(f => f.status !== "paid").length;
-  const revenue = fees.filter(f => f.status === "paid").reduce((s,f) => s + parseInt(f.amount.replace(",","")), 0);
-  const outstanding = fees.filter(f => f.status !== "paid").reduce((s,f) => s + parseInt(f.amount.replace(",","")), 0);
+  const sendReminder = (s: Student) => {
+    setReminderSent(prev => new Set([...prev, s.id]));
+  };
+
+  const sendAllReminders = () => {
+    const dueIds = students.filter(s => getStatus(s) !== "paid").map(s => s.id);
+    setReminderSent(prev => new Set([...prev, ...dueIds]));
+  };
+
+  const statusBadge = (s: Student) => {
+    const st = getStatus(s);
+    if (st === "paid")    return <span className="bdg b-paid">Paid</span>;
+    if (st === "overdue") return <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Overdue</span>;
+    return <span className="bdg b-due">Due</span>;
+  };
 
   return (
     <PageShell>
       <Topbar
         title="Fee tracking"
-        subtitle="April 2026"
+        subtitle={`${batch.name} · April 2026`}
         right={
-          <>
+          <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-s btn-sm">Export PDF</button>
-            <button className="btn btn-p btn-sm">Send reminders</button>
-          </>
+            <button className="btn btn-p btn-sm" onClick={sendAllReminders}>
+              Send all reminders ({due})
+            </button>
+          </div>
         }
       />
       <div className="pb fi">
-        <div className="g4" style={{ marginBottom:18 }}>
-          <div className="kpi" style={{ "--kc":"var(--tc)" } as React.CSSProperties}>
-            <div className="kpi-lbl">Collected</div>
-            <div className="kpi-val">{paid}</div>
-            <div className="kpi-tr up">{Math.round(paid/fees.length*100)}% students</div>
+        <BatchTabs active={selBatch} onChange={changeBatch} />
+
+        {/* Batch KPI bar */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
+          {[
+            { label:"Students",       val: students.length,        sub: batch.label,         color: batch.color,    colorL: batch.colorL },
+            { label:"Collected",      val: paid,                   sub: `${Math.round(paid/Math.max(students.length,1)*100)}% paid`, color:"#1a5040", colorL:"#d4ede3" },
+            { label:"Outstanding",    val: `${due}`,               sub: `LKR ${outstanding.toLocaleString()}`,     color:"#c07b1a", colorL:"#fef3d7" },
+            { label:"Revenue (LKR)",  val: `${(revenue/1000).toFixed(0)}K`, sub: `LKR ${revenue.toLocaleString()}`, color:"#2a5fa8", colorL:"#d8e6fa" },
+          ].map(kpi => (
+            <div key={kpi.label} style={{
+              background:"#fff",
+              border:`1.5px solid ${kpi.color}22`,
+              borderTop:`4px solid ${kpi.color}`,
+              borderRadius:12, padding:"12px 14px",
+              boxShadow:"0 1px 3px rgba(28,25,23,.06)",
+            }}>
+              <div style={{ fontSize:10.5,fontWeight:700,color:"var(--ink3)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>{kpi.label}</div>
+              <div style={{ fontSize:22,fontWeight:700,color:kpi.color,fontFamily:"var(--font-mono)",lineHeight:1 }}>{kpi.val}</div>
+              <div style={{ fontSize:10.5,color:"var(--ink3)",marginTop:4 }}>{kpi.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Collection progress bar */}
+        <div style={{ background:"#fff",border:"1.5px solid var(--ln)",borderRadius:12,padding:"14px 16px",marginBottom:18,boxShadow:"0 1px 3px rgba(28,25,23,.05)" }}>
+          <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8 }}>
+            <span style={{ fontWeight:700,color:"var(--ink)" }}>Collection progress — April 2026</span>
+            <span style={{ fontFamily:"var(--font-mono)",color:"var(--ink3)" }}>{paid}/{students.length} students</span>
           </div>
-          <div className="kpi" style={{ "--kc":"var(--sf)" } as React.CSSProperties}>
-            <div className="kpi-lbl">Outstanding</div>
-            <div className="kpi-val">{due}</div>
-            <div className="kpi-tr nt">LKR {outstanding.toLocaleString()}</div>
+          <div style={{ height:8,background:"var(--ln)",borderRadius:99,overflow:"hidden" }}>
+            <div style={{
+              height:"100%",
+              width:`${Math.round(paid/Math.max(students.length,1)*100)}%`,
+              background:"linear-gradient(to right,#2d7a5a,#478f6e)",
+              borderRadius:99,transition:"width 400ms cubic-bezier(.16,1,.3,1)",
+            }} />
           </div>
-          <div className="kpi" style={{ "--kc":"var(--sp)" } as React.CSSProperties}>
-            <div className="kpi-lbl">Revenue</div>
-            <div className="kpi-val">{(revenue/1000).toFixed(0)}K</div>
-            <div className="kpi-tr nt">LKR {revenue.toLocaleString()}</div>
-          </div>
-          <div className="kpi" style={{ "--kc":"var(--rb)" } as React.CSSProperties}>
-            <div className="kpi-lbl">Overdue 10+ days</div>
-            <div className="kpi-val">{fees.filter(f => f.status==="overdue").length}</div>
-            <div className="kpi-tr dn">Need follow-up</div>
+          <div style={{ display:"flex",justifyContent:"space-between",fontSize:10.5,color:"var(--ink3)",marginTop:5 }}>
+            <span style={{ color:"#1a5040",fontWeight:600 }}>LKR {revenue.toLocaleString()} collected</span>
+            <span style={{ color:"#c07b1a",fontWeight:600 }}>LKR {outstanding.toLocaleString()} remaining</span>
           </div>
         </div>
 
+        {/* Fee table */}
         <div className="tw">
           <table>
             <thead>
               <tr>
-                <th>Student</th><th>Batch</th><th>Amount (LKR)</th>
-                <th>Month</th><th>Status</th><th>Due date</th><th>Actions</th>
+                <th>Student</th>
+                <th>Guardian & mobile</th>
+                <th>Fee (LKR)</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {fees.map(f => (
-                <tr key={f.id}>
-                  <td>
-                    <div className="td-nm">
-                      <div className="ava" style={{ background:f.bg, color:f.fg }}>{f.initials}</div>
-                      {f.name}
-                    </div>
-                  </td>
-                  <td style={{ color:"var(--ink3)" }}>{f.batch}</td>
-                  <td className="mono">{f.amount}</td>
-                  <td style={{ color:"var(--ink3)", fontSize:12 }}>{f.month}</td>
-                  <td>{statusBadge(f.status)}</td>
-                  <td className="mono">{f.due}</td>
-                  <td>
-                    <div style={{ display:"flex", gap:4 }}>
-                      {f.status !== "paid" && (
-                        <button className="btn btn-xs btn-ok" onClick={() => openMarkPaid(f)}>Mark paid</button>
-                      )}
-                      {f.status === "paid" && (
-                        <button className="btn btn-xs btn-s" onClick={() => openReceipt(f)}>Receipt</button>
-                      )}
-                      {f.status !== "paid" && <button className="btn btn-xs btn-s">Remind</button>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {students.map(s => {
+                const st = getStatus(s);
+                const sent = reminderSent.has(s.id);
+                return (
+                  <tr key={s.id} style={{ background: st === "overdue" ? "#fffbeb" : "#fff" }}>
+                    <td style={{ cursor: "pointer" }} onClick={() => setViewProfile(s)}>
+                      <div className="td-nm" style={{ transition: "all 150ms" }}>
+                        <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 12.5, textDecoration: "underline transparent" }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = "underline transparent"}>
+                            {s.name}
+                          </div>
+                          <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
+                      <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.mobile}</div>
+                    </td>
+                    <td className="mono" style={{ fontWeight: 700 }}>
+                      {s.feeAmount.toLocaleString()}
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {statusBadge(s)}
+                        {st === "paid" && getPaidDate(s) && (
+                          <div style={{ fontSize: 10, color: "var(--ink3)" }}>Paid {getPaidDate(s)}</div>
+                        )}
+                        {st !== "paid" && sent && (
+                          <div style={{ fontSize: 10, color: "var(--sp)" }}>✓ Reminder sent</div>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        {st !== "paid" && (
+                          <>
+                            <button className="btn btn-xs btn-ok" onClick={() => openMarkPaid(s)}>Mark paid</button>
+                            {!sent
+                              ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Remind</button>
+                              : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
+                            }
+                          </>
+                        )}
+                        {st === "paid" && (
+                          <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>Receipt</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* ── Mark Paid modal ── */}
+      {/* Mark Paid modal */}
       <Modal
         open={!!markTarget}
         onClose={closeAll}
@@ -147,52 +220,44 @@ export default function FeesPage() {
       >
         {markTarget && (
           <div className="form-gap">
-            {/* Student info row */}
-            <div style={{ display:"flex", alignItems:"center", gap:12, background:"var(--cr)", borderRadius:10, padding:"10px 13px" }}>
-              <div className="ava" style={{ background:markTarget.bg, color:markTarget.fg }}>{markTarget.initials}</div>
+            <div style={{ display:"flex",alignItems:"center",gap:12,background:"var(--cr)",borderRadius:10,padding:"10px 13px" }}>
+              <div className="ava" style={{ background:markTarget.bg,color:markTarget.fg }}>{markTarget.initials}</div>
               <div>
-                <div style={{ fontSize:13, fontWeight:700, color:"var(--ink)" }}>{markTarget.name}</div>
-                <div style={{ fontSize:11, color:"var(--ink3)" }}>{markTarget.batch}</div>
+                <div style={{ fontSize:13,fontWeight:700,color:"var(--ink)" }}>{markTarget.name}</div>
+                <div style={{ fontSize:11,color:"var(--ink3)" }}>{batch.name}</div>
               </div>
-              <div style={{ marginLeft:"auto", textAlign:"right" }}>
-                <div style={{ fontSize:11, color:"var(--ink3)" }}>{markTarget.month}</div>
-                <div style={{ fontSize:15, fontWeight:700, color:"var(--ink)", fontFamily:"var(--font-mono)" }}>
-                  LKR {markTarget.amount}
+              <div style={{ marginLeft:"auto",textAlign:"right" }}>
+                <div style={{ fontSize:11,color:"var(--ink3)" }}>April 2026</div>
+                <div style={{ fontSize:16,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
+                  LKR {markTarget.feeAmount.toLocaleString()}
                 </div>
               </div>
             </div>
-
             <div className="field-row">
               <div>
                 <label className="flbl">Payment method</label>
-                <select value={payForm.method} onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}>
-                  {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                <select value={payForm.method} onChange={e => setPayForm(f=>({...f,method:e.target.value}))}>
+                  {PAYMENT_METHODS.map(m=><option key={m} value={m}>{m}</option>)}
                 </select>
               </div>
               <div>
                 <label className="flbl">Date received</label>
-                <input type="date" value={payForm.paidDate} onChange={e => setPayForm(f => ({ ...f, paidDate: e.target.value }))} />
+                <input type="date" value={payForm.paidDate} onChange={e=>setPayForm(f=>({...f,paidDate:e.target.value}))}/>
               </div>
             </div>
-
             <div>
               <label className="flbl">Receipt / reference #</label>
-              <input placeholder="e.g. RCP-0045" value={payForm.receiptNo}
-                onChange={e => setPayForm(f => ({ ...f, receiptNo: e.target.value }))} />
+              <input placeholder="e.g. RCP-0045" value={payForm.receiptNo} onChange={e=>setPayForm(f=>({...f,receiptNo:e.target.value}))}/>
               <div className="fhint">Shown on the digital receipt sent to parent via WhatsApp</div>
             </div>
-
-            <div style={{
-              background:"var(--tc-l)", border:"1px solid #b8ddd0", borderRadius:10,
-              padding:"9px 12px", fontSize:11.5, color:"var(--tc-d)"
-            }}>
-              A fee-paid confirmation will be sent to the guardian&apos;s WhatsApp immediately.
+            <div style={{ background:"var(--tc-l)",border:"1px solid #b8ddd0",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"var(--tc-d)" }}>
+              Fee-paid confirmation sent to {markTarget.guardian} ({markTarget.mobile}) immediately.
             </div>
           </div>
         )}
       </Modal>
 
-      {/* ── Receipt modal ── */}
+      {/* Receipt modal */}
       <Modal
         open={!!receiptTarget}
         onClose={closeAll}
@@ -207,36 +272,34 @@ export default function FeesPage() {
         {receiptTarget && (
           <div>
             <div style={{
-              border:"2px dashed var(--tc)", borderRadius:14, padding:"20px 22px",
-              background:"var(--tc-l)", textAlign:"center", marginBottom:16
+              border:"2px dashed var(--tc)",borderRadius:14,padding:"20px 22px",
+              background:"var(--tc-l)",textAlign:"center",marginBottom:16,
             }}>
-              <div style={{ fontSize:11, color:"var(--tc-d)", letterSpacing:".08em", textTransform:"uppercase", fontWeight:700, marginBottom:4 }}>
-                RECEIPT
-              </div>
-              <div style={{ fontSize:22, fontWeight:700, color:"var(--ink)", fontFamily:"var(--font-mono)" }}>
-                {receiptTarget.receiptNo || "—"}
+              <div style={{ fontSize:11,color:"var(--tc-d)",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700,marginBottom:4 }}>RECEIPT</div>
+              <div style={{ fontSize:22,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
+                {getReceiptNo(receiptTarget) || "—"}
               </div>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
               {[
-                { label:"Student",        val: receiptTarget.name },
-                { label:"Batch",          val: receiptTarget.batch },
-                { label:"Month",          val: receiptTarget.month },
-                { label:"Amount (LKR)",   val: receiptTarget.amount },
-                { label:"Paid date",      val: receiptTarget.paidDate || "—" },
-                { label:"Status",         val: "✓ Paid" },
-              ].map(row => (
-                <div key={row.label} style={{ padding:"9px 11px", background:"var(--cr-d)", borderRadius:9 }}>
-                  <div style={{ fontSize:10, color:"var(--ink3)", fontWeight:600, letterSpacing:".04em", textTransform:"uppercase", marginBottom:2 }}>{row.label}</div>
-                  <div style={{ fontSize:13, fontWeight:700, color: row.label==="Status" ? "var(--tc-d)" : "var(--ink)" }}>
-                    {row.val}
-                  </div>
+                { label:"Student",      val: receiptTarget.name },
+                { label:"Batch",        val: batch.name },
+                { label:"Month",        val: "April 2026" },
+                { label:"Amount (LKR)", val: receiptTarget.feeAmount.toLocaleString() },
+                { label:"Paid date",    val: getPaidDate(receiptTarget) || "—" },
+                { label:"Status",       val: "✓ Paid" },
+              ].map(row=>(
+                <div key={row.label} style={{ padding:"9px 11px",background:"var(--cr-d)",borderRadius:9 }}>
+                  <div style={{ fontSize:10,color:"var(--ink3)",fontWeight:600,letterSpacing:".04em",textTransform:"uppercase",marginBottom:2 }}>{row.label}</div>
+                  <div style={{ fontSize:13,fontWeight:700,color:row.label==="Status"?"var(--tc-d)":"var(--ink)" }}>{row.val}</div>
                 </div>
               ))}
             </div>
           </div>
         )}
       </Modal>
+
+      <StudentProfileModal student={viewProfile} onClose={() => setViewProfile(null)} />
     </PageShell>
   );
 }
