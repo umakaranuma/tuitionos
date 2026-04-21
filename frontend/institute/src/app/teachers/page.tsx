@@ -37,7 +37,9 @@ export default function TeachersPage() {
   const [payForm, setPayForm] = useState({ method: "Bank transfer", date: new Date().toISOString().slice(0, 10), referenceNo: "" });
 
   // ── Computed KPI values ──
-  const currentMonth = "April 2026";
+  const now = new Date();
+  const currentMonth = `${now.toLocaleString("en", { month: "long" })} ${now.getFullYear()}`;
+  const monthShort = now.toLocaleString("en", { month: "short" });
   const currentPayments = payments.filter(p => p.month === currentMonth);
   const totalPayroll = teachers.reduce((s, t) => s + t.monthlySalary, 0);
   const settledThisMonth = currentPayments.filter(p => p.status === "paid").length;
@@ -183,8 +185,8 @@ export default function TeachersPage() {
           {[
             { label: "Total Teachers", val: teachers.length, sub: `${SUBJECTS_LIST.filter(subj => teachers.some(t => t.subject === subj)).length} subjects covered`, color: "#2a5fa8", icon: "👩‍🏫" },
             { label: "Monthly Payroll", val: `${(totalPayroll / 1000).toFixed(0)}K`, sub: `LKR ${totalPayroll.toLocaleString()}`, color: "#6b3ea8", icon: "💰" },
-            { label: "Settled (Apr)", val: settledThisMonth, sub: `LKR ${settledAmount.toLocaleString()}`, color: "#1a5040", icon: "✓" },
-            { label: "Pending (Apr)", val: pendingThisMonth, sub: `LKR ${pendingAmount.toLocaleString()}`, color: pendingThisMonth > 0 ? "#c07b1a" : "#1a5040", icon: pendingThisMonth > 0 ? "⏳" : "✓" },
+            { label: `Settled (${monthShort})`, val: settledThisMonth, sub: `LKR ${settledAmount.toLocaleString()}`, color: "#1a5040", icon: "✓" },
+            { label: `Pending (${monthShort})`, val: pendingThisMonth, sub: `LKR ${pendingAmount.toLocaleString()}`, color: pendingThisMonth > 0 ? "#c07b1a" : "#1a5040", icon: pendingThisMonth > 0 ? "⏳" : "✓" },
           ].map(kpi => (
             <div key={kpi.label} style={{
               background: "#fff",
@@ -232,7 +234,7 @@ export default function TeachersPage() {
                 <th>Mobile</th>
                 <th>Batches</th>
                 <th>Monthly Salary</th>
-                <th>April Status</th>
+                <th>This Month</th>
                 <th>Actions</th>
               </tr>
             </thead>
