@@ -30,6 +30,79 @@ function s(id:number, batch:BatchId, name:string, guardian:string, mobile:string
 }
 
 /* prettier-ignore */
+/* ── TEACHER DATA ── */
+export type Teacher = {
+  id: number; initials: string; name: string; subject: string;
+  mobile: string; email: string; batchIds: BatchId[];
+  monthlySalary: number; joinDate: string;
+  bg: string; fg: string;
+};
+
+export type TeacherPayment = {
+  teacherId: number; month: string; amount: number;
+  status: "paid" | "pending" | "overdue";
+  paidDate: string | null; method: string | null; referenceNo: string | null;
+};
+
+const TP: [string,string][] = [
+  ["#d4ede3","#1a5040"],["#d8e6fa","#2a5fa8"],["#fceaea","#b83030"],
+  ["#fef3d7","#6b3e20"],["#ede8fc","#6b3ea8"],
+];
+
+function t(id:number, name:string, subject:string, mobile:string, email:string, batchIds:BatchId[], salary:number, joinDate:string): Teacher {
+  const [bg,fg] = TP[id % TP.length];
+  const ini = name.split(" ").filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("");
+  return { id, name, initials: ini, subject, mobile, email, batchIds, monthlySalary: salary, joinDate, bg, fg };
+}
+
+export const TEACHERS: Teacher[] = [
+  t(1,"Mr. Rajan Nair","Mathematics","+94 77 234 5678","rajan@stpatricks.lk",["g10","g9a","g7a"],45000,"2020-03-15"),
+  t(2,"Ms. Geetha S.","Physics","+94 77 345 6789","geetha@stpatricks.lk",["g10","g11"],38000,"2021-06-01"),
+  t(3,"Mr. Arjun K.","Chemistry","+94 77 456 7890","arjun@stpatricks.lk",["g9a","g11"],40000,"2019-01-10"),
+  t(4,"Ms. Ramya M.","English","+94 77 567 8901","ramya@stpatricks.lk",["g7a","g8a","g9a","g10"],42000,"2018-07-22"),
+  t(5,"Ms. Valli F.","Tamil Literature","+94 77 678 9012","valli@stpatricks.lk",["g7a","g8a","g9a"],35000,"2022-01-05"),
+  t(6,"Ms. Anitha N.","Biology","+94 77 789 0123","anitha@stpatricks.lk",["g11"],30000,"2023-09-01"),
+];
+
+const MONTHS = ["April 2026","March 2026","February 2026","January 2026","December 2025","November 2025"];
+
+function genPayments(): TeacherPayment[] {
+  const records: TeacherPayment[] = [];
+  TEACHERS.forEach(teacher => {
+    MONTHS.forEach((month, mi) => {
+      // Current month (April) — some pending/overdue, rest paid
+      if (mi === 0) {
+        const isPaid = [1, 3, 5].includes(teacher.id);
+        const isOverdue = teacher.id === 6;
+        records.push({
+          teacherId: teacher.id, month, amount: teacher.monthlySalary,
+          status: isPaid ? "paid" : isOverdue ? "overdue" : "pending",
+          paidDate: isPaid ? "2026-04-05" : null,
+          method: isPaid ? "Bank transfer" : null,
+          referenceNo: isPaid ? `SAL-${teacher.id}04-26` : null,
+        });
+      } else {
+        // Past months — all paid
+        const day = String(3 + mi).padStart(2,"0");
+        const monthNum = 4 - mi; // March=3, Feb=2, Jan=1
+        const year = monthNum > 0 ? "2026" : "2025";
+        const mn = monthNum > 0 ? String(monthNum).padStart(2,"0") : String(12 + monthNum).padStart(2,"0");
+        records.push({
+          teacherId: teacher.id, month, amount: teacher.monthlySalary,
+          status: "paid",
+          paidDate: `${year}-${mn}-${day}`,
+          method: teacher.id % 2 === 0 ? "Cash" : "Bank transfer",
+          referenceNo: `SAL-${teacher.id}${mn}-${year.slice(2)}`,
+        });
+      }
+    });
+  });
+  return records;
+}
+
+export const INIT_TEACHER_PAYMENTS: TeacherPayment[] = genPayments();
+
+/* ── STUDENT DATA ── */
 export const ALL_STUDENTS: Student[] = [
   // Grade 7
   s(1,"g7a","Kavitha M.","Meena S.",  "+94 77 456 7890","paid",3000,99,"2025-01-06"),
