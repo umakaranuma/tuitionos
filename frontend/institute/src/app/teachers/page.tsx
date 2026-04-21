@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
-import { TeacherProfileModal } from "@/components/ui/TeacherProfileModal";
 import { TEACHERS, INIT_TEACHER_PAYMENTS, BATCHES, Teacher, TeacherPayment } from "@/lib/batchData";
 
 const SUBJECTS_LIST = ["Mathematics", "Physics", "Chemistry", "English", "Tamil Literature", "Biology", "Combined Maths"];
@@ -24,15 +24,13 @@ const PALETTE: [string, string][] = [
 ];
 
 export default function TeachersPage() {
+  const router = useRouter();
   const [teachers, setTeachers] = useState<Teacher[]>(TEACHERS);
   const [payments, setPayments] = useState<TeacherPayment[]>(INIT_TEACHER_PAYMENTS);
   const [modal, setModal]       = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Teacher | null>(null);
   const [form, setForm]         = useState(blankForm());
   const [nextId, setNextId]     = useState(TEACHERS.length + 1);
-
-  // Profile modal state
-  const [viewTeacher, setViewTeacher] = useState<Teacher | null>(null);
 
   // Record payment modal state
   const [payTarget, setPayTarget] = useState<{ teacherId: number; month: string } | null>(null);
@@ -242,7 +240,7 @@ export default function TeachersPage() {
               {teachers.map(t => {
                 const status = getTeacherCurrentStatus(t);
                 return (
-                  <tr key={t.id} onClick={() => setViewTeacher(t)} style={{
+                  <tr key={t.id} onClick={() => router.push(`/teachers/${t.id}`)} style={{
                     background: status === "overdue" ? "#fffbeb" : "#fff",
                     cursor: "pointer",
                   }}>
@@ -378,14 +376,6 @@ export default function TeachersPage() {
           </div>
         )}
       </Modal>
-
-      {/* Teacher Profile Modal */}
-      <TeacherProfileModal
-        teacher={viewTeacher}
-        payments={payments}
-        onClose={() => setViewTeacher(null)}
-        onRecordPayment={openRecordPayment}
-      />
     </PageShell>
   );
 }
