@@ -182,3 +182,37 @@ export const ALL_STUDENTS: Student[] = [
   s(31,"g11","Elan V.",  "Vasu E.",   "+94 77 400 4004","paid",7000,95,"2021-09-01"),
   s(32,"g11","Fabia W.", "Wills F.",  "+94 77 400 4005","paid",7000,92,"2021-09-01"),
 ];
+
+/* ── TIMETABLE DATA ── */
+export type TimetableSession = {
+  id: number;
+  type?: "class" | "leave";
+  batchId?: BatchId;
+  teacherId?: number;
+  subject?: string;
+  day: string;
+  timeStr: string;
+  leaveLabel?: string;
+  leaveColor?: string;
+};
+
+// Based on the former static 'slots' from timetable page
+export const INIT_TIMETABLE: TimetableSession[] = [
+  // g10 batch
+  { id: 1, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Monday",    timeStr: "8:00 – 9:30 AM" },
+  { id: 2, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Tuesday",   timeStr: "8:00 – 9:30 AM" },
+  { id: 3, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Thursday",  timeStr: "8:00 – 9:30 AM" },
+  
+  { id: 4, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Monday",    timeStr: "10:00 – 11:30 AM" },
+  { id: 5, batchId: "g10", teacherId: 4, subject: "English",     day: "Tuesday",   timeStr: "10:00 – 11:30 AM" },
+  { id: 6, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Thursday",  timeStr: "10:00 – 11:30 AM" },
+  
+  { id: 7, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Wednesday", timeStr: "2:00 – 3:30 PM" },
+  { id: 8, batchId: "g10", teacherId: 4, subject: "English",     day: "Friday",    timeStr: "2:00 – 3:30 PM" },
+  
+  { id: 9, batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Monday", timeStr: "4:00 – 5:30 PM" },
+  { id: 10, batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Friday", timeStr: "4:00 – 5:30 PM" },
+  
+  // Example extra slot for g7a
+  { id: 11, batchId: "g7a", teacherId: 1, subject: "Mathematics", day: "Wednesday", timeStr: "8:00 – 9:30 AM" },
+];

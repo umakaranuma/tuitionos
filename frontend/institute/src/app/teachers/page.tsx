@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
-import { TEACHERS, INIT_TEACHER_PAYMENTS, BATCHES, Teacher, TeacherPayment } from "@/lib/batchData";
+import { TEACHERS, INIT_TEACHER_PAYMENTS, BATCHES, Teacher, TeacherPayment, INIT_TIMETABLE } from "@/lib/batchData";
 
 const SUBJECTS_LIST = ["Mathematics", "Physics", "Chemistry", "English", "Tamil Literature", "Biology", "Combined Maths"];
 const PAYMENT_METHODS = ["Bank transfer", "Cash", "Cheque", "Online (card)"];
@@ -46,6 +46,7 @@ export default function TeachersPage() {
   const pendingThisMonth = currentPayments.filter(p => p.status !== "paid").length;
   const settledAmount = currentPayments.filter(p => p.status === "paid").reduce((s, p) => s + p.amount, 0);
   const pendingAmount = currentPayments.filter(p => p.status !== "paid").reduce((s, p) => s + p.amount, 0);
+  const totalClassesPerWeek = INIT_TIMETABLE.length;
 
   const getTeacherCurrentStatus = (t: Teacher) => {
     const cp = payments.find(p => p.teacherId === t.id && p.month === currentMonth);
@@ -209,7 +210,7 @@ export default function TeachersPage() {
         {/* KPI Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
           {[
-            { label: "Total Teachers", val: teachers.length, sub: `${SUBJECTS_LIST.filter(subj => teachers.some(t => t.subject === subj)).length} subjects covered`, color: "#2a5fa8", icon: "👩‍🏫" },
+            { label: "Total Teachers", val: teachers.length, sub: `${totalClassesPerWeek} classes scheduled per week`, color: "#2a5fa8", icon: "👩‍🏫" },
             { label: "Monthly Payroll", val: `${(totalPayroll / 1000).toFixed(0)}K`, sub: `LKR ${totalPayroll.toLocaleString()}`, color: "#6b3ea8", icon: "💰" },
             { label: `Settled (${monthShort})`, val: settledThisMonth, sub: `LKR ${settledAmount.toLocaleString()}`, color: "#1a5040", icon: "✓" },
             { label: `Pending (${monthShort})`, val: pendingThisMonth, sub: `LKR ${pendingAmount.toLocaleString()}`, color: pendingThisMonth > 0 ? "#c07b1a" : "#1a5040", icon: pendingThisMonth > 0 ? "⏳" : "✓" },
@@ -288,7 +289,7 @@ export default function TeachersPage() {
                     <td>{t.subject}</td>
                     <td className="mono">{t.mobile}</td>
                     <td>
-                      <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>
                         {t.batchIds.map(bid => {
                           const batch = BATCHES.find(b => b.id === bid);
                           return batch ? (
@@ -301,6 +302,9 @@ export default function TeachersPage() {
                           ) : null;
                         })}
                         {t.batchIds.length === 0 && <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink3)", fontWeight: 600 }}>
+                        {INIT_TIMETABLE.filter(s => s.teacherId === t.id).length} classes/wk
                       </div>
                     </td>
                     <td className="mono" style={{ fontWeight: 700 }}>

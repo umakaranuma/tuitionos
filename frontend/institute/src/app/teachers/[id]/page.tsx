@@ -6,7 +6,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import {
   TEACHERS, BATCHES, ALL_STUDENTS, INIT_TEACHER_PAYMENTS, INIT_TEACHER_ADVANCES,
-  Teacher, TeacherPayment, TeacherAdvance, PaymentEdit,
+  Teacher, TeacherPayment, TeacherAdvance, PaymentEdit, INIT_TIMETABLE, TimetableSession
 } from "@/lib/batchData";
 
 const PAYMENT_METHODS = ["Bank transfer", "Cash", "Cheque", "Online (card)", "UPI / Mobile pay"];
@@ -18,10 +18,17 @@ export default function TeacherSingleView() {
   const teacherId = parseInt(id as string);
   const teacher = TEACHERS.find(t => t.id === teacherId);
 
-  const [tab, setTab] = useState<"overview" | "batches" | "salary">("overview");
+  const [tab, setTab] = useState<"overview" | "timetable" | "batches" | "salary">("overview");
   const [payments, setPayments] = useState<TeacherPayment[]>(INIT_TEACHER_PAYMENTS);
   const [advances, setAdvances] = useState<TeacherAdvance[]>(INIT_TEACHER_ADVANCES);
   const [nextAdvId, setNextAdvId] = useState(INIT_TEACHER_ADVANCES.length + 1);
+  const [timetable, setTimetable] = useState<TimetableSession[]>(INIT_TIMETABLE);
+
+  // Timetable modal
+  const [ttModal, setTtModal] = useState<{ day: string; timeStr: string; } | null>(null);
+  const [ttForm, setTtForm] = useState({ type: "class" as "class" | "leave", subject: "", batchId: "", leaveLabel: "", leaveColor: "#fceaea" });
+  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 – 3:30 PM", "4:00 – 5:30 PM"];
 
   // Record payment modal
   const [payModal, setPayModal] = useState<string | null>(null); // month string
@@ -76,6 +83,14 @@ export default function TeacherSingleView() {
   const assignedBatches = BATCHES.filter(b => teacher.batchIds.includes(b.id));
   const totalStudents = teacher.batchIds.reduce((acc, bid) => acc + ALL_STUDENTS.filter(s => s.batch === bid).length, 0);
   const pendingPayments = teacherPayments.filter(p => p.status !== "paid");
+  
+  const teacherTimetable = timetable.filter(t => t.teacherId === teacher.id);
+  const ttMatrix: Record<string, (TimetableSession | null)[]> = {};
+  if (teacherTimetable) {
+    TIMESLOTS.forEach(time => {
+      ttMatrix[time] = DAYS.map(day => teacherTimetable.find(s => s.day === day && s.timeStr === time) || null);
+    });
+  }
 
   // ── Record payment ──
   const openRecordPay = (month: string) => {
@@ -183,8 +198,34 @@ export default function TeacherSingleView() {
     }));
   };
 
+  const saveTimetableSlot = () => {
+    if (!ttModal) return;
+    const { day, timeStr } = ttModal;
+    let newSessions = timetable.filter(s => !(s.teacherId === teacher.id && s.day === day && s.timeStr === timeStr));
+    
+    if (ttForm.type === "class" && ttForm.subject && ttForm.batchId) {
+      newSessions.push({
+        id: Date.now(), type: "class",
+        teacherId: teacher.id,
+        day, timeStr,
+        subject: ttForm.subject,
+        batchId: ttForm.batchId as any
+      });
+    } else if (ttForm.type === "leave" && ttForm.leaveLabel) {
+      newSessions.push({
+        id: Date.now(), type: "leave",
+        teacherId: teacher.id,
+        day, timeStr,
+        leaveLabel: ttForm.leaveLabel, leaveColor: ttForm.leaveColor
+      });
+    }
+    setTimetable(newSessions);
+    setTtModal(null);
+  };
+
   const TAB_OPTS = [
     { id: "overview" as const, label: "Overview", icon: "👤" },
+    { id: "timetable" as const, label: "Timetable", icon: "🗓️", count: teacherTimetable.length },
     { id: "batches" as const, label: "Batches", icon: "📚", count: assignedBatches.length },
     { id: "salary" as const, label: "Salary & Advances", icon: "💰", count: pendingPayments.length > 0 ? pendingPayments.length : undefined },
   ];
@@ -270,6 +311,63 @@ export default function TeacherSingleView() {
               }}>
                 <div style={{ fontSize: 10.5, color: "var(--ink3)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 4 }}>{row.label}</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", fontFamily: row.mono ? "var(--font-mono)" : undefined }}>{row.val}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════ */}
+        {/* ── TIMETABLE TAB ── */}
+        {/* ═══════════════════════════════════════════════ */}
+        {tab === "timetable" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Assigned Classes</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)" }}>
+                Click a slot to assign or remove batches
+              </div>
+            </div>
+            
+            <div className="tt-grid" style={{ marginBottom: 4 }}>
+              <div />
+              {DAYS.map(d => <div key={d} className="tt-day">{d}</div>)}
+            </div>
+
+            {TIMESLOTS.map(timeLabel => (
+              <div key={timeLabel} className="tt-grid" style={{ marginBottom: 8, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink3)", fontFamily: "var(--font-mono)", paddingTop: 12, paddingRight: 8, textAlign: "right", fontWeight: 600 }}>
+                  {timeLabel.split(" – ")[0]}
+                </div>
+                {DAYS.map((day, i) => {
+                  const slot = ttMatrix[timeLabel][i];
+                  if (slot && slot.type === "leave") {
+                    return (
+                      <div key={i} className="tt-slot" onClick={() => {
+                        setTtModal({ day, timeStr: timeLabel });
+                        setTtForm({ type: "leave", subject: "", batchId: "", leaveLabel: slot.leaveLabel || "", leaveColor: slot.leaveColor || "#fceaea" });
+                      }} style={{ cursor: "pointer", background: slot.leaveColor || "#fceaea", borderLeftColor: "rgba(0,0,0,0.2)" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", marginTop: 6, opacity: 0.8 }}>{slot.leaveLabel}</div>
+                      </div>
+                    );
+                  }
+                  return slot ? (
+                    <div key={i} className="tt-slot" onClick={() => {
+                      setTtModal({ day, timeStr: timeLabel });
+                      setTtForm({ type: "class", subject: slot.subject || "", batchId: String(slot.batchId || ""), leaveLabel: "", leaveColor: "#fceaea" });
+                    }} style={{ cursor: "pointer", borderLeftColor: "var(--sp)" }}>
+                      <div className="tt-sub">{BATCHES.find(b => b.id === slot.batchId)?.name || slot.batchId}</div>
+                      <div className="tt-time" style={{ color: "var(--ink2)" }}>{slot.timeStr.split(" – ")[1]}</div>
+                      <div className="tt-teacher">{slot.subject}</div>
+                    </div>
+                  ) : (
+                    <div key={i} className="tt-slot empty" onClick={() => {
+                      setTtModal({ day, timeStr: timeLabel });
+                      setTtForm({ type: "class", subject: "", batchId: "", leaveLabel: "", leaveColor: "#fceaea" });
+                    }} style={{ cursor: "pointer" }}>
+                      + Open slot
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -715,6 +813,76 @@ export default function TeacherSingleView() {
           )}
         </div>
       </Modal>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* ── TIMETABLE SLOT MODAL ── */}
+      {/* ═══════════════════════════════════════════════ */}
+      <Modal open={!!ttModal} onClose={() => setTtModal(null)} title={`Edit Schedule — ${ttModal?.day}`} footer={
+        <><button className="btn btn-s btn-sm" onClick={() => setTtModal(null)}>Cancel</button>
+        <button className="btn btn-ok btn-sm" onClick={saveTimetableSlot}>Save session</button></>
+      }>
+        {ttModal && (
+          <div className="form-gap">
+            <div style={{ background: "var(--cr)", padding: "10px 14px", borderRadius: 8, fontSize: 13, color: "var(--ink)" }}>
+              <span style={{ fontWeight: 700 }}>{teacher.name}</span> · {ttModal.timeStr}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}>
+                <input type="radio" checked={ttForm.type === "class"} onChange={() => setTtForm(f => ({ ...f, type: "class" }))} />
+                Class Block
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}>
+                <input type="radio" checked={ttForm.type === "leave"} onChange={() => setTtForm(f => ({ ...f, type: "leave" }))} />
+                Leave / Blocked
+              </label>
+            </div>
+
+            {ttForm.type === "class" ? (
+              <>
+                <div>
+                  <label className="flbl">Batch</label>
+                  <select value={ttForm.batchId} onChange={e => setTtForm(f => ({ ...f, batchId: e.target.value, subject: teacher.subject }))}>
+                    <option value="">— Clear / Free Period —</option>
+                    {teacher.batchIds.map(bid => {
+                      const b = BATCHES.find(x => x.id === bid);
+                      return b ? <option key={bid} value={bid}>{b.name}</option> : null;
+                    })}
+                  </select>
+                </div>
+                {ttForm.batchId && (
+                  <div>
+                    <label className="flbl">Subject</label>
+                    <select value={ttForm.subject} onChange={e => setTtForm(f => ({ ...f, subject: e.target.value }))}>
+                      {BATCHES.find(b => b.id === ttForm.batchId)?.subjects.includes(teacher.subject) 
+                        ? <option value={teacher.subject}>{teacher.subject}</option>
+                        : <option value="">— Batch doesn't offer {teacher.subject} —</option>
+                      }
+                    </select>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div>
+                  <label className="flbl">Leave Description</label>
+                  <input placeholder="e.g. Personal Leave, Holiday" value={ttForm.leaveLabel} onChange={e => setTtForm(f => ({ ...f, leaveLabel: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="flbl">Block Color</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {["#fceaea", "#fef3d7", "#ede8fc", "#e5e5e5", "#d8e6fa"].map(c => (
+                      <div key={c} onClick={() => setTtForm(f => ({ ...f, leaveColor: c }))} style={{
+                        width: 28, height: 28, borderRadius: "50%", background: c, cursor: "pointer",
+                        border: ttForm.leaveColor === c ? "2px solid var(--ink)" : "2px solid transparent"
+                      }} />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
+
     </PageShell>
   );
 }
