@@ -10,7 +10,7 @@ const SUBJECTS_LIST = ["Mathematics", "Physics", "Chemistry", "English", "Tamil 
 const PAYMENT_METHODS = ["Bank transfer", "Cash", "Cheque", "Online (card)"];
 
 function blankForm() {
-  return { name: "", subject: "", mobile: "", email: "", salary: "" };
+  return { name: "", subject: "", mobile: "", email: "", salary: "", batchIds: [] as string[] };
 }
 
 function makeInitials(name: string) {
@@ -56,7 +56,7 @@ export default function TeachersPage() {
   const openAdd = () => { setForm(blankForm()); setEditTarget(null); setModal("add"); };
   const openEdit = (t: Teacher, e: React.MouseEvent) => {
     e.stopPropagation();
-    setForm({ name: t.name, subject: t.subject, mobile: t.mobile, email: t.email, salary: String(t.monthlySalary) });
+    setForm({ name: t.name, subject: t.subject, mobile: t.mobile, email: t.email, salary: String(t.monthlySalary), batchIds: [...t.batchIds] });
     setEditTarget(t);
     setModal("edit");
   };
@@ -70,7 +70,7 @@ export default function TeachersPage() {
         id: nextId, name: form.name, subject: form.subject,
         mobile: form.mobile, email: form.email,
         monthlySalary: parseInt(form.salary) || 0,
-        batchIds: [], joinDate: new Date().toISOString().slice(0, 10),
+        batchIds: form.batchIds, joinDate: new Date().toISOString().slice(0, 10),
         initials: makeInitials(form.name), bg, fg,
       };
       setTeachers(prev => [...prev, newTeacher]);
@@ -148,6 +148,32 @@ export default function TeachersPage() {
         <label className="flbl freq">Monthly salary (LKR)</label>
         <input type="number" placeholder="e.g. 45000" value={form.salary}
           onChange={e => setForm(f => ({ ...f, salary: e.target.value }))} />
+      </div>
+
+      {/* Batch Assignment */}
+      <div>
+        <label className="flbl">Assigned Batches (Optional)</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {BATCHES.map(b => {
+            const isAssigned = form.batchIds.includes(b.id);
+            return (
+              <button key={b.id} onClick={() => {
+                setForm(f => ({
+                  ...f, batchIds: isAssigned ? f.batchIds.filter(id => id !== b.id) : [...f.batchIds, b.id]
+                }));
+              }} style={{
+                padding: "6px 12px", borderRadius: 8, fontSize: 11.5, fontWeight: 600, cursor: "pointer",
+                border: `1.5px solid ${isAssigned ? b.color : "var(--ln)"}`,
+                background: isAssigned ? b.colorL : "#fff",
+                color: isAssigned ? b.color : "var(--ink3)",
+                transition: "all 150ms"
+              }}>
+                {isAssigned ? "✓ " : ""}{b.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="fhint" style={{ marginTop: 6 }}>Multiple teachers can be assigned to the same batch. Select all batches this teacher is responsible for.</div>
       </div>
       {/* Preview avatar */}
       {form.name && (
