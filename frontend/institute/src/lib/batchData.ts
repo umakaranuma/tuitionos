@@ -21,6 +21,7 @@ export type Student = {
   attPct: number; // 0-100
   joinDate: string;
   bg: string; fg: string;
+  isFree?: boolean;
 };
 
 function s(id:number, batch:BatchId, name:string, guardian:string, mobile:string, fee:Student["fee"], feeAmt:number, att:number, joinDate:string): Student {

@@ -19,8 +19,16 @@ export default function StudentSinglePage() {
   const router = useRouter();
   const idStr = Array.isArray(params.id) ? params.id[0] : params.id;
   const id = parseInt(idStr, 10);
+  const student = ALL_STUDENTS.find(s => s.id === id);
   
   const [tab, setTab] = useState<"overview" | "attendance" | "fees">("overview");
+  const [isFree, setIsFree] = useState(student?.isFree || false);
+
+  const toggleFree = () => {
+    const val = !isFree;
+    setIsFree(val);
+    if (student) student.isFree = val;
+  };
 
   // Fee state cloning for the page
   const [currentFee, setCurrentFee] = useState(INIT_FEE_STATE[id] || { status: "due", paidAmount: 0, credits: 0 });
@@ -29,8 +37,6 @@ export default function StudentSinglePage() {
   // Historical Edit Modal
   const [editHistory, setEditHistory] = useState<{ record: FeeHistoryRecord, index: number } | null>(null);
   const [editForm, setEditForm] = useState({ amount: "", date: "", receipt: "", isWaived: false });
-
-  const student = ALL_STUDENTS.find(s => s.id === id);
 
   if (!student) {
     return (
@@ -121,7 +127,8 @@ export default function StudentSinglePage() {
             <span style={{ fontSize: 12, fontWeight: 700, background: attBg(student.attPct), color: attFg(student.attPct), padding: "4px 10px", borderRadius: 99 }}>
               {student.attPct}% Attendance
             </span>
-            {currentFee.status === "paid" ? <span className="bdg b-paid">Current Fee Paid</span> : 
+            {isFree ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fully Free (Scholarship)</span> :
+             currentFee.status === "paid" ? <span className="bdg b-paid">Current Fee Paid</span> : 
              currentFee.status === "waived" ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fee Waived</span> : 
              currentFee.status === "partial" ? <span style={{ background:"#fef3d7",color:"#c07b1a",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fee Partial</span> : 
              currentFee.status === "overdue" ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fee Overdue</span> : 
@@ -155,21 +162,33 @@ export default function StudentSinglePage() {
         {/* Tab Content */}
         <div>
           {tab === "overview" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              {[
-                { label: "Guardian", val: student.guardian },
-                { label: "Mobile", val: student.mobile, mono: true },
-                { label: "Overall Attendance", val: `${student.attPct}%` },
-                { label: "Monthly Fee Standard", val: `LKR ${student.feeAmount.toLocaleString()}` },
-                { label: "Current Balance", val: currentFee.credits > 0 ? `LKR ${currentFee.credits.toLocaleString()} (Advance Credit)` : "No active credits" },
-                { label: "Join Date", val: student.joinDate },
-              ].map(row => (
-                <div key={row.label} style={{ padding: "14px 16px", background: "#fff", border: "1px solid var(--ln)", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,.04)" }}>
-                  <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 6 }}>{row.label}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", fontFamily: row.mono ? "var(--font-mono)" : undefined }}>{row.val}</div>
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                {[
+                  { label: "Guardian", val: student.guardian },
+                  { label: "Mobile", val: student.mobile, mono: true },
+                  { label: "Overall Attendance", val: `${student.attPct}%` },
+                  { label: "Monthly Fee Standard", val: `LKR ${student.feeAmount.toLocaleString()}` },
+                  { label: "Current Balance", val: currentFee.credits > 0 ? `LKR ${currentFee.credits.toLocaleString()} (Advance Credit)` : "No active credits" },
+                  { label: "Join Date", val: student.joinDate },
+                ].map(row => (
+                  <div key={row.label} style={{ padding: "14px 16px", background: "#fff", border: "1px solid var(--ln)", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,.04)" }}>
+                    <div style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 6 }}>{row.label}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", fontFamily: row.mono ? "var(--font-mono)" : undefined }}>{row.val}</div>
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{ padding: "16px 20px", background: isFree ? "#f6f3fc" : "#fff", border: isFree ? "1px solid #d9ccf5" : "1px solid var(--ln)", borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: isFree ? "#6b3ea8" : "var(--ink)" }}>Global Fee Waiver (Fully Free Scholarship)</div>
+                  <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 4, maxWidth: 500, lineHeight: 1.4 }}>
+                    If enabled, this student is granted a sweeping 100% scholarship. They will not be marked as 'Due' for upcoming month cycles and are excluded from outstanding fee pool calculations.
+                  </div>
                 </div>
-              ))}
-            </div>
+                <button className={`toggle ${isFree ? "on" : ""}`} onClick={toggleFree} />
+              </div>
+            </>
           )}
 
           {tab === "attendance" && (

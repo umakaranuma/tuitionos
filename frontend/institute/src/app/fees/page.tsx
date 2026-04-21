@@ -28,8 +28,14 @@ export default function FeesPage() {
   const batch    = BATCHES.find(b => b.id === selBatch)!;
   const students = ALL_STUDENTS.filter(s => s.batch === selBatch);
 
-  const getRecord = (s: Student) => feeState[s.id] || { status: "due", paidAmount: 0, credits: 0 };
-  const getStatus = (s: Student) => feeState[s.id]?.status ?? s.fee;
+  const getRecord = (s: Student) => {
+    if (s.isFree) return { status: "waived", paidAmount: 0, credits: 0 };
+    return feeState[s.id] || { status: "due", paidAmount: 0, credits: 0 };
+  };
+  const getStatus = (s: Student) => {
+    if (s.isFree) return "waived";
+    return feeState[s.id]?.status ?? s.fee;
+  };
 
   const fullyPaid = students.filter(s => getStatus(s) === "paid").length;
   const waived = students.filter(s => getStatus(s) === "waived").length;
@@ -108,8 +114,9 @@ export default function FeesPage() {
 
   const statusBadge = (s: Student) => {
     const st = getStatus(s);
+    if (s.isFree) return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>100% Scholarship</span>;
     if (st === "paid")    return <span className="bdg b-paid">Paid in full</span>;
-    if (st === "waived")  return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Waived (Scholarship)</span>;
+    if (st === "waived")  return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Waived (This month)</span>;
     if (st === "partial") return <span style={{ background:"#fef3d7",color:"#c07b1a",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Partial</span>;
     if (st === "overdue") return <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Overdue</span>;
     return <span className="bdg b-due">Due</span>;
@@ -211,16 +218,22 @@ export default function FeesPage() {
                     </td>
                     <td className="mono" style={{ fontWeight: 700 }}>
                       <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span>{s.feeAmount.toLocaleString()}</span>
-                        {st === "partial" && (
-                          <div style={{ fontSize: 9.5, color: "#c07b1a", fontWeight: 600, marginTop: 2 }}>
-                            Remaining: {(s.feeAmount - rec.paidAmount).toLocaleString()}
-                          </div>
-                        )}
-                        {rec.credits > 0 && (
-                          <div style={{ fontSize: 9.5, color: "var(--tc-d)", fontWeight: 600, marginTop: 2 }}>
-                            +{(rec.credits).toLocaleString()} advance
-                          </div>
+                        {s.isFree ? (
+                          <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
+                        ) : (
+                          <>
+                            <span>{s.feeAmount.toLocaleString()}</span>
+                            {st === "partial" && (
+                              <div style={{ fontSize: 9.5, color: "#c07b1a", fontWeight: 600, marginTop: 2 }}>
+                                Remaining: {(s.feeAmount - rec.paidAmount).toLocaleString()}
+                              </div>
+                            )}
+                            {rec.credits > 0 && (
+                              <div style={{ fontSize: 9.5, color: "var(--tc-d)", fontWeight: 600, marginTop: 2 }}>
+                                +{(rec.credits).toLocaleString()} advance
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -237,24 +250,26 @@ export default function FeesPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {st === "due" || st === "overdue" ? (
-                          <>
-                            <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect</button>
-                            {!sent
-                              ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Remind</button>
-                              : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
-                            }
-                          </>
-                        ) : st === "partial" ? (
-                          <>
-                            <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Collect more</button>
-                            <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                          </>
-                        ) : (
-                          <>
-                            <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                            {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>Receipt</button>}
-                          </>
+                        {!s.isFree && (
+                          st === "due" || st === "overdue" ? (
+                            <>
+                              <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect</button>
+                              {!sent
+                                ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Remind</button>
+                                : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
+                              }
+                            </>
+                          ) : st === "partial" ? (
+                            <>
+                              <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Collect more</button>
+                              <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
+                              {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>Receipt</button>}
+                            </>
+                          )
                         )}
                       </div>
                     </td>

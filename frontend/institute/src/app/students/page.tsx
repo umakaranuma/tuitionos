@@ -27,7 +27,7 @@ function makeInitials(n: string) {
 
 function blankEnroll(batchId: BatchId) {
   const batch = BATCHES.find(b => b.id === batchId)!;
-  return { name: "", guardian: "", mobile: "", batch: batch.name, joinDate: new Date().toISOString().slice(0, 10) };
+  return { name: "", guardian: "", mobile: "", batch: batch.name, joinDate: new Date().toISOString().slice(0, 10), isFree: false };
 }
 
 export default function StudentsPage() {
@@ -50,8 +50,8 @@ export default function StudentsPage() {
   );
 
   /* batch KPIs */
-  const paid      = batchStudents.filter(s => s.fee === "paid").length;
-  const due       = batchStudents.filter(s => s.fee !== "paid").length;
+  const paid      = batchStudents.filter(s => s.fee === "paid" || s.isFree).length;
+  const due       = batchStudents.filter(s => s.fee !== "paid" && !s.isFree).length;
   const avgAtt    = batchStudents.length ? Math.round(batchStudents.reduce((a, s) => a + s.attPct, 0) / batchStudents.length) : 0;
   const markedToday = Object.keys(todayAtt).filter(id => batchStudents.some(s => s.id === Number(id))).length;
 
@@ -72,11 +72,15 @@ export default function StudentsPage() {
     if (!form.name.trim()) return;
     const P: [string, string][] = [["#d4ede3","#1a5040"],["#d8e6fa","#2a5fa8"],["#fceaea","#b83030"],["#fef3d7","#6b3e20"],["#ede8fc","#6b3ea8"]];
     const [bg, fg] = P[nextId % P.length];
-    setStudents(prev => [...prev, {
-      id: nextId, batch: selBatch, name: form.name, initials: makeInitials(form.name),
-      guardian: form.guardian, mobile: form.mobile, fee: "due", feeAmount: batch.id === "g11" ? 7000 : batch.id === "g10" ? 5500 : 3000,
-      feeMonth: "April 2026", attPct: 100, joinDate: form.joinDate, bg, fg,
-    }]);
+    setStudents(prev => {
+      const newStudent = {
+        id: nextId, batch: selBatch, name: form.name, initials: makeInitials(form.name),
+        guardian: form.guardian, mobile: form.mobile, fee: "due" as const, feeAmount: batch.id === "g11" ? 7000 : batch.id === "g10" ? 5500 : 3000,
+        feeMonth: "April 2026", attPct: 100, joinDate: form.joinDate, bg, fg, isFree: form.isFree
+      };
+      ALL_STUDENTS.push(newStudent);
+      return [...prev, newStudent];
+    });
     setNextId(n => n + 1);
     close();
   };
@@ -163,17 +167,21 @@ export default function StudentsPage() {
                     <td>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {s.fee === "paid"
-                            ? <span className="bdg b-paid">Paid</span>
-                            : s.fee === "overdue"
-                              ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Overdue</span>
-                              : <span className="bdg b-due">Due</span>
+                          {s.isFree 
+                            ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>100% Scholarship</span>
+                            : s.fee === "paid"
+                              ? <span className="bdg b-paid">Paid</span>
+                              : s.fee === "overdue"
+                                ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Overdue</span>
+                                : <span className="bdg b-due">Due</span>
                           }
-                          <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>
-                            LKR {s.feeAmount.toLocaleString()}
-                          </span>
+                          {!s.isFree && (
+                            <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>
+                              LKR {s.feeAmount.toLocaleString()}
+                            </span>
+                          )}
                         </div>
-                        {s.fee !== "paid" && (
+                        {s.fee !== "paid" && !s.isFree && (
                           <div style={{ display: "flex", gap: 4 }}>
                             <button
                               className="btn btn-xs btn-ok"
@@ -335,6 +343,13 @@ export default function StudentsPage() {
               <input type="date" value={form.joinDate}
                 onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))} />
             </div>
+          </div>
+          <div style={{ padding: "12px 14px", marginTop: 4, background: form.isFree ? "#f6f3fc" : "#fff", border: form.isFree ? "1px solid #d9ccf5" : "1px solid var(--ln)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: form.isFree ? "#6b3ea8" : "var(--ink)" }}>Fully Free Scholarship</div>
+              <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Grant a 100% permanent fee waiver for this student.</div>
+            </div>
+            <button className={`toggle ${form.isFree ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, isFree: !f.isFree }))} />
           </div>
         </div>
       </Modal>
