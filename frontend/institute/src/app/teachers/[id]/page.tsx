@@ -192,7 +192,7 @@ export default function TeacherSingleView() {
   return (
     <PageShell>
       <Topbar title={teacher.name} subtitle={`${teacher.subject} teacher`}
-        cta={<button className="btn btn-s btn-sm" onClick={() => router.push("/teachers")}>← All teachers</button>}
+        right={<button className="btn btn-s btn-sm" onClick={() => router.push("/teachers")}>← All teachers</button>}
       />
 
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
