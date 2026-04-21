@@ -4,8 +4,8 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { BatchTabs } from "@/components/ui/BatchTabs";
-import { StudentProfileModal } from "@/components/ui/StudentProfileModal";
 import { BATCHES, ALL_STUDENTS, Student, BatchId } from "@/lib/batchData";
+import { useRouter } from "next/navigation";
 
 /* ─── helpers ── */
 function attColor(v: number) {
@@ -34,10 +34,11 @@ export default function StudentsPage() {
   const [selBatch, setSelBatch] = useState<BatchId>("g7a");
   const [students, setStudents] = useState<Student[]>(ALL_STUDENTS);
   const [search, setSearch]     = useState("");
-  const [modal, setModal]       = useState<"enroll" | "view" | "attend" | null>(null);
+  const [modal, setModal]       = useState<"enroll" | "attend" | null>(null);
   const [viewTarget, setViewTarget] = useState<Student | null>(null);
   const [form, setForm]         = useState(blankEnroll("g7a"));
   const [nextId, setNextId]     = useState(ALL_STUDENTS.length + 1);
+  const router = useRouter();
   // attendance quick-mark per student today
   const [todayAtt, setTodayAtt] = useState<Record<number, "present" | "absent">>({});
 
@@ -56,7 +57,7 @@ export default function StudentsPage() {
 
   const changeBatch = (id: BatchId) => { setSelBatch(id); setSearch(""); };
   const openEnroll  = () => { setForm(blankEnroll(selBatch)); setModal("enroll"); };
-  const openView    = (s: Student) => { setViewTarget(s); setModal("view"); };
+  const openView    = (s: Student) => router.push(`/students/${s.id}`);
   const openAttend  = (s: Student) => { setViewTarget(s); setModal("attend"); };
   const close       = () => { setModal(null); setViewTarget(null); };
 
@@ -337,12 +338,6 @@ export default function StudentsPage() {
           </div>
         </div>
       </Modal>
-
-      {/* View profile modal */}
-      <StudentProfileModal
-        student={modal === "view" ? viewTarget : null}
-        onClose={close}
-      />
     </PageShell>
   );
 }

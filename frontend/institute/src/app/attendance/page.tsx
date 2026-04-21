@@ -3,8 +3,8 @@ import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { BatchTabs } from "@/components/ui/BatchTabs";
-import { StudentProfileModal } from "@/components/ui/StudentProfileModal";
 import { BATCHES, ALL_STUDENTS, BatchId, Student } from "@/lib/batchData";
+import { useRouter } from "next/navigation";
 
 type AttRecord = Record<number, Record<string, "present" | "absent">>;
 
@@ -17,7 +17,7 @@ export default function AttendancePage() {
   const [att, setAtt]           = useState<AttRecord>({});
   const [saved, setSaved]       = useState(false);
   const [dateStr]               = useState(new Date().toISOString().slice(0, 10));
-  const [viewProfile, setViewProfile] = useState<Student | null>(null);
+  const router = useRouter();
 
   const batch    = BATCHES.find(b => b.id === selBatch)!;
   const subjects = batch.subjects as string[];
@@ -168,7 +168,7 @@ export default function AttendancePage() {
                 const allPresent  = absentCount === 0;
                 return (
                   <tr key={s.id} style={{ borderTop: si > 0 ? "1px solid var(--ln)" : "none", background: absentCount > 0 ? "#fffbeb" : "#fff" }}>
-                    <td style={{ padding: "10px 14px", cursor: "pointer" }} onClick={() => setViewProfile(s)}>
+                    <td style={{ padding: "10px 14px", cursor: "pointer" }} onClick={() => router.push(`/students/${s.id}`)}>
                       <div className="td-nm" style={{ transition: "all 150ms" }}>
                         <div className="ava" style={{ background: s.bg, color: s.fg, width: 26, height: 26, fontSize: 10, flexShrink: 0 }}>
                           {s.initials}
@@ -218,7 +218,6 @@ export default function AttendancePage() {
           </table>
         </div>
       </div>
-      <StudentProfileModal student={viewProfile} onClose={() => setViewProfile(null)} />
     </PageShell>
   );
 }

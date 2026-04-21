@@ -212,7 +212,47 @@ export const INIT_TIMETABLE: TimetableSession[] = [
   { id: 7, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Wednesday", timeStr: "2:00 – 3:30 PM" },
   { id: 8, batchId: "g10", teacherId: 4, subject: "English",     day: "Friday",    timeStr: "2:00 – 3:30 PM" },
   
-  { id: 9, batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Monday", timeStr: "4:00 – 5:30 PM" },
+  { id: 9, type: "class", batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Mon", timeStr: "4:00 – 5:30 PM" },
+];
+
+/* ── GLOBAL FEE STATE ── */
+export type FeeStatus = "paid" | "partial" | "due" | "overdue" | "waived";
+
+export type StudentFeeRecord = {
+  status: FeeStatus;
+  paidAmount: number;
+  credits: number;
+  receiptNo?: string;
+  paidDate?: string;
+  method?: string;
+};
+
+export type GlobalFeeState = Record<number, StudentFeeRecord>;
+
+export const INIT_FEE_STATE: GlobalFeeState = {};
+
+// History logic
+export type FeeHistoryRecord = { month: string; amount: number; status: FeeStatus; date?: string; receipt?: string; };
+export const INIT_FEE_HISTORY: Record<number, FeeHistoryRecord[]> = {};
+
+ALL_STUDENTS.forEach(s => {
+  INIT_FEE_STATE[s.id] = {
+    status: s.fee === "paid" ? "paid" : s.fee === "overdue" ? "overdue" : "due",
+    paidAmount: s.fee === "paid" ? s.feeAmount : 0,
+    credits: 0,
+    receiptNo: s.fee === "paid" ? `RCP-${100 + s.id}` : undefined,
+    paidDate: s.fee === "paid" ? "2026-04-05" : undefined,
+    method: s.fee === "paid" ? "Bank transfer" : undefined,
+  };
+
+  INIT_FEE_HISTORY[s.id] = [
+    { month: "March 2026", amount: s.feeAmount, status: "paid", date: "02-Mar-2026", receipt: `RCP-${80 + s.id}` },
+    { month: "February 2026", amount: s.feeAmount, status: "paid", date: "04-Feb-2026", receipt: `RCP-${60 + s.id}` },
+    { month: "January 2026", amount: s.feeAmount, status: "paid", date: "08-Jan-2026", receipt: `RCP-${40 + s.id}` },
+  ];
+});
+
+export const INIT_TIMETABLE_EXT: TimetableSession[] = [
   { id: 10, batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Friday", timeStr: "4:00 – 5:30 PM" },
   
   // Example extra slot for g7a
