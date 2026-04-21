@@ -18,6 +18,10 @@ const sections: { title: string; items: NavItem[] }[] = [
         label: "Dashboard", href: "/dashboard",
         icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
       },
+      {
+        label: "Accounts", href: "/accounts",
+        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M1 3.5h12v7H1v-7z"/><path d="M4 6.5h6"/></svg>
+      },
     ],
   },
   {

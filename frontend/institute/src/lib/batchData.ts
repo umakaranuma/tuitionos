@@ -259,3 +259,22 @@ export const INIT_TIMETABLE_EXT: TimetableSession[] = [
   // Example extra slot for g7a
   { id: 11, batchId: "g7a", teacherId: 1, subject: "Mathematics", day: "Wednesday", timeStr: "8:00 – 9:30 AM" },
 ];
+
+/* ── ACCOUNTS GLOBAL DATA ── */
+export type InstituteTransaction = {
+  id: number;
+  month: string;
+  type: "income" | "expense";
+  category: "Utility Bill" | "Staff Salary" | "Rent" | "Maintenance" | "Sponsorship" | "Other Income" | "Other";
+  label: string;
+  amount: number;
+  date: string;
+};
+
+export const INIT_TRANSACTIONS: InstituteTransaction[] = [
+  { id: 1, month: "April 2026", type: "expense", category: "Utility Bill", label: "Electricity Board", amount: 15000, date: "2026-04-10" },
+  { id: 2, month: "April 2026", type: "expense", category: "Staff Salary", label: "Cleaning Staff (Ravi)", amount: 25000, date: "2026-04-05" },
+  { id: 3, month: "March 2026", type: "expense", category: "Rent", label: "Building Rent", amount: 60000, date: "2026-03-01" },
+  { id: 4, month: "March 2026", type: "expense", category: "Utility Bill", label: "Water & Internet", amount: 8500, date: "2026-03-12" },
+  { id: 5, month: "March 2026", type: "income", category: "Sponsorship", label: "Local Business Grant", amount: 20000, date: "2026-03-15" }
+];
