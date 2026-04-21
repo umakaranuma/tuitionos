@@ -38,10 +38,29 @@ export type Teacher = {
   bg: string; fg: string;
 };
 
+export type PaymentEdit = {
+  editDate: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+};
+
 export type TeacherPayment = {
   teacherId: number; month: string; amount: number;
   status: "paid" | "pending" | "overdue";
   paidDate: string | null; method: string | null; referenceNo: string | null;
+  payslipFile: string | null; notes: string | null;
+  type: "salary" | "advance" | "bonus";
+  advanceDeduction: number;
+  editHistory: PaymentEdit[];
+};
+
+export type TeacherAdvance = {
+  id: number; teacherId: number;
+  amount: number; requestDate: string; reason: string;
+  status: "active" | "repaid" | "partial";
+  disbursedDate: string | null; method: string | null;
+  repaidAmount: number; // how much has been repaid so far
 };
 
 const TP: [string,string][] = [
@@ -80,11 +99,13 @@ function genPayments(): TeacherPayment[] {
           paidDate: isPaid ? "2026-04-05" : null,
           method: isPaid ? "Bank transfer" : null,
           referenceNo: isPaid ? `SAL-${teacher.id}04-26` : null,
+          payslipFile: isPaid ? `payslip_${teacher.id}_apr26.pdf` : null,
+          notes: null, type: "salary", advanceDeduction: 0, editHistory: [],
         });
       } else {
         // Past months — all paid
         const day = String(3 + mi).padStart(2,"0");
-        const monthNum = 4 - mi; // March=3, Feb=2, Jan=1
+        const monthNum = 4 - mi;
         const year = monthNum > 0 ? "2026" : "2025";
         const mn = monthNum > 0 ? String(monthNum).padStart(2,"0") : String(12 + monthNum).padStart(2,"0");
         records.push({
@@ -93,6 +114,10 @@ function genPayments(): TeacherPayment[] {
           paidDate: `${year}-${mn}-${day}`,
           method: teacher.id % 2 === 0 ? "Cash" : "Bank transfer",
           referenceNo: `SAL-${teacher.id}${mn}-${year.slice(2)}`,
+          payslipFile: `payslip_${teacher.id}_${mn}${year.slice(2)}.pdf`,
+          notes: null, type: "salary",
+          advanceDeduction: teacher.id === 2 && mi >= 1 && mi <= 3 ? 5000 : 0,
+          editHistory: [],
         });
       }
     });
@@ -101,6 +126,21 @@ function genPayments(): TeacherPayment[] {
 }
 
 export const INIT_TEACHER_PAYMENTS: TeacherPayment[] = genPayments();
+
+export const INIT_TEACHER_ADVANCES: TeacherAdvance[] = [
+  {
+    id: 1, teacherId: 2, amount: 20000,
+    requestDate: "2026-01-15", reason: "Medical emergency — hospital bills",
+    status: "partial", disbursedDate: "2026-01-16", method: "Bank transfer",
+    repaidAmount: 15000, // 5000 x 3 months deducted
+  },
+  {
+    id: 2, teacherId: 4, amount: 10000,
+    requestDate: "2026-03-20", reason: "Family function expenses",
+    status: "active", disbursedDate: "2026-03-21", method: "Cash",
+    repaidAmount: 0,
+  },
+];
 
 /* ── STUDENT DATA ── */
 export const ALL_STUDENTS: Student[] = [
