@@ -27,7 +27,7 @@ export default function TeacherSingleView() {
   // Timetable modal
   const [ttModal, setTtModal] = useState<{ day: string; timeStr: string; } | null>(null);
   const [ttForm, setTtForm] = useState({ type: "class" as "class" | "leave", subject: "", batchId: "", leaveLabel: "", leaveColor: "#fceaea" });
-  const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 – 3:30 PM", "4:00 – 5:30 PM"];
 
   // Record payment modal
@@ -328,7 +328,7 @@ export default function TeacherSingleView() {
               </div>
             </div>
             
-            <div className="tt-grid" style={{ marginBottom: 4 }}>
+            <div className="tt-grid" style={{ marginBottom: 4, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
               <div />
               {DAYS.map(d => <div key={d} className="tt-day">{d}</div>)}
             </div>

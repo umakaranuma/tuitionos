@@ -196,6 +196,8 @@ export type TimetableSession = {
   leaveColor?: string;
 };
 
+export const INIT_TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 – 3:30 PM", "4:00 – 5:30 PM"];
+
 // Based on the former static 'slots' from timetable page
 export const INIT_TIMETABLE: TimetableSession[] = [
   // g10 batch

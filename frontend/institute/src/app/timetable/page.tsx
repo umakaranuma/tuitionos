@@ -5,7 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { INIT_TIMETABLE, BATCHES, TEACHERS, TimetableSession } from "@/lib/batchData";
 
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 – 3:30 PM", "4:00 – 5:30 PM"];
 
 export default function TimetablePage() {
@@ -92,7 +92,7 @@ export default function TimetablePage() {
           Click any slot to assign a teacher. Changes affecting 3+ sessions will trigger a PDF notification to parents.
         </div>
 
-        <div className="tt-grid" style={{ marginBottom: 4 }}>
+        <div className="tt-grid" style={{ marginBottom: 4, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
           <div />
           {DAYS.map(d => <div key={d} className="tt-day">{d}</div>)}
         </div>
