@@ -162,30 +162,34 @@ export default function AccountsPage() {
           </div>
         </div>
 
-        {/* Visual Bar */}
-        <div style={{ background: "#fff", border: "1px solid var(--ln)", borderRadius: 12, padding: "20px", display: "flex", flexDirection: "column", gap: 12, boxShadow: "var(--sh)" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>Cash Flow Breakdown</div>
-          <div style={{ position: "relative", height: 24, background: "#f5f5f3", borderRadius: 99, overflow: "hidden", display: "flex" }}>
-            {totalIncome > 0 && (
-              <div style={{ 
-                width: `${Math.max(15, (totalIncome / (totalIncome + totalOutflow)) * 100)}%`, 
-                background: "#2d7a5a", height: "100%", display: "flex", alignItems: "center", padding: "0 12px", color: "#fff", fontSize: 11, fontWeight: 700 
-              }}>
-                Income
-              </div>
-            )}
-            {totalOutflow > 0 && (
-              <div style={{ 
-                width: `${Math.max(15, (totalOutflow / (totalIncome + totalOutflow)) * 100)}%`, 
-                background: "#b83030", height: "100%", display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 12px", color: "#fff", fontSize: 11, fontWeight: 700 
-              }}>
-                Outflow
-              </div>
-            )}
+        {/* Visual Progress Bar */}
+        <div style={{ marginTop: 10, marginBottom: 20 }}>
+          <div className="sec-hdr" style={{ marginBottom: 12 }}>
+            <span className="sec-title">Cash Flow Breakdown</span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--ink3)" }}>
+          <div className="card" style={{ marginBottom: 0 }}>
+            <div className="prog-w">
+              <div className="prog-hdr">
+                <span className="prog-lbl">Gross Income</span>
+                <span className="prog-val">LKR {totalIncome.toLocaleString()}</span>
+              </div>
+              <div className="prog-tr">
+                <div className="prog-fi" style={{ width: `${Math.max(5, (totalIncome / Math.max(1, totalIncome + totalOutflow)) * 100)}%`, background: "var(--tc)" }} />
+              </div>
+            </div>
+            <div className="prog-w" style={{ marginBottom: 0 }}>
+              <div className="prog-hdr">
+                <span className="prog-lbl">Total Outflow</span>
+                <span className="prog-val">LKR {totalOutflow.toLocaleString()}</span>
+              </div>
+              <div className="prog-tr">
+                <div className="prog-fi" style={{ width: `${Math.max(5, (totalOutflow / Math.max(1, totalIncome + totalOutflow)) * 100)}%`, background: "var(--rb)" }} />
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "var(--ink3)", padding: "10px 4px 0", fontWeight: 500 }}>
             <span>Total Value Generated: LKR {(totalIncome + totalOutflow).toLocaleString()}</span>
-            <span>Retained: {totalIncome > 0 ? Math.round((netBalance / totalIncome) * 100) : 0}%</span>
+            <span style={{ color: "var(--tc-d)", fontWeight: 600 }}>Capital Retained: {totalIncome > 0 ? Math.round((netBalance / totalIncome) * 100) : 0}%</span>
           </div>
         </div>
 
