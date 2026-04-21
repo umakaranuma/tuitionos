@@ -127,9 +127,9 @@ export default function StudentSinglePage() {
             <span style={{ fontSize: 12, fontWeight: 700, background: attBg(student.attPct), color: attFg(student.attPct), padding: "4px 10px", borderRadius: 99 }}>
               {student.attPct}% Attendance
             </span>
-            {isFree ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fully Free (Scholarship)</span> :
+            {isFree ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Free Scholar (Permanent)</span> :
              currentFee.status === "paid" ? <span className="bdg b-paid">Current Fee Paid</span> : 
-             currentFee.status === "waived" ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fee Waived</span> : 
+             currentFee.status === "waived" ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Monthly Exemption (Free)</span> : 
              currentFee.status === "partial" ? <span style={{ background:"#fef3d7",color:"#c07b1a",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fee Partial</span> : 
              currentFee.status === "overdue" ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"4px 10px",borderRadius:99 }}>Fee Overdue</span> : 
              <span className="bdg b-due">Fee Due</span>}
@@ -181,9 +181,9 @@ export default function StudentSinglePage() {
               
               <div style={{ padding: "16px 20px", background: isFree ? "#f6f3fc" : "#fff", border: isFree ? "1px solid #d9ccf5" : "1px solid var(--ln)", borderRadius: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: isFree ? "#6b3ea8" : "var(--ink)" }}>Global Fee Waiver (Fully Free Scholarship)</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: isFree ? "#6b3ea8" : "var(--ink)" }}>Permanent Full Scholarship</div>
                   <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 4, maxWidth: 500, lineHeight: 1.4 }}>
-                    If enabled, this student is granted a sweeping 100% scholarship. They will not be marked as 'Due' for upcoming month cycles and are excluded from outstanding fee pool calculations.
+                    Permanently exempt this student from all monthly fees. They will never be billed and will be automatically removed from pending revenue calculations forever.
                   </div>
                 </div>
                 <button className={`toggle ${isFree ? "on" : ""}`} onClick={toggleFree} />
@@ -311,7 +311,7 @@ export default function StudentSinglePage() {
           <div className="form-gap">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 4px", borderBottom: "1px solid var(--ln)" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Waive fee for {editHistory.record.month}</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Exempt fee for {editHistory.record.month} (100% Free)</div>
               </div>
               <button 
                 className={`toggle ${editForm.isWaived ? "on" : ""}`}

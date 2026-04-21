@@ -168,7 +168,7 @@ export default function StudentsPage() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {s.isFree 
-                            ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>100% Scholarship</span>
+                            ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Free Scholar (Permanent)</span>
                             : s.fee === "paid"
                               ? <span className="bdg b-paid">Paid</span>
                               : s.fee === "overdue"
@@ -346,8 +346,8 @@ export default function StudentsPage() {
           </div>
           <div style={{ padding: "12px 14px", marginTop: 4, background: form.isFree ? "#f6f3fc" : "#fff", border: form.isFree ? "1px solid #d9ccf5" : "1px solid var(--ln)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: form.isFree ? "#6b3ea8" : "var(--ink)" }}>Fully Free Scholarship</div>
-              <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Grant a 100% permanent fee waiver for this student.</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: form.isFree ? "#6b3ea8" : "var(--ink)" }}>Free Scholar (Permanent)</div>
+              <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Permanently exempt this student from all future monthly fee billing cycles.</div>
             </div>
             <button className={`toggle ${form.isFree ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, isFree: !f.isFree }))} />
           </div>

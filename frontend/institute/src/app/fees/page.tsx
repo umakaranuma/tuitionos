@@ -311,8 +311,8 @@ export default function FeesPage() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 4px", borderBottom: "1px solid var(--ln)" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Grant scholarship / Waive fee</div>
-                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Waive the fee completely for this student</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Exempt fee for this month only (100% Free)</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Waive the fee purely for the current month cycle.</div>
               </div>
               <button 
                 className={`toggle ${payForm.isWaived ? "on" : ""}`}
