@@ -6,7 +6,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import {
   TEACHERS, BATCHES, ALL_STUDENTS, INIT_TEACHER_PAYMENTS, INIT_TEACHER_ADVANCES,
-  Teacher, TeacherPayment, TeacherAdvance, PaymentEdit, INIT_TIMETABLE, TimetableSession
+  Teacher, TeacherPayment, TeacherAdvance, PaymentEdit, INIT_TIMETABLE, TimetableSession, INIT_TIMESLOTS
 } from "@/lib/batchData";
 
 const PAYMENT_METHODS = ["Bank transfer", "Cash", "Cheque", "Online (card)", "UPI / Mobile pay"];
@@ -28,7 +28,6 @@ export default function TeacherSingleView() {
   const [ttModal, setTtModal] = useState<{ day: string; timeStr: string; } | null>(null);
   const [ttForm, setTtForm] = useState({ type: "class" as "class" | "leave", subject: "", batchId: "", leaveLabel: "", leaveColor: "#fceaea" });
   const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 – 3:30 PM", "4:00 – 5:30 PM"];
 
   // Record payment modal
   const [payModal, setPayModal] = useState<string | null>(null); // month string
@@ -87,7 +86,7 @@ export default function TeacherSingleView() {
   const teacherTimetable = timetable.filter(t => t.teacherId === teacher.id);
   const ttMatrix: Record<string, (TimetableSession | null)[]> = {};
   if (teacherTimetable) {
-    TIMESLOTS.forEach(time => {
+    INIT_TIMESLOTS.forEach(time => {
       ttMatrix[time] = DAYS.map(day => teacherTimetable.find(s => s.day === day && s.timeStr === time) || null);
     });
   }
@@ -328,15 +327,15 @@ export default function TeacherSingleView() {
               </div>
             </div>
             
-            <div className="tt-grid" style={{ marginBottom: 4, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
+            <div className="tt-grid" style={{ marginBottom: 4, gridTemplateColumns: "110px repeat(7, 1fr)" }}>
               <div />
               {DAYS.map(d => <div key={d} className="tt-day">{d}</div>)}
             </div>
 
-            {TIMESLOTS.map(timeLabel => (
-              <div key={timeLabel} className="tt-grid" style={{ marginBottom: 8, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
+            {INIT_TIMESLOTS.map(timeLabel => (
+              <div key={timeLabel} className="tt-grid" style={{ marginBottom: 8, gridTemplateColumns: "110px repeat(7, 1fr)" }}>
                 <div style={{ fontSize: 10.5, color: "var(--ink3)", fontFamily: "var(--font-mono)", paddingTop: 12, paddingRight: 8, textAlign: "right", fontWeight: 600 }}>
-                  {timeLabel.split(" – ")[0]}
+                  {timeLabel}
                 </div>
                 {DAYS.map((day, i) => {
                   const slot = ttMatrix[timeLabel][i];

@@ -3,25 +3,28 @@ import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
-import { INIT_TIMETABLE, BATCHES, TEACHERS, TimetableSession } from "@/lib/batchData";
+import { INIT_TIMETABLE, BATCHES, TEACHERS, TimetableSession, INIT_TIMESLOTS } from "@/lib/batchData";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 – 3:30 PM", "4:00 – 5:30 PM"];
 
 export default function TimetablePage() {
   const [sessions, setSessions] = useState<TimetableSession[]>(INIT_TIMETABLE);
+  const [timeSlots, setTimeSlots] = useState<string[]>(INIT_TIMESLOTS);
   const [selectedBatch, setSelectedBatch] = useState(BATCHES[0].id);
   
-  // Edit modal state
+  // Edit session slot state
   const [editSlot, setEditSlot] = useState<{ day: string; timeStr: string; batchId: string } | null>(null);
   const [editForm, setEditForm] = useState({ type: "class" as "class" | "leave", subject: "", teacherId: "", leaveLabel: "", leaveColor: "#fceaea" });
+
+  // Manage timeslot row state
+  const [manageRow, setManageRow] = useState<{ originalName: string; currentName: string; } | null>(null);
 
   const batchSessions = sessions.filter(s => s.batchId === selectedBatch);
   const batch = BATCHES.find(b => b.id === selectedBatch);
 
   // Build grid matrix
   const matrix: Record<string, (TimetableSession | null)[]> = {};
-  TIMESLOTS.forEach(time => {
+  timeSlots.forEach(time => {
     matrix[time] = DAYS.map(day => 
       batchSessions.find(s => s.day === day && s.timeStr === time) || null
     );
@@ -64,6 +67,25 @@ export default function TimetablePage() {
     setEditSlot(null);
   };
 
+  const saveManageRow = () => {
+    if (!manageRow) return;
+    if (manageRow.originalName) {
+      if (manageRow.currentName.trim() === "") {
+        // Delete
+        setTimeSlots(prev => prev.filter(t => t !== manageRow.originalName));
+        setSessions(prev => prev.filter(s => s.timeStr !== manageRow.originalName));
+      } else {
+        // Rename
+        setTimeSlots(prev => prev.map(t => t === manageRow.originalName ? manageRow.currentName.trim() : t));
+        setSessions(prev => prev.map(s => s.timeStr === manageRow.originalName ? { ...s, timeStr: manageRow.currentName.trim() } : s));
+      }
+    } else if (manageRow.currentName.trim() !== "") {
+      // Add new
+      setTimeSlots(prev => [...prev, manageRow.currentName.trim()]);
+    }
+    setManageRow(null);
+  };
+
   return (
     <PageShell>
       <Topbar
@@ -89,18 +111,22 @@ export default function TimetablePage() {
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75">
             <circle cx="7" cy="7" r="6"/><path d="M7 4.5v3.5l2 1"/>
           </svg>
-          Click any slot to assign a teacher. Changes affecting 3+ sessions will trigger a PDF notification to parents.
+          Click any slot to assign classes. Click the time label on the left to edit or remove entire time blocks.
         </div>
 
-        <div className="tt-grid" style={{ marginBottom: 4, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
+        <div className="tt-grid" style={{ marginBottom: 4, gridTemplateColumns: "110px repeat(7, 1fr)" }}>
           <div />
           {DAYS.map(d => <div key={d} className="tt-day">{d}</div>)}
         </div>
 
-        {TIMESLOTS.map(timeLabel => (
-          <div key={timeLabel} className="tt-grid" style={{ marginBottom: 8, gridTemplateColumns: "80px repeat(7, 1fr)" }}>
-            <div style={{ fontSize: 10.5, color: "var(--ink3)", fontFamily: "var(--font-mono)", paddingTop: 12, paddingRight: 8, textAlign: "right", fontWeight: 600 }}>
-              {timeLabel.split(" – ")[0]}
+        {timeSlots.map(timeLabel => (
+          <div key={timeLabel} className="tt-grid" style={{ marginBottom: 8, gridTemplateColumns: "110px repeat(7, 1fr)" }}>
+            <div 
+              style={{ fontSize: 10.5, color: "var(--ink3)", fontFamily: "var(--font-mono)", paddingTop: 12, paddingRight: 8, textAlign: "right", fontWeight: 600, cursor: "pointer", transition: "color 150ms" }}
+              onClick={() => setManageRow({ originalName: timeLabel, currentName: timeLabel })}
+              title="Click to edit or remove this time block"
+            >
+              {timeLabel}
             </div>
             {DAYS.map((day, i) => {
               const slot = matrix[timeLabel][i];
@@ -125,6 +151,12 @@ export default function TimetablePage() {
             })}
           </div>
         ))}
+
+        <div style={{ marginTop: 16, textAlign: "left", paddingLeft: 118 }}>
+          <button className="btn btn-xs btn-ok" onClick={() => setManageRow({ originalName: "", currentName: "" })}>
+            + Add Time Block
+          </button>
+        </div>
       </div>
 
       <Modal open={!!editSlot} onClose={() => setEditSlot(null)} title={`Edit Schedule — ${editSlot?.day}`} footer={
@@ -188,6 +220,31 @@ export default function TimetablePage() {
                 </div>
               </>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Row Manager Modal */}
+      <Modal open={!!manageRow} onClose={() => setManageRow(null)} title={manageRow?.originalName ? "Manage Time Block" : "Add Time Block"} footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setManageRow(null)}>Cancel</button>
+          <button className="btn btn-ok btn-sm" onClick={saveManageRow}>Save changes</button>
+        </>
+      }>
+        {manageRow && (
+          <div className="form-gap">
+            <div>
+              <label className="flbl freq">Time Block Label</label>
+              <input 
+                value={manageRow.currentName} 
+                onChange={e => setManageRow(f => f ? { ...f, currentName: e.target.value } : null)}
+                placeholder="e.g. 5:30 – 7:00 PM"
+              />
+              <div className="fhint" style={{ marginTop: 6 }}>
+                If you rename this block, all existing sessions at this time will be updated. <br/>
+                If you clear the text and save, this time block and all its sessions will be deleted.
+              </div>
+            </div>
           </div>
         )}
       </Modal>
