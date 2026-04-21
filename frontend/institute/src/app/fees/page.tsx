@@ -4,15 +4,18 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { BatchTabs } from "@/components/ui/BatchTabs";
-import { BATCHES, ALL_STUDENTS, Student, BatchId, INIT_FEE_STATE, GlobalFeeState } from "@/lib/batchData";
+import { BATCHES, ALL_STUDENTS, Student, BatchId, INIT_FEE_STATE, GlobalFeeState, INIT_FEE_HISTORY } from "@/lib/batchData";
 import { useRouter } from "next/navigation";
 
 const PAYMENT_METHODS = ["Cash", "Bank transfer", "Online (card)", "Cheque"];
-const CURRENT_MONTH = new Date().toLocaleString("default", { month: "long", year: "numeric" });
+const MONTH_OPTS = ["April 2026", "March 2026", "February 2026", "January 2026"];
+const CURRENT_MONTH = MONTH_OPTS[0];
 
 export default function FeesPage() {
+  const [selMonth, setSelMonth]         = useState(CURRENT_MONTH);
   const [selBatch, setSelBatch]         = useState<BatchId>("g10");
   const [feeState, setFeeState]         = useState<GlobalFeeState>(INIT_FEE_STATE);
+  const [historyState, setHistoryState] = useState(INIT_FEE_HISTORY);
   const [markTarget, setMarkTarget]     = useState<Student | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<Student | null>(null);
   const router = useRouter();
@@ -28,12 +31,23 @@ export default function FeesPage() {
   const batch    = BATCHES.find(b => b.id === selBatch)!;
   const students = ALL_STUDENTS.filter(s => s.batch === selBatch);
 
+  const isCurrent = selMonth === CURRENT_MONTH;
+
   const getRecord = (s: Student) => {
     if (s.isFree) return { status: "waived", paidAmount: 0, credits: 0 };
+    if (!isCurrent) {
+      const hist = historyState[s.id]?.find(r => r.month === selMonth);
+      if (hist) return { status: hist.status, paidAmount: hist.amount, credits: 0, date: hist.date, receiptNo: hist.receipt };
+      return { status: "due", paidAmount: 0, credits: 0 }; // no history implies due
+    }
     return feeState[s.id] || { status: "due", paidAmount: 0, credits: 0 };
   };
   const getStatus = (s: Student) => {
     if (s.isFree) return "waived";
+    if (!isCurrent) {
+      const hist = historyState[s.id]?.find(r => r.month === selMonth);
+      return hist ? hist.status : "due";
+    }
     return feeState[s.id]?.status ?? s.fee;
   };
 
@@ -92,6 +106,27 @@ export default function FeesPage() {
       newStatus = "partial";
     }
 
+    // Update history state if past month
+    if (!isCurrent) {
+      setHistoryState(prev => {
+        const copy = { ...prev };
+        const studentHist = [...(copy[markTarget.id] || [])];
+        const idx = studentHist.findIndex(r => r.month === selMonth);
+        const newRecord = { 
+          month: selMonth, amount: payForm.isWaived ? 0 : amt, 
+          status: payForm.isWaived ? "waived" as const : newStatus,
+          date: payForm.isWaived ? undefined : payForm.paidDate,
+          receipt: payForm.isWaived ? undefined : payForm.receiptNo
+        };
+        if (idx !== -1) studentHist[idx] = newRecord;
+        else studentHist.push(newRecord);
+        copy[markTarget.id] = studentHist;
+        return copy;
+      });
+      closeAll();
+      return;
+    }
+
     setFeeState(prev => ({
       ...prev,
       [markTarget.id]: { 
@@ -126,7 +161,7 @@ export default function FeesPage() {
     <PageShell>
       <Topbar
         title="Fee tracking"
-        subtitle={`${batch.name} · ${CURRENT_MONTH}`}
+        subtitle={`${batch.name} · ${selMonth}`}
         right={
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-s btn-sm">Export Excel</button>
@@ -137,7 +172,23 @@ export default function FeesPage() {
         }
       />
       <div className="pb fi">
-        <BatchTabs active={selBatch} onChange={changeBatch} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <BatchTabs active={selBatch} onChange={changeBatch} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Month:</span>
+            <select 
+              value={selMonth} 
+              onChange={e => setSelMonth(e.target.value)}
+              style={{
+                padding: "8px 12px", borderRadius: 8, border: "1.5px solid var(--ln)", outline: "none",
+                fontSize: 12.5, fontWeight: 600, color: "var(--ink)", background: "#fff", cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,.04)"
+              }}
+            >
+              {MONTH_OPTS.map(m => <option key={m} value={m}>{m} {m === CURRENT_MONTH ? "(Current)" : ""}</option>)}
+            </select>
+          </div>
+        </div>
 
         {/* Batch KPI bar */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
@@ -302,7 +353,7 @@ export default function FeesPage() {
                 <div style={{ fontSize:11,color:"var(--ink3)" }}>{batch.name}</div>
               </div>
               <div style={{ marginLeft:"auto",textAlign:"right" }}>
-                <div style={{ fontSize:11,color:"var(--ink3)" }}>{CURRENT_MONTH} Total Due</div>
+                <div style={{ fontSize:11,color:"var(--ink3)" }}>{selMonth} Total Due</div>
                 <div style={{ fontSize:16,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
                   LKR {markTarget.feeAmount.toLocaleString()}
                 </div>
@@ -311,8 +362,8 @@ export default function FeesPage() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 4px", borderBottom: "1px solid var(--ln)" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Exempt fee for this month only (100% Free)</div>
-                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Waive the fee purely for the current month cycle.</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Exempt fee for {isCurrent ? "this month only" : selMonth} (100% Free)</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Waive the fee purely for the {isCurrent ? "current" : "selected historical"} month cycle.</div>
               </div>
               <button 
                 className={`toggle ${payForm.isWaived ? "on" : ""}`}
