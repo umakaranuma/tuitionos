@@ -1,3 +1,5 @@
+"use client";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { BATCHES, ALL_STUDENTS, INIT_FEE_STATE, TEACHERS, INIT_TEACHER_PAYMENTS } from "@/lib/batchData";
@@ -89,7 +91,7 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span>Next scheduled renewal: <strong style={{ color: "#d4ede3" }}>May 1, 2026</strong></span>
-          <button style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>Manage Billing →</button>
+          <Link href="/settings" style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>Manage Billing →</Link>
         </div>
       </div>
       <div className="pb fi">

@@ -437,7 +437,7 @@ export default function FeesPage() {
             }}>
               <div style={{ fontSize:11,color:"var(--tc-d)",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700,marginBottom:4 }}>RECEIPT</div>
               <div style={{ fontSize:22,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
-                {getReceiptNo(receiptTarget) || "—"}
+                {getRecord(receiptTarget).receiptNo || "—"}
               </div>
             </div>
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>

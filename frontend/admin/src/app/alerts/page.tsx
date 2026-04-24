@@ -23,6 +23,25 @@ const initialAlerts = [
     ],
   },
   {
+    id: 5, color: "var(--ac)", bg: "var(--ac-l)", stroke: "var(--ac)", type: "upgrade",
+    title: "Mathura Edu — upgrade request",
+    sub: "Basic → Premium · LKR 3,000 → 6,000/mo · Requested 2h ago",
+    actions: [
+      { label: "Approve upgrade", cls: "btn-ok" },
+      { label: "Contact institute", cls: "btn-s" },
+    ],
+  },
+  {
+    id: 6, color: "var(--sp)", bg: "var(--sp-l)", stroke: "var(--sp)", type: "downgrade",
+    title: "Vision Academy — downgrade request",
+    sub: "Premium → Basic · Effective May 1, 2026 · 280 students (over Basic limit)",
+    actions: [
+      { label: "Approve downgrade", cls: "btn-s" },
+      { label: "Contact institute", cls: "btn-s" },
+      { label: "Reject", cls: "btn-d" },
+    ],
+  },
+  {
     id: 3, color: "var(--sp)", bg: "var(--sp-l)", stroke: "var(--sp)", type: "info",
     title: "Alpha Lanka — trial ends in 3 days",
     sub: "Basic trial · admin@alphalanka.lk",
@@ -66,6 +85,16 @@ export default function AlertsPage() {
     if (type === "warn") return (
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke={stroke} strokeWidth="1.75">
         <path d="M7.5 2L1 13h13L7.5 2zM7.5 6v4M7.5 11.5h.01"/>
+      </svg>
+    );
+    if (type === "upgrade") return (
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke={stroke} strokeWidth="1.75">
+        <path d="M7.5 11V4M4.5 7l3-3 3 3"/><circle cx="7.5" cy="7.5" r="6"/>
+      </svg>
+    );
+    if (type === "downgrade") return (
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke={stroke} strokeWidth="1.75">
+        <path d="M7.5 4v7M4.5 8l3 3 3-3"/><circle cx="7.5" cy="7.5" r="6"/>
       </svg>
     );
     return (

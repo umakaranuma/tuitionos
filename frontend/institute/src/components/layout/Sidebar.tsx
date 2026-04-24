@@ -79,6 +79,15 @@ const sections: { title: string; items: NavItem[] }[] = [
       },
     ],
   },
+  {
+    title: "Account",
+    items: [
+      {
+        label: "Settings & Billing", href: "/settings",
+        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><circle cx="7" cy="7" r="2.5"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.8 2.8l1.1 1.1M10.1 10.1l1.1 1.1M11.2 2.8l-1.1 1.1M3.9 10.1L2.8 11.2"/></svg>
+      },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -92,10 +101,13 @@ export function Sidebar() {
         <div className="sb-logo-url">stpatricks.tuitionos.lk</div>
       </div>
 
-      <div className="sb-plan">
-        <div className="sb-plan-t">Premium plan</div>
+      <Link href="/settings" className="sb-plan" style={{ textDecoration: "none", display: "block", cursor: "pointer", transition: "all 120ms" }}>
+        <div className="sb-plan-t" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          Premium plan
+          <span style={{ fontSize: 8, opacity: .5 }}>MANAGE →</span>
+        </div>
         Jaffna · Unlimited students
-      </div>
+      </Link>
 
       {sections.map((section) => (
         <div key={section.title}>
@@ -116,10 +128,26 @@ export function Sidebar() {
 
       <div className="sb-foot">
         <div className="sb-ava">SK</div>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="sb-user">Sundar Kumar</div>
           <div className="sb-role">Institute Admin</div>
         </div>
+        <button
+          onClick={() => { if (typeof window !== "undefined") window.location.href = "/login"; }}
+          title="Sign out"
+          style={{
+            width: 26, height: 26, borderRadius: 6, border: "1px solid rgba(255,255,255,.1)",
+            background: "rgba(255,255,255,.05)", color: "rgba(255,255,255,.4)", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            transition: "all 120ms",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(184,48,48,.3)"; e.currentTarget.style.borderColor = "rgba(184,48,48,.5)"; e.currentTarget.style.color = "#fca5a5"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,.05)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.1)"; e.currentTarget.style.color = "rgba(255,255,255,.4)"; }}
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M5 1.5H2.5a1 1 0 00-1 1v8a1 1 0 001 1H5M8.5 9.5l3-3-3-3M11 6.5H5"/>
+          </svg>
+        </button>
       </div>
     </aside>
   );

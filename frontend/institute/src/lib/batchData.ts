@@ -202,16 +202,16 @@ export const INIT_TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 �
 // Based on the former static 'slots' from timetable page
 export const INIT_TIMETABLE: TimetableSession[] = [
   // g10 batch
-  { id: 1, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Monday",    timeStr: "8:00 – 9:30 AM" },
-  { id: 2, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Tuesday",   timeStr: "8:00 – 9:30 AM" },
-  { id: 3, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Thursday",  timeStr: "8:00 – 9:30 AM" },
+  { id: 1, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Mon",    timeStr: "8:00 – 9:30 AM" },
+  { id: 2, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Tue",    timeStr: "8:00 – 9:30 AM" },
+  { id: 3, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Thu",    timeStr: "8:00 – 9:30 AM" },
   
-  { id: 4, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Monday",    timeStr: "10:00 – 11:30 AM" },
-  { id: 5, batchId: "g10", teacherId: 4, subject: "English",     day: "Tuesday",   timeStr: "10:00 – 11:30 AM" },
-  { id: 6, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Thursday",  timeStr: "10:00 – 11:30 AM" },
+  { id: 4, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Mon",    timeStr: "10:00 – 11:30 AM" },
+  { id: 5, batchId: "g10", teacherId: 4, subject: "English",     day: "Tue",    timeStr: "10:00 – 11:30 AM" },
+  { id: 6, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Thu",    timeStr: "10:00 – 11:30 AM" },
   
-  { id: 7, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Wednesday", timeStr: "2:00 – 3:30 PM" },
-  { id: 8, batchId: "g10", teacherId: 4, subject: "English",     day: "Friday",    timeStr: "2:00 – 3:30 PM" },
+  { id: 7, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Wed",    timeStr: "2:00 – 3:30 PM" },
+  { id: 8, batchId: "g10", teacherId: 4, subject: "English",     day: "Fri",    timeStr: "2:00 – 3:30 PM" },
   
   { id: 9, type: "class", batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Mon", timeStr: "4:00 – 5:30 PM" },
 ];
@@ -254,10 +254,10 @@ ALL_STUDENTS.forEach(s => {
 });
 
 export const INIT_TIMETABLE_EXT: TimetableSession[] = [
-  { id: 10, batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Friday", timeStr: "4:00 – 5:30 PM" },
+  { id: 10, batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Fri", timeStr: "4:00 – 5:30 PM" },
   
   // Example extra slot for g7a
-  { id: 11, batchId: "g7a", teacherId: 1, subject: "Mathematics", day: "Wednesday", timeStr: "8:00 – 9:30 AM" },
+  { id: 11, batchId: "g7a", teacherId: 1, subject: "Mathematics", day: "Wed", timeStr: "8:00 – 9:30 AM" },
 ];
 
 /* ── ACCOUNTS GLOBAL DATA ── */

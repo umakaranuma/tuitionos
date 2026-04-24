@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 
@@ -38,6 +39,7 @@ const initials = (n: string) =>
 type Filter = "all" | "premium" | "basic" | "overdue";
 
 export default function InstitutesPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
 
@@ -103,7 +105,7 @@ export default function InstitutesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((i) => (
+              {filtered.map((i, idx) => (
                 <tr key={i.n}>
                   <td>
                     <div className="td-nm">
@@ -123,7 +125,7 @@ export default function InstitutesPage() {
                   <td>{statusBadge(i.st)}</td>
                   <td>
                     <div style={{ display: "flex", gap: 4 }}>
-                      <button className="btn btn-xs btn-s">View</button>
+                      <button className="btn btn-xs btn-s" onClick={() => router.push(`/institutes/${idx + 1}`)}>View</button>
                       {i.st === "overdue" && <button className="btn btn-xs btn-d">Suspend</button>}
                       {i.st === "due" && <button className="btn btn-xs btn-ok">Remind</button>}
                     </div>
