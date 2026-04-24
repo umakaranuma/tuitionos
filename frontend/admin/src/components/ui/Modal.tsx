@@ -1,15 +1,37 @@
 "use client";
-export function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  if (!isOpen) return null;
+import { useEffect } from "react";
+
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  wide?: boolean;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}
+
+export function Modal({ open, onClose, title, wide, children, footer }: ModalProps) {
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-slate-800 rounded-xl border border-slate-700 p-6 w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-lg">&#x2715;</button>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className={`modal-box${wide ? " wide" : ""}`}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="modal-hdr">
+          <span className="modal-title">{title}</span>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
-        {children}
+        <div className="modal-body">{children}</div>
+        {footer && <div className="modal-ftr">{footer}</div>}
       </div>
     </div>
   );

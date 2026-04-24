@@ -184,225 +184,120 @@ export default function SettingsPage() {
         </div>
 
         {/* ── PLAN COMPARISON ── */}
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 12 }}>
+        <div style={{ marginBottom: 40 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 16, textAlign: "center" }}>
             Compare plans
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-            {/* Basic plan card */}
-            <div style={{
-              background: "#fff", border: currentPlan === "basic" ? "2px solid #2a5fa8" : "1.5px solid var(--ln)",
-              borderRadius: 16, padding: "20px 22px", position: "relative", overflow: "hidden",
-              boxShadow: currentPlan === "basic" ? "0 4px 16px rgba(42,95,168,.12)" : "var(--sh)",
-            }}>
-              {currentPlan === "basic" && (
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "#2a5fa8" }} />
-              )}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10, background: "#d8e6fa",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#2a5fa8" strokeWidth="1.75">
-                    <rect x="3" y="3" width="12" height="12" rx="2"/><path d="M7 9h4M9 7v4"/>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Basic</div>
-                  <div style={{ fontSize: 11, color: "var(--ink3)" }}>For getting started</div>
-                </div>
-                {currentPlan === "basic" && (
-                  <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 99, background: "#d8e6fa", color: "#2a5fa8", letterSpacing: ".05em" }}>
-                    CURRENT
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: "#2a5fa8", fontFamily: "var(--font-mono)", lineHeight: 1, marginBottom: 2 }}>
-                3,000
-              </div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 14 }}>LKR per month</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, maxWidth: 760, margin: "0 auto" }}>
+            {(["basic", "premium"] as const).map(pk => {
+              const p = PLAN_DEFINITIONS[pk];
+              const included = PLAN_FEATURES.filter(f => pk === "basic" ? f.basic : f.premium);
+              const excluded = PLAN_FEATURES.filter(f => pk === "basic" ? !f.basic : !f.premium);
+              const isCurrent = currentPlan === pk;
 
-              {/* Limits */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                {[
-                  { label: "200", sub: "Students" },
-                  { label: "10", sub: "Batches" },
-                  { label: "5 GB", sub: "Storage" },
-                ].map(l => (
-                  <div key={l.sub} style={{
-                    flex: 1, background: "#f4f7fb", borderRadius: 8, padding: "8px 0", textAlign: "center",
-                  }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#2a5fa8", fontFamily: "var(--font-mono)" }}>{l.label}</div>
-                    <div style={{ fontSize: 9.5, color: "var(--ink3)", fontWeight: 600 }}>{l.sub}</div>
+              return (
+                <div key={pk} style={{
+                  background: "#fff", borderRadius: 16, padding: "28px 24px",
+                  boxShadow: isCurrent ? `0 4px 24px ${p.color}20` : "0 2px 20px rgba(28,25,23,.06)",
+                  border: isCurrent ? `2px solid ${p.color}` : "1px solid var(--ln)",
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  position: "relative",
+                }}>
+                  {isCurrent && (
+                    <div style={{
+                      position: "absolute", top: 16, right: 18, background: p.colorLight, color: p.color,
+                      fontSize: 9, fontWeight: 800, padding: "4px 12px", borderRadius: 99, letterSpacing: ".06em"
+                    }}>
+                      CURRENT
+                    </div>
+                  )}
+
+                  {/* Plan name */}
+                  <div style={{ fontSize: 22, fontWeight: 700, color: p.color, fontFamily: "var(--font-serif)", marginBottom: 6 }}>
+                    {p.label}
                   </div>
-                ))}
-              </div>
+                  <div style={{ width: 50, height: 3, borderRadius: 99, background: p.color, marginBottom: 20 }} />
 
-              {currentPlan !== "basic" ? (
-                <button className="btn btn-s btn-sm" onClick={() => setShowDowngrade(true)} style={{ width: "100%" }}>
-                  Downgrade to Basic
-                </button>
-              ) : (
-                <div style={{ textAlign: "center", fontSize: 11.5, color: "#2a5fa8", fontWeight: 600, padding: "6px 0" }}>
-                  ✓ You are on this plan
-                </div>
-              )}
-            </div>
-
-            {/* Premium plan card */}
-            <div style={{
-              background: "#fff", border: currentPlan === "premium" ? "2px solid #9b5e35" : "1.5px solid var(--ln)",
-              borderRadius: 16, padding: "20px 22px", position: "relative", overflow: "hidden",
-              boxShadow: currentPlan === "premium" ? "0 4px 16px rgba(155,94,53,.12)" : "var(--sh)",
-            }}>
-              {currentPlan === "premium" && (
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "#9b5e35" }} />
-              )}
-              {currentPlan !== "premium" && (
-                <div style={{
-                  position: "absolute", top: 10, right: -28, background: "#9b5e35", color: "#fff",
-                  fontSize: 8, fontWeight: 800, padding: "3px 32px", transform: "rotate(45deg)", letterSpacing: ".08em",
-                }}>
-                  RECOMMENDED
-                </div>
-              )}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10, background: "#f0ddd0",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#9b5e35" strokeWidth="1.75">
-                    <path d="M9 2l2 4h4.5l-3.5 3 1 4.5L9 11l-4 2.5 1-4.5L2.5 6H7L9 2z"/>
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Premium</div>
-                  <div style={{ fontSize: 11, color: "var(--ink3)" }}>Full-powered management</div>
-                </div>
-                {currentPlan === "premium" && (
-                  <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, padding: "3px 8px", borderRadius: 99, background: "#f0ddd0", color: "#9b5e35", letterSpacing: ".05em" }}>
-                    CURRENT
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: "#9b5e35", fontFamily: "var(--font-mono)", lineHeight: 1, marginBottom: 2 }}>
-                6,000
-              </div>
-              <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 14 }}>LKR per month</div>
-
-              {/* Limits */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                {[
-                  { label: "∞", sub: "Students" },
-                  { label: "∞", sub: "Batches" },
-                  { label: "10 GB", sub: "Storage" },
-                ].map(l => (
-                  <div key={l.sub} style={{
-                    flex: 1, background: "#faf4ee", borderRadius: 8, padding: "8px 0", textAlign: "center",
-                  }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#9b5e35", fontFamily: "var(--font-mono)" }}>{l.label}</div>
-                    <div style={{ fontSize: 9.5, color: "var(--ink3)", fontWeight: 600 }}>{l.sub}</div>
+                  {/* Price */}
+                  <div style={{ textAlign: "center", marginBottom: 6 }}>
+                    <span style={{ fontSize: 48, fontWeight: 800, color: "var(--ink)", fontFamily: "var(--font-mono)", lineHeight: 1, letterSpacing: "-0.02em" }}>
+                      {formatPriceShort(p.priceLKR)}
+                    </span>
+                    <span style={{ fontSize: 16, color: "var(--ink3)", marginLeft: 2 }}>LKR</span>
                   </div>
-                ))}
-              </div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink3)", marginBottom: 24 }}>per month / prepaid</div>
 
-              {currentPlan !== "premium" ? (
-                <button
-                  className="btn btn-sm"
-                  style={{ width: "100%", background: "#9b5e35", color: "#fff", border: "none" }}
-                  onClick={() => setShowUpgrade(true)}
-                >
-                  ↑ Upgrade to Premium
-                </button>
-              ) : (
-                <div style={{ textAlign: "center", fontSize: 11.5, color: "#9b5e35", fontWeight: 600, padding: "6px 0" }}>
-                  ✓ You are on this plan
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Feature matrix */}
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--ln)" }}>
-                  <th style={{ textAlign: "left", padding: "12px 16px", fontSize: 10, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".07em", textTransform: "uppercase", background: "var(--cr)" }}>
-                    Feature
-                  </th>
-                  <th style={{ textAlign: "center", padding: "12px 16px", fontSize: 10, fontWeight: 700, color: "#2a5fa8", letterSpacing: ".07em", textTransform: "uppercase", background: "var(--cr)", width: 120 }}>
-                    Basic
-                  </th>
-                  <th style={{ textAlign: "center", padding: "12px 16px", fontSize: 10, fontWeight: 700, color: "#9b5e35", letterSpacing: ".07em", textTransform: "uppercase", background: "var(--cr)", width: 120 }}>
-                    Premium
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sharedCategories.map(cat => (
-                  <>
-                    <tr key={`cat-${cat}`}>
-                      <td colSpan={3} style={{
-                        padding: "8px 16px", fontSize: 9.5, fontWeight: 700,
-                        color: "var(--ink3)", letterSpacing: ".08em", textTransform: "uppercase",
-                        background: "var(--cr-d)", borderBottom: "1px solid var(--ln)",
+                  {/* Feature list */}
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 0, marginBottom: 24, flex: 1 }}>
+                    {included.map(f => (
+                      <div key={f.id} style={{
+                        display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 0",
+                        borderBottom: "1px solid var(--ln)", fontSize: 12, color: "var(--ink2)",
                       }}>
-                        {CATEGORY_LABELS[cat]}
-                      </td>
-                    </tr>
-                    {sharedFeatures.filter(f => f.category === cat).map(f => (
-                      <tr key={f.id} style={{ borderBottom: "1px solid var(--ln)" }}>
-                        <td style={{ padding: "9px 16px", color: "var(--ink)" }}>{f.label}</td>
-                        <td style={{ textAlign: "center", padding: "9px 16px" }}>
-                          {f.basic ? (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#2d7a5a" strokeWidth="2.5" style={{ display: "inline" }}>
-                              <path d="M3 8l4 4 6-6"/>
-                            </svg>
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5" style={{ display: "inline", opacity: .35 }}>
-                              <path d="M4 4l6 6M10 4l-6 6"/>
-                            </svg>
-                          )}
-                        </td>
-                        <td style={{ textAlign: "center", padding: "9px 16px" }}>
-                          {f.premium ? (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#2d7a5a" strokeWidth="2.5" style={{ display: "inline" }}>
-                              <path d="M3 8l4 4 6-6"/>
-                            </svg>
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5" style={{ display: "inline", opacity: .35 }}>
-                              <path d="M4 4l6 6M10 4l-6 6"/>
-                            </svg>
-                          )}
-                        </td>
-                      </tr>
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                          <circle cx="9" cy="9" r="8" fill="#d4ede3"/>
+                          <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#2d7a5a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        {f.label}
+                      </div>
                     ))}
-                  </>
-                ))}
-                {/* Limits section */}
-                <tr>
-                  <td colSpan={3} style={{
-                    padding: "8px 16px", fontSize: 9.5, fontWeight: 700,
-                    color: "var(--ink3)", letterSpacing: ".08em", textTransform: "uppercase",
-                    background: "var(--cr-d)", borderBottom: "1px solid var(--ln)",
-                  }}>
-                    Limits
-                  </td>
-                </tr>
-                {sharedLimits.map(l => (
-                  <tr key={l.id} style={{ borderBottom: "1px solid var(--ln)" }}>
-                    <td style={{ padding: "9px 16px", color: "var(--ink)" }}>{l.label}</td>
-                    <td style={{ textAlign: "center", padding: "9px 16px" }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#2a5fa8", fontFamily: "var(--font-mono)" }}>{l.basic}</span>
-                    </td>
-                    <td style={{ textAlign: "center", padding: "9px 16px" }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#9b5e35", fontFamily: "var(--font-mono)" }}>{l.premium}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {excluded.map(f => (
+                      <div key={f.id} style={{
+                        display: "flex", alignItems: "flex-start", gap: 10, padding: "7px 0",
+                        borderBottom: "1px solid var(--ln)", fontSize: 12, color: "var(--ink3)",
+                      }}>
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                          <circle cx="9" cy="9" r="8" fill="var(--rb-l)"/>
+                          <path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="var(--rb)" strokeWidth="1.75" strokeLinecap="round"/>
+                        </svg>
+                        {f.label}
+                      </div>
+                    ))}
+                    {/* Limits */}
+                    {PLAN_LIMITS.map(l => (
+                      <div key={l.id} style={{
+                        display: "flex", alignItems: "center", gap: 10, padding: "7px 0",
+                        borderBottom: "1px solid var(--ln)", fontSize: 12, color: "var(--ink2)",
+                      }}>
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0 }}>
+                          <circle cx="9" cy="9" r="8" fill={`${p.color}15`}/>
+                          <text x="9" y="12" textAnchor="middle" fill={p.color} fontSize="9" fontWeight="700" fontFamily="var(--font-mono)">
+                            {(pk === "basic" ? l.basic : l.premium).replace(" GB","").replace("Unlimited","∞")}
+                          </text>
+                        </svg>
+                        <span>{l.label}: <strong style={{ color: p.color }}>{pk === "basic" ? l.basic : l.premium}</strong></span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CTA button */}
+                  {isCurrent ? (
+                    <div style={{
+                      width: "100%", padding: "12px 0", borderRadius: 99,
+                      background: p.colorLight, color: p.color, fontSize: 13, fontWeight: 700,
+                      textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7.5l2.5 2.5 5.5-5.5"/></svg>
+                      Current plan
+                    </div>
+                  ) : (
+                    <button onClick={() => pk === "basic" ? setShowDowngrade(true) : setShowUpgrade(true)} style={{
+                      width: "100%", padding: "12px 0", borderRadius: 99, border: "none",
+                      background: `linear-gradient(135deg, ${p.color}, ${p.color}cc)`,
+                      color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                      boxShadow: `0 4px 14px ${p.color}40`, transition: "transform 150ms, box-shadow 150ms",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    }}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        {pk === "premium" ? <path d="M7 1v12M3 5l4-4 4 4" /> : <path d="M7 13V1M3 9l4 4 4-4" />}
+                      </svg>
+                      {pk === "premium" ? "Upgrade to Premium" : "Downgrade to Basic"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
