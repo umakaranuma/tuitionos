@@ -53,6 +53,10 @@ const sections: { title: string; items: NavItem[] }[] = [
         icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M2 7l3 3 7-7"/><rect x="1" y="1" width="12" height="12" rx="1.5"/></svg>
       },
       {
+        label: "Exams", href: "/exams",
+        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="1.5" width="10" height="11" rx="1.5"/><path d="M5 5h4M5 7.5h4M5 10h2"/></svg>
+      },
+      {
         label: "Fee tracking", href: "/fees",
         icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 2h9a.5.5 0 01.5.5v10l-1.5-1L9 12.5 7.5 11.5 6 12.5 4.5 11.5 3 12.5V2.5a.5.5 0 01.5-.5z"/><path d="M4.5 5h5M4.5 7.5h3.5"/></svg>
       },

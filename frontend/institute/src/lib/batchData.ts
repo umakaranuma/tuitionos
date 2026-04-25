@@ -322,3 +322,90 @@ export const INIT_TRANSACTIONS: InstituteTransaction[] = [
   { id: 4, month: "March 2026", type: "expense", category: "Utility Bill", label: "Water & Internet", amount: 8500, date: "2026-03-12" },
   { id: 5, month: "March 2026", type: "income", category: "Sponsorship", label: "Local Business Grant", amount: 20000, date: "2026-03-15" }
 ];
+
+/* ── EXAM DATA ── */
+export type Exam = {
+  id: number;
+  name: string;            // e.g. "Term 1 Exam", "Mid-year Exam"
+  year: number;
+  batchId: BatchId;
+  startDate: string;
+  endDate: string;
+  status: "upcoming" | "ongoing" | "completed";
+  maxMarks: number;        // default max per subject
+  schedule: ExamScheduleItem[];
+};
+
+export type ExamScheduleItem = {
+  date: string;
+  subject: string;
+  startTime: string;
+  endTime: string;
+};
+
+export type ExamMark = {
+  examId: number;
+  studentId: number;
+  subject: string;
+  marks: number | null;    // null = not yet entered
+  maxMarks: number;
+};
+
+function genExamSchedule(batchId: BatchId, startDate: string): ExamScheduleItem[] {
+  const batch = BATCHES.find(b => b.id === batchId)!;
+  const start = new Date(startDate);
+  return batch.subjects.map((subj, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    return {
+      date: d.toISOString().slice(0, 10),
+      subject: subj,
+      startTime: "09:00",
+      endTime: "11:00",
+    };
+  });
+}
+
+function genMarks(examId: number, batchId: BatchId, maxM: number, completed: boolean): ExamMark[] {
+  const batchStudents = ALL_STUDENTS.filter(s => s.batch === batchId);
+  const batch = BATCHES.find(b => b.id === batchId)!;
+  const marks: ExamMark[] = [];
+  batchStudents.forEach(st => {
+    batch.subjects.forEach((subj, si) => {
+      marks.push({
+        examId, studentId: st.id, subject: subj, maxMarks: maxM,
+        marks: completed ? Math.min(maxM, Math.max(20, Math.floor(40 + (st.attPct * 0.55) + (si * 3) + (st.id * 7) % 15))) : null,
+      });
+    });
+  });
+  return marks;
+}
+
+// Generate exams for each batch
+const examDefs: { name: string; start: string; end: string; status: Exam["status"] }[] = [
+  { name: "Term 1 Exam", start: "2026-02-10", end: "2026-02-14", status: "completed" },
+  { name: "Mid-year Exam", start: "2026-04-28", end: "2026-05-02", status: "upcoming" },
+];
+
+let eid = 1;
+export const INIT_EXAMS: Exam[] = [];
+export const INIT_EXAM_MARKS: ExamMark[] = [];
+
+BATCHES.forEach(batch => {
+  examDefs.forEach(def => {
+    const exam: Exam = {
+      id: eid,
+      name: def.name,
+      year: 2026,
+      batchId: batch.id,
+      startDate: def.start,
+      endDate: def.end,
+      status: def.status,
+      maxMarks: 100,
+      schedule: genExamSchedule(batch.id, def.start),
+    };
+    INIT_EXAMS.push(exam);
+    INIT_EXAM_MARKS.push(...genMarks(eid, batch.id, 100, def.status === "completed"));
+    eid++;
+  });
+});

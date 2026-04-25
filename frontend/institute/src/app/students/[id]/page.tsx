@@ -5,13 +5,15 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { 
-  ALL_STUDENTS, BATCHES, INIT_FEE_STATE, INIT_FEE_HISTORY, FeeHistoryRecord 
+  ALL_STUDENTS, BATCHES, INIT_FEE_STATE, INIT_FEE_HISTORY, FeeHistoryRecord,
+  INIT_EXAMS, INIT_EXAM_MARKS
 } from "@/lib/batchData";
 
 const TAB_OPTS = [
   { id: "overview", label: "Overview" },
-  { id: "attendance", label: "Attendance History" },
-  { id: "fees", label: "Fee History" }
+  { id: "attendance", label: "Attendance" },
+  { id: "exams", label: "Exam results" },
+  { id: "fees", label: "Fee history" }
 ] as const;
 
 export default function StudentSinglePage() {
@@ -21,7 +23,7 @@ export default function StudentSinglePage() {
   const id = parseInt(idStr, 10);
   const student = ALL_STUDENTS.find(s => s.id === id);
   
-  const [tab, setTab] = useState<"overview" | "attendance" | "fees">("overview");
+  const [tab, setTab] = useState<"overview" | "attendance" | "exams" | "fees">("overview");
   const [isFree, setIsFree] = useState(student?.isFree || false);
 
   const toggleFree = () => {
@@ -237,6 +239,83 @@ export default function StudentSinglePage() {
               </div>
             </div>
           )}
+
+          {tab === "exams" && (() => {
+            const studentExams = INIT_EXAMS.filter(e => e.batchId === student.batch);
+            const studentMarks = INIT_EXAM_MARKS.filter(m => m.studentId === student.id);
+            if (studentExams.length === 0) return <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)", fontSize: 13 }}>No exams recorded yet.</div>;
+
+            function gradeInfo(m: number, max: number) {
+              const pct = (m / max) * 100;
+              if (pct >= 75) return { label: "A", bg: "#d4ede3", fg: "#1a5040" };
+              if (pct >= 65) return { label: "B", bg: "#d8e6fa", fg: "#2a5fa8" };
+              if (pct >= 50) return { label: "C", bg: "#fef3d7", fg: "#c07b1a" };
+              if (pct >= 35) return { label: "S", bg: "#ede8fc", fg: "#6b3ea8" };
+              return { label: "F", bg: "#fceaea", fg: "#b83030" };
+            }
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {studentExams.map(exam => {
+                  const examMarks = studentMarks.filter(m => m.examId === exam.id);
+                  const scored = examMarks.filter(m => m.marks !== null);
+                  const totalMarks = scored.reduce((a, m) => a + (m.marks || 0), 0);
+                  const totalMax = scored.reduce((a, m) => a + m.maxMarks, 0);
+                  const avg = totalMax > 0 ? Math.round((totalMarks / totalMax) * 100) : 0;
+
+                  return (
+                    <div key={exam.id} style={{ background: "#fff", border: "1.5px solid var(--ln)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(28,25,23,.05)" }}>
+                      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--ln)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{exam.name}</div>
+                          <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>{exam.startDate} — {exam.endDate}</div>
+                        </div>
+                        {scored.length > 0 ? (
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-mono)", color: avg >= 50 ? "var(--tc-d)" : "#b83030" }}>{avg}%</div>
+                            <div style={{ fontSize: 10, color: "var(--ink3)" }}>{totalMarks}/{totalMax}</div>
+                          </div>
+                        ) : (
+                          <span style={{ background: "#d8e6fa", color: "#2a5fa8", fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 99 }}>Upcoming</span>
+                        )}
+                      </div>
+                      {scored.length > 0 && (
+                        <div className="tw" style={{ margin: 0 }}>
+                          <table>
+                            <thead><tr><th>Subject</th><th>Marks</th><th>Grade</th><th style={{ width: 200 }}>Performance</th></tr></thead>
+                            <tbody>
+                              {examMarks.map(m => {
+                                if (m.marks === null) return (
+                                  <tr key={m.subject}><td style={{ fontWeight: 600 }}>{m.subject}</td><td colSpan={3} style={{ color: "var(--ink3)", fontSize: 11 }}>Not yet available</td></tr>
+                                );
+                                const g = gradeInfo(m.marks, m.maxMarks);
+                                const pct = Math.round((m.marks / m.maxMarks) * 100);
+                                return (
+                                  <tr key={m.subject}>
+                                    <td style={{ fontWeight: 600, color: "var(--ink)" }}>{m.subject}</td>
+                                    <td className="mono" style={{ fontWeight: 700 }}>{m.marks} / {m.maxMarks}</td>
+                                    <td><span style={{ background: g.bg, color: g.fg, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4 }}>{g.label}</span></td>
+                                    <td>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <div style={{ flex: 1, height: 6, background: "var(--ln)", borderRadius: 99, overflow: "hidden" }}>
+                                          <div style={{ height: "100%", width: `${pct}%`, background: g.fg, borderRadius: 99, transition: "width 400ms" }} />
+                                        </div>
+                                        <span className="mono" style={{ fontSize: 10, color: "var(--ink3)", width: 30 }}>{pct}%</span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {tab === "fees" && (
             <div>
