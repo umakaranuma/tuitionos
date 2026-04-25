@@ -201,20 +201,64 @@ export const INIT_TIMESLOTS = ["8:00 – 9:30 AM", "10:00 – 11:30 AM", "2:00 �
 
 // Based on the former static 'slots' from timetable page
 export const INIT_TIMETABLE: TimetableSession[] = [
-  // g10 batch
-  { id: 1, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Mon",    timeStr: "8:00 – 9:30 AM" },
-  { id: 2, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Tue",    timeStr: "8:00 – 9:30 AM" },
-  { id: 3, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Thu",    timeStr: "8:00 – 9:30 AM" },
-  
-  { id: 4, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Mon",    timeStr: "10:00 – 11:30 AM" },
-  { id: 5, batchId: "g10", teacherId: 4, subject: "English",     day: "Tue",    timeStr: "10:00 – 11:30 AM" },
-  { id: 6, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Thu",    timeStr: "10:00 – 11:30 AM" },
-  
-  { id: 7, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Wed",    timeStr: "2:00 – 3:30 PM" },
-  { id: 8, batchId: "g10", teacherId: 4, subject: "English",     day: "Fri",    timeStr: "2:00 – 3:30 PM" },
-  
-  { id: 9, type: "class", batchId: "g10", teacherId: 5, subject: "Tamil Literature", day: "Mon", timeStr: "4:00 – 5:30 PM" },
+  // ── g7a ──
+  { id: 1,  batchId: "g7a", teacherId: 1, subject: "Mathematics", day: "Mon", timeStr: "8:00 – 9:30 AM" },
+  { id: 2,  batchId: "g7a", teacherId: 4, subject: "English",     day: "Mon", timeStr: "10:00 – 11:30 AM" },
+  { id: 3,  batchId: "g7a", teacherId: 5, subject: "Tamil",       day: "Tue", timeStr: "8:00 – 9:30 AM" },
+  { id: 4,  batchId: "g7a", teacherId: 1, subject: "Mathematics", day: "Wed", timeStr: "8:00 – 9:30 AM" },
+  { id: 5,  batchId: "g7a", teacherId: 4, subject: "Science",     day: "Wed", timeStr: "10:00 – 11:30 AM" },
+  { id: 6,  batchId: "g7a", teacherId: 4, subject: "English",     day: "Thu", timeStr: "8:00 – 9:30 AM" },
+  { id: 7,  batchId: "g7a", teacherId: 5, subject: "Tamil",       day: "Fri", timeStr: "8:00 – 9:30 AM" },
+  { id: 8,  batchId: "g7a", teacherId: 1, subject: "Science",     day: "Fri", timeStr: "10:00 – 11:30 AM" },
+  // ── g8a ──
+  { id: 9,  batchId: "g8a", teacherId: 1, subject: "Mathematics", day: "Mon", timeStr: "2:00 – 3:30 PM" },
+  { id: 10, batchId: "g8a", teacherId: 2, subject: "Physics",     day: "Tue", timeStr: "2:00 – 3:30 PM" },
+  { id: 11, batchId: "g8a", teacherId: 4, subject: "English",     day: "Tue", timeStr: "4:00 – 5:30 PM" },
+  { id: 12, batchId: "g8a", teacherId: 5, subject: "Tamil",       day: "Wed", timeStr: "2:00 – 3:30 PM" },
+  { id: 13, batchId: "g8a", teacherId: 1, subject: "Mathematics", day: "Thu", timeStr: "2:00 – 3:30 PM" },
+  { id: 14, batchId: "g8a", teacherId: 2, subject: "Physics",     day: "Thu", timeStr: "4:00 – 5:30 PM" },
+  { id: 15, batchId: "g8a", teacherId: 4, subject: "English",     day: "Fri", timeStr: "2:00 – 3:30 PM" },
+  // ── g9a ──
+  { id: 16, batchId: "g9a", teacherId: 1, subject: "Mathematics", day: "Mon", timeStr: "8:00 – 9:30 AM" },
+  { id: 17, batchId: "g9a", teacherId: 2, subject: "Physics",     day: "Mon", timeStr: "10:00 – 11:30 AM" },
+  { id: 18, batchId: "g9a", teacherId: 3, subject: "Chemistry",   day: "Tue", timeStr: "8:00 – 9:30 AM" },
+  { id: 19, batchId: "g9a", teacherId: 4, subject: "English",     day: "Tue", timeStr: "10:00 – 11:30 AM" },
+  { id: 20, batchId: "g9a", teacherId: 1, subject: "Mathematics", day: "Wed", timeStr: "8:00 – 9:30 AM" },
+  { id: 21, batchId: "g9a", teacherId: 3, subject: "Chemistry",   day: "Thu", timeStr: "8:00 – 9:30 AM" },
+  { id: 22, batchId: "g9a", teacherId: 2, subject: "Physics",     day: "Fri", timeStr: "8:00 – 9:30 AM" },
+  // ── g10 ──
+  { id: 23, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Mon", timeStr: "8:00 – 9:30 AM" },
+  { id: 24, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Tue", timeStr: "8:00 – 9:30 AM" },
+  { id: 25, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Thu", timeStr: "8:00 – 9:30 AM" },
+  { id: 26, batchId: "g10", teacherId: 1, subject: "Mathematics", day: "Mon", timeStr: "10:00 – 11:30 AM" },
+  { id: 27, batchId: "g10", teacherId: 4, subject: "English",     day: "Tue", timeStr: "10:00 – 11:30 AM" },
+  { id: 28, batchId: "g10", teacherId: 2, subject: "Physics",     day: "Thu", timeStr: "10:00 – 11:30 AM" },
+  { id: 29, batchId: "g10", teacherId: 3, subject: "Chemistry",   day: "Wed", timeStr: "2:00 – 3:30 PM" },
+  { id: 30, batchId: "g10", teacherId: 4, subject: "English",     day: "Fri", timeStr: "2:00 – 3:30 PM" },
+  // ── g11 ──
+  { id: 31, batchId: "g11", teacherId: 2, subject: "Physics",     day: "Mon", timeStr: "2:00 – 3:30 PM" },
+  { id: 32, batchId: "g11", teacherId: 3, subject: "Chemistry",   day: "Mon", timeStr: "4:00 – 5:30 PM" },
+  { id: 33, batchId: "g11", teacherId: 1, subject: "Combined Maths", day: "Tue", timeStr: "2:00 – 3:30 PM" },
+  { id: 34, batchId: "g11", teacherId: 6, subject: "Biology",     day: "Wed", timeStr: "2:00 – 3:30 PM" },
+  { id: 35, batchId: "g11", teacherId: 2, subject: "Physics",     day: "Thu", timeStr: "2:00 – 3:30 PM" },
+  { id: 36, batchId: "g11", teacherId: 3, subject: "Chemistry",   day: "Thu", timeStr: "4:00 – 5:30 PM" },
+  { id: 37, batchId: "g11", teacherId: 1, subject: "Combined Maths", day: "Fri", timeStr: "2:00 – 3:30 PM" },
+  { id: 38, batchId: "g11", teacherId: 6, subject: "Biology",     day: "Fri", timeStr: "4:00 – 5:30 PM" },
 ];
+
+/** Get unique subjects scheduled for a specific day for a batch */
+export function getScheduledSubjects(batchId: string, dayShort: string): string[] {
+  const subjects = INIT_TIMETABLE
+    .filter(s => s.batchId === batchId && s.day === dayShort && s.type !== "leave")
+    .map(s => s.subject!)
+    .filter(Boolean);
+  return [...new Set(subjects)];
+}
+
+/** Get the short day name (Mon, Tue, ...) for today */
+export function getTodayShort(): string {
+  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date().getDay()];
+}
 
 /* ── GLOBAL FEE STATE ── */
 export type FeeStatus = "paid" | "partial" | "due" | "overdue" | "waived";
