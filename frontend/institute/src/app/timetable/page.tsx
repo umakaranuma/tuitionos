@@ -37,6 +37,7 @@ export default function TimetablePage() {
 
   // Publish Modal
   const [publishModal, setPublishModal] = useState<{ target: "all" | "batch", sent: boolean } | null>(null);
+  const [publishedBatches, setPublishedBatches] = useState<Set<string>>(new Set());
 
   const batchSessions = sessions.filter(s => s.batchId === selectedBatch);
   const batch = BATCHES.find(b => b.id === selectedBatch);
@@ -181,7 +182,15 @@ export default function TimetablePage() {
             <select value={selectedBatch} onChange={e => setSelectedBatch(e.target.value as any)} style={{ width: "auto" }}>
               {BATCHES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            {viewType === "class" && <button className="btn btn-p btn-sm" onClick={() => setPublishModal({ target: "batch", sent: false })}>Publish timetable</button>}
+            {viewType === "class" && (
+              <button 
+                className={`btn btn-sm ${publishedBatches.has(selectedBatch) ? "btn-s" : "btn-p"}`} 
+                style={publishedBatches.has(selectedBatch) ? { background: "var(--tc-l)", color: "var(--tc-d)", borderColor: "var(--tc-l)" } : {}}
+                onClick={() => setPublishModal({ target: "batch", sent: false })}
+              >
+                {publishedBatches.has(selectedBatch) ? "Published ✓" : "Publish timetable"}
+              </button>
+            )}
           </>
         }
       />
@@ -523,7 +532,15 @@ export default function TimetablePage() {
 
       {/* ── Publish Timetable Modal ── */}
       <Modal open={!!publishModal} onClose={() => setPublishModal(null)} title="Publish Timetable"
-        footer={publishModal && !publishModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setPublishModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={() => setPublishModal({ ...publishModal, sent: true })}>Send Notifications</button></> : <button className="btn btn-s btn-sm" onClick={() => setPublishModal(null)}>Close</button>}
+        footer={publishModal && !publishModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setPublishModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={() => {
+          setPublishedBatches(prev => {
+            const next = new Set(prev);
+            if (publishModal.target === "all") BATCHES.forEach(b => next.add(b.id));
+            else next.add(selectedBatch);
+            return next;
+          });
+          setPublishModal({ ...publishModal, sent: true });
+        }}>Send Notifications</button></> : <button className="btn btn-s btn-sm" onClick={() => setPublishModal(null)}>Close</button>}
       >
         {publishModal && (
           <div>

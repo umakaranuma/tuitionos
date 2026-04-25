@@ -54,6 +54,7 @@ export default function ExamsPage() {
 
   // Publish Results Modal
   const [publishResultsModal, setPublishResultsModal] = useState<{ exam: Exam, sent: boolean } | null>(null);
+  const [publishedExams, setPublishedExams] = useState<Set<number>>(new Set());
 
   // Grade config
   const [gradeRanges, setGradeRanges] = useState<GradeRange[]>(DEFAULT_GRADES);
@@ -357,7 +358,11 @@ export default function ExamsPage() {
                   <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>{entered}/{total} marks entered</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {exam.status === "completed" && <button className="btn btn-p btn-xs" onClick={() => setPublishResultsModal({ exam, sent: false })}>Publish results</button>}
+                  {exam.status === "completed" && (
+                    publishedExams.has(exam.id)
+                      ? <span style={{ fontSize: 10.5, fontWeight: 600, color: "var(--tc-d)", background: "var(--tc-l)", padding: "3px 10px", borderRadius: 99 }}>Results published ✓</span>
+                      : <button className="btn btn-p btn-xs" onClick={() => setPublishResultsModal({ exam, sent: false })}>Publish results</button>
+                  )}
                   {(() => { const st = STATUS_STYLE[exam.status]; return <span style={{ background: st.bg, color: st.fg, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 99 }}>{st.label}</span>; })()}
                 </div>
               </div>
@@ -587,7 +592,10 @@ export default function ExamsPage() {
 
       {/* Publish Results Modal */}
       <Modal open={!!publishResultsModal} onClose={() => setPublishResultsModal(null)} title="Publish Exam Results"
-        footer={publishResultsModal && !publishResultsModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setPublishResultsModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={() => setPublishResultsModal({ ...publishResultsModal, sent: true })}>Publish & Notify</button></> : <button className="btn btn-s btn-sm" onClick={() => setPublishResultsModal(null)}>Close</button>}
+        footer={publishResultsModal && !publishResultsModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setPublishResultsModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={() => {
+          setPublishedExams(prev => new Set(prev).add(publishResultsModal.exam.id));
+          setPublishResultsModal({ ...publishResultsModal, sent: true });
+        }}>Publish & Notify</button></> : <button className="btn btn-s btn-sm" onClick={() => setPublishResultsModal(null)}>Close</button>}
       >
         {publishResultsModal && (
           <div>
