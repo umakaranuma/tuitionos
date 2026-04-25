@@ -153,19 +153,19 @@ export default function FeesPage() {
 
   const statusBadge = (s: Student) => {
     const st = getStatus(s);
-    if (s.isFree) return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>100% Scholarship</span>;
-    if (st === "paid")    return <span className="bdg b-paid">Paid in full</span>;
-    if (st === "waived")  return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Waived (This month)</span>;
-    if (st === "partial") return <span style={{ background:"#fef3d7",color:"#c07b1a",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Partial</span>;
-    if (st === "overdue") return <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Overdue</span>;
-    return <span className="bdg b-due">Due</span>;
+    if (s.isFree) return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Free student</span>;
+    if (st === "paid")    return <span className="bdg b-paid">Paid ✓</span>;
+    if (st === "waived")  return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Waived</span>;
+    if (st === "partial") return <span style={{ background:"#fef3d7",color:"#c07b1a",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Part paid</span>;
+    if (st === "overdue") return <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Late</span>;
+    return <span className="bdg b-due">Not paid</span>;
   };
 
   /* ── Column definitions ── */
   const columns: Column<Student>[] = [
     {
       key: "student",
-      header: "Student",
+      header: "Name",
       width: 200,
       render: (s) => (
         <div className="td-nm" style={{ transition: "all 150ms" }}
@@ -184,7 +184,7 @@ export default function FeesPage() {
     },
     {
       key: "guardian",
-      header: "Guardian & mobile",
+      header: "Parent & phone",
       render: (s) => (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
@@ -194,7 +194,7 @@ export default function FeesPage() {
     },
     {
       key: "fee",
-      header: "Fee (LKR)",
+      header: "Amount (LKR)",
       render: (s) => {
         const rec = getRecord(s);
         const st = rec.status;
@@ -208,12 +208,12 @@ export default function FeesPage() {
                   <span>{s.feeAmount.toLocaleString()}</span>
                   {st === "partial" && (
                     <div style={{ fontSize: 9.5, color: "#c07b1a", fontWeight: 600, marginTop: 2 }}>
-                      Remaining: {(s.feeAmount - rec.paidAmount).toLocaleString()}
+                      Left: LKR {(s.feeAmount - rec.paidAmount).toLocaleString()}
                     </div>
                   )}
                   {(rec.credits ?? 0) > 0 && (
                     <div style={{ fontSize: 9.5, color: "var(--tc-d)", fontWeight: 600, marginTop: 2 }}>
-                      +{(rec.credits ?? 0).toLocaleString()} advance
+                      +LKR {(rec.credits ?? 0).toLocaleString()} extra paid
                     </div>
                   )}
                 </>
@@ -255,21 +255,21 @@ export default function FeesPage() {
             {!s.isFree && (
               st === "due" || st === "overdue" ? (
                 <>
-                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect</button>
+                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect fee</button>
                   {!sent
-                    ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Remind</button>
+                    ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Send reminder</button>
                     : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
                   }
                 </>
               ) : st === "partial" ? (
                 <>
-                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Collect more</button>
+                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Add payment</button>
                   <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
                 </>
               ) : (
                 <>
                   <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                  {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>Receipt</button>}
+                  {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>View receipt</button>}
                 </>
               )
             )}
@@ -282,7 +282,7 @@ export default function FeesPage() {
   return (
     <PageShell>
       <Topbar
-        title="Fee tracking"
+        title="Fees"
         subtitle={`${batch.name} · ${selMonth}`}
         right={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -298,9 +298,9 @@ export default function FeesPage() {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <button className="btn btn-s btn-sm">Export Excel</button>
+            <button className="btn btn-s btn-sm">Download</button>
             <button className="btn btn-p btn-sm" onClick={sendAllReminders}>
-              Send all reminders
+              Remind all
             </button>
           </div>
         }
@@ -328,9 +328,9 @@ export default function FeesPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
           {[
             { label:"Students",       val: students.length,        sub: batch.label,         color: batch.color,    colorL: batch.colorL },
-            { label:"Fully Paid",     val: fullyPaid,              sub: `${waived} waived`, color:"#1a5040", colorL:"#d4ede3" },
-            { label:"Outstanding",    val: `${students.length - fullyPaid - waived}`, sub: `LKR ${outstanding.toLocaleString()} left`, color:"#c07b1a", colorL:"#fef3d7" },
-            { label:"Revenue",        val: `${(revenue/1000).toFixed(0)}k`, sub: `LKR ${revenue.toLocaleString()} collected`, color:"var(--tc)", colorL:"var(--tc-l)" },
+            { label:"Paid",           val: fullyPaid,              sub: `${waived} free / waived`, color:"#1a5040", colorL:"#d4ede3" },
+            { label:"Not paid",       val: `${students.length - fullyPaid - waived}`, sub: `LKR ${outstanding.toLocaleString()} remaining`, color:"#c07b1a", colorL:"#fef3d7" },
+            { label:"Collected",      val: `${(revenue/1000).toFixed(0)}k`, sub: `LKR ${revenue.toLocaleString()} received`, color:"var(--tc)", colorL:"var(--tc-l)" },
           ].map(kpi => (
             <div key={kpi.label} style={{
               background:"#fff",
@@ -349,7 +349,7 @@ export default function FeesPage() {
         {/* Collection progress bar */}
         <div style={{ background:"#fff",border:"1.5px solid var(--ln)",borderRadius:12,padding:"14px 16px",marginBottom:18,boxShadow:"0 1px 3px rgba(28,25,23,.05)" }}>
           <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8 }}>
-            <span style={{ fontWeight:700,color:"var(--ink)" }}>Collection progress — {CURRENT_MONTH}</span>
+            <span style={{ fontWeight:700,color:"var(--ink)" }}>Fee collection — {CURRENT_MONTH}</span>
           </div>
           <div style={{ height:8,background:"var(--ln)",borderRadius:99,overflow:"hidden" }}>
             <div style={{
@@ -360,8 +360,8 @@ export default function FeesPage() {
             }} />
           </div>
           <div style={{ display:"flex",justifyContent:"space-between",fontSize:10.5,color:"var(--ink3)",marginTop:5 }}>
-            <span style={{ color:"#1a5040",fontWeight:600 }}>LKR {revenue.toLocaleString()} collected</span>
-            <span style={{ color:"#c07b1a",fontWeight:600 }}>LKR {outstanding.toLocaleString()} expected</span>
+            <span style={{ color:"#1a5040",fontWeight:600 }}>LKR {revenue.toLocaleString()} received</span>
+            <span style={{ color:"#c07b1a",fontWeight:600 }}>LKR {outstanding.toLocaleString()} remaining</span>
           </div>
         </div>
 
@@ -373,7 +373,7 @@ export default function FeesPage() {
           defaultPerPage={10}
           rowBg={s => getStatus(s) === "overdue" ? "#fffbeb" : undefined}
           emptyMessage={search ? `No students match "${search}"` : "No students in this batch"}
-          title={`${batch.name} · ${filteredStudents.length} student${filteredStudents.length !== 1 ? "s" : ""}`}
+          title={`All students (${filteredStudents.length})`}
         />
       </div>
 
@@ -381,11 +381,11 @@ export default function FeesPage() {
       <Modal
         open={!!markTarget}
         onClose={closeAll}
-        title={markTarget && feeState[markTarget.id]?.status !== "due" && feeState[markTarget.id]?.status !== "overdue" ? "Edit Fee Record" : "Collect Fee"}
+        title={markTarget && feeState[markTarget.id]?.status !== "due" && feeState[markTarget.id]?.status !== "overdue" ? "Edit payment" : "Collect fee"}
         footer={
           <>
             <button className="btn btn-s btn-sm" onClick={closeAll}>Cancel</button>
-            <button className="btn btn-ok btn-sm" onClick={confirmPaid}>Save Payment</button>
+            <button className="btn btn-ok btn-sm" onClick={confirmPaid}>Save</button>
           </>
         }
       >
@@ -398,7 +398,7 @@ export default function FeesPage() {
                 <div style={{ fontSize:11,color:"var(--ink3)" }}>{batch.name}</div>
               </div>
               <div style={{ marginLeft:"auto",textAlign:"right" }}>
-                <div style={{ fontSize:11,color:"var(--ink3)" }}>{selMonth} Total Due</div>
+                <div style={{ fontSize:11,color:"var(--ink3)" }}>{selMonth} fee</div>
                 <div style={{ fontSize:16,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
                   LKR {markTarget.feeAmount.toLocaleString()}
                 </div>
@@ -407,8 +407,8 @@ export default function FeesPage() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 4px", borderBottom: "1px solid var(--ln)" }}>
               <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Exempt fee for {isCurrent ? "this month only" : selMonth} (100% Free)</div>
-                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Waive the fee purely for the {isCurrent ? "current" : "selected historical"} month cycle.</div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Skip fee for {isCurrent ? "this month" : selMonth}</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Student won't be charged for {isCurrent ? "this" : "that"} month.</div>
               </div>
               <button 
                 className={`toggle ${payForm.isWaived ? "on" : ""}`}
@@ -420,20 +420,20 @@ export default function FeesPage() {
               <>
                 <div className="field-row">
                   <div>
-                    <label className="flbl freq">Amount Collected (LKR)</label>
+                    <label className="flbl freq">Amount received (LKR)</label>
                     <input 
                       type="number" 
                       value={payForm.amount} 
                       onChange={e => setPayForm(f=>({...f, amount:e.target.value}))} 
                     />
                     <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 6 }}>
-                      {(parseFloat(payForm.amount) || 0) < markTarget.feeAmount ? "Pays partial amount. Status will remain Due." : 
-                       (parseFloat(payForm.amount) || 0) > markTarget.feeAmount ? `Pays full amount + LKR ${((parseFloat(payForm.amount) || 0) - markTarget.feeAmount).toLocaleString()} in credits.` :
-                       "Pays full amount exactly."}
+                      {(parseFloat(payForm.amount) || 0) < markTarget.feeAmount ? "This is less than the full fee — will show as partly paid." : 
+                       (parseFloat(payForm.amount) || 0) > markTarget.feeAmount ? `Full fee paid + LKR ${((parseFloat(payForm.amount) || 0) - markTarget.feeAmount).toLocaleString()} extra.` :
+                       "Exact fee amount — will be marked as fully paid."}
                     </div>
                   </div>
                   <div>
-                    <label className="flbl">Payment method</label>
+                    <label className="flbl">Paid by</label>
                     <select value={payForm.method} onChange={e => setPayForm(f=>({...f,method:e.target.value}))}>
                       {PAYMENT_METHODS.map(m=><option key={m} value={m}>{m}</option>)}
                     </select>
@@ -442,11 +442,11 @@ export default function FeesPage() {
 
                 <div className="field-row">
                   <div>
-                    <label className="flbl">Date received</label>
+                    <label className="flbl">Date paid</label>
                     <input type="date" value={payForm.paidDate} onChange={e=>setPayForm(f=>({...f,paidDate:e.target.value}))}/>
                   </div>
                   <div>
-                    <label className="flbl">Receipt / reference #</label>
+                    <label className="flbl">Receipt number</label>
                     <input placeholder="e.g. RCP-0045" value={payForm.receiptNo} onChange={e=>setPayForm(f=>({...f,receiptNo:e.target.value}))}/>
                   </div>
                 </div>
@@ -455,8 +455,8 @@ export default function FeesPage() {
 
             <div style={{ background:"var(--tc-l)",border:"1px solid #b8ddd0",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"var(--tc-d)", marginTop: 8 }}>
               {payForm.isWaived 
-                ? "Waive status will be reflected in their account immediately." 
-                : `Fee-paid confirmation sent to ${markTarget.guardian} (${markTarget.mobile}) immediately.`}
+                ? "This student's fee will be skipped for this month." 
+                : `A payment confirmation will be sent to ${markTarget.guardian}.`}
             </div>
           </div>
         )}

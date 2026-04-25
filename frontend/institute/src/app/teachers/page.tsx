@@ -131,7 +131,7 @@ export default function TeachersPage() {
   const columns: Column<Teacher>[] = [
     {
       key: "teacher",
-      header: "Teacher",
+      header: "Name",
       width: 200,
       render: (t) => (
         <div className="td-nm" style={{ transition: "all 150ms" }}>
@@ -142,7 +142,7 @@ export default function TeachersPage() {
               onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
               {t.name}
             </div>
-            <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Since {t.joinDate}</div>
+            <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {t.joinDate}</div>
           </div>
         </div>
       ),
@@ -154,12 +154,12 @@ export default function TeachersPage() {
     },
     {
       key: "mobile",
-      header: "Mobile",
+      header: "Phone",
       render: (t) => <span className="mono">{t.mobile}</span>,
     },
     {
       key: "batches",
-      header: "Batches",
+      header: "Classes",
       render: (t) => (
         <div>
           <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>
@@ -184,7 +184,7 @@ export default function TeachersPage() {
     },
     {
       key: "salary",
-      header: "Monthly Salary",
+      header: "Salary (LKR)",
       render: (t) => (
         <span className="mono" style={{ fontWeight: 700 }}>
           {t.monthlySalary.toLocaleString()}
@@ -193,15 +193,15 @@ export default function TeachersPage() {
     },
     {
       key: "status",
-      header: "This Month",
+      header: "Payment",
       render: (t) => {
         const status = getTeacherCurrentStatus(t);
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            {status === "paid" && <span className="bdg b-paid">Settled</span>}
-            {status === "pending" && <span className="bdg b-due">Pending</span>}
+            {status === "paid" && <span className="bdg b-paid">Paid ✓</span>}
+            {status === "pending" && <span className="bdg b-due">Not paid</span>}
             {status === "overdue" && (
-              <span style={{ background: "#fceaea", color: "#b83030", fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex" }}>Overdue</span>
+              <span style={{ background: "#fceaea", color: "#b83030", fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex" }}>Late</span>
             )}
           </div>
         );
@@ -217,7 +217,7 @@ export default function TeachersPage() {
           <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
             {status !== "paid" && (
               <button className="btn btn-xs btn-ok" onClick={() => openRecordPayment(t.id, currentMonth)}>
-                Pay
+                Pay now
               </button>
             )}
             <button className="btn btn-xs btn-s" onClick={(e) => openEdit(t, e)}>Edit</button>
@@ -318,7 +318,7 @@ export default function TeachersPage() {
     <PageShell>
       <Topbar
         title="Teachers"
-        subtitle={`Staff directory · ${currentMonth}`}
+        subtitle={`${currentMonth}`}
         right={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <div style={{ position: "relative" }}>
@@ -341,10 +341,10 @@ export default function TeachersPage() {
         {/* KPI Cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
           {[
-            { label: "Total Teachers", val: teachers.length, sub: `${totalClassesPerWeek} classes scheduled per week`, color: "#2a5fa8", icon: "👩‍🏫" },
-            { label: "Monthly Payroll", val: `${(totalPayroll / 1000).toFixed(0)}K`, sub: `LKR ${totalPayroll.toLocaleString()}`, color: "#6b3ea8", icon: "💰" },
-            { label: `Settled (${monthShort})`, val: settledThisMonth, sub: `LKR ${settledAmount.toLocaleString()}`, color: "#1a5040", icon: "✓" },
-            { label: `Pending (${monthShort})`, val: pendingThisMonth, sub: `LKR ${pendingAmount.toLocaleString()}`, color: pendingThisMonth > 0 ? "#c07b1a" : "#1a5040", icon: pendingThisMonth > 0 ? "⏳" : "✓" },
+            { label: "Teachers", val: teachers.length, sub: `${totalClassesPerWeek} classes per week`, color: "#2a5fa8", icon: "👩‍🏫" },
+            { label: "Total pay", val: `${(totalPayroll / 1000).toFixed(0)}K`, sub: `LKR ${totalPayroll.toLocaleString()} per month`, color: "#6b3ea8", icon: "💰" },
+            { label: `Paid (${monthShort})`, val: settledThisMonth, sub: `LKR ${settledAmount.toLocaleString()} done`, color: "#1a5040", icon: "✓" },
+            { label: `Not paid (${monthShort})`, val: pendingThisMonth, sub: `LKR ${pendingAmount.toLocaleString()} remaining`, color: pendingThisMonth > 0 ? "#c07b1a" : "#1a5040", icon: pendingThisMonth > 0 ? "⏳" : "✓" },
           ].map(kpi => (
             <div key={kpi.label} style={{
               background: "#fff",
@@ -363,7 +363,7 @@ export default function TeachersPage() {
         {/* Settlement progress bar */}
         <div style={{ background: "#fff", border: "1.5px solid var(--ln)", borderRadius: 12, padding: "14px 16px", marginBottom: 18, boxShadow: "0 1px 3px rgba(28,25,23,.05)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
-            <span style={{ fontWeight: 700, color: "var(--ink)" }}>Salary settlement — {currentMonth}</span>
+            <span style={{ fontWeight: 700, color: "var(--ink)" }}>Salary payments — {currentMonth}</span>
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{settledThisMonth}/{teachers.length} teachers</span>
           </div>
           <div style={{ height: 8, background: "var(--ln)", borderRadius: 99, overflow: "hidden" }}>
@@ -377,7 +377,7 @@ export default function TeachersPage() {
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--ink3)", marginTop: 5 }}>
             <span style={{ color: "#1a5040", fontWeight: 600 }}>LKR {settledAmount.toLocaleString()} settled</span>
             <span style={{ color: pendingAmount > 0 ? "#c07b1a" : "#1a5040", fontWeight: 600 }}>
-              {pendingAmount > 0 ? `LKR ${pendingAmount.toLocaleString()} pending` : "All settled ✓"}
+              {pendingAmount > 0 ? `LKR ${pendingAmount.toLocaleString()} remaining` : "All teachers paid ✓"}
             </span>
           </div>
         </div>
@@ -391,7 +391,7 @@ export default function TeachersPage() {
           onRowClick={t => router.push(`/teachers/${t.id}`)}
           rowBg={t => getTeacherCurrentStatus(t) === "overdue" ? "#fffbeb" : undefined}
           emptyMessage={search ? `No teachers match "${search}"` : "No teachers added yet"}
-          title={`${filteredTeachers.length} teacher${filteredTeachers.length !== 1 ? "s" : ""}`}
+          title={`All teachers (${filteredTeachers.length})`}
         />
       </div>
 
@@ -399,7 +399,7 @@ export default function TeachersPage() {
       <Modal
         open={modal !== null}
         onClose={close}
-        title={modal === "add" ? "Add teacher" : `Edit — ${editTarget?.name}`}
+        title={modal === "add" ? "Add new teacher" : `Edit ${editTarget?.name}`}
         footer={
           <>
             <button className="btn btn-s btn-sm" onClick={close}>Cancel</button>
@@ -416,7 +416,7 @@ export default function TeachersPage() {
       <Modal
         open={!!payTarget}
         onClose={() => setPayTarget(null)}
-        title="Record salary payment"
+        title="Pay teacher salary"
         footer={
           <>
             <button className="btn btn-s btn-sm" onClick={() => setPayTarget(null)}>Cancel</button>
