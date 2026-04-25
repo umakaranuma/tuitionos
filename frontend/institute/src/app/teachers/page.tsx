@@ -84,7 +84,7 @@ export default function TeachersPage() {
         id: nextId, name: form.name, subject: form.subject,
         mobile: form.mobile, email: form.email,
         monthlySalary: parseInt(form.salary) || 0,
-        batchIds: form.batchIds, joinDate: new Date().toISOString().slice(0, 10),
+        batchIds: form.batchIds as typeof newTeacher.batchIds, joinDate: new Date().toISOString().slice(0, 10),
         initials: makeInitials(form.name), bg, fg,
       };
       setTeachers(prev => [...prev, newTeacher]);

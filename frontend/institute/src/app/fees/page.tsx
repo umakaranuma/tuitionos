@@ -35,11 +35,12 @@ export default function FeesPage() {
 
   const isCurrent = selMonth === CURRENT_MONTH;
 
-  const getRecord = (s: Student) => {
+  type FeeRecord = { status: string; paidAmount: number; credits: number; method?: string; paidDate?: string; receiptNo?: string; date?: string };
+  const getRecord = (s: Student): FeeRecord => {
     if (s.isFree) return { status: "waived", paidAmount: 0, credits: 0 };
     if (!isCurrent) {
       const hist = historyState[s.id]?.find(r => r.month === selMonth);
-      if (hist) return { status: hist.status, paidAmount: hist.amount, credits: 0, date: hist.date, receiptNo: hist.receipt };
+      if (hist) return { status: hist.status, paidAmount: hist.amount, credits: 0, paidDate: hist.date, receiptNo: hist.receipt };
       return { status: "due", paidAmount: 0, credits: 0 };
     }
     return feeState[s.id] || { status: "due", paidAmount: 0, credits: 0 };
@@ -144,10 +145,10 @@ export default function FeesPage() {
     closeAll();
   };
 
-  const sendReminder = (s: Student) => setReminderSent(prev => new Set([...prev, s.id]));
+  const sendReminder = (s: Student) => setReminderSent(prev => new Set(Array.from(prev).concat(s.id)));
   const sendAllReminders = () => {
     const dueIds = students.filter(s => { const st = getStatus(s); return st !== "paid" && st !== "waived"; }).map(s => s.id);
-    setReminderSent(prev => new Set([...prev, ...dueIds]));
+    setReminderSent(prev => new Set(Array.from(prev).concat(dueIds)));
   };
 
   const statusBadge = (s: Student) => {
