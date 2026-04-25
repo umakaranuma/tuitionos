@@ -31,38 +31,82 @@ const notifHistory = [
   },
 ];
 
-const toggles = [
-  { key: "fee_reminder", label: "Fee reminder — 1st of month", sub: "All parents at 9:00 AM", disabled: false },
-  { key: "fee_paid", label: "Fee paid confirmation", sub: "Immediate · always on", disabled: true },
-  { key: "timetable", label: "Timetable change alert", sub: "Admin decides per change", disabled: false },
-  { key: "absent_digest", label: "Daily absent digest at 6 PM", sub: "One message per parent per day", disabled: false },
+type NotifEvent = {
+  key: string;
+  label: string;
+  sub: string;
+  waLocked?: boolean;
+  appLocked?: boolean;
+};
+
+const notifEvents: NotifEvent[] = [
+  // Normal Notifications Only (WhatsApp disabled)
+  { key: "timetable", label: "Timetable Changes", sub: "Triggered automatically when admin modifies the schedule.", waLocked: true },
+  { key: "fee_reminder", label: "Fee Reminders", sub: "Sent to parents with unpaid fees on the 1st of the month.", waLocked: true },
+  { key: "absent", label: "Daily Absent Digest", sub: "Sent at 6:00 PM for students marked absent that day.", waLocked: true },
+  // WhatsApp & Normal Notifications
+  { key: "exam_marks", label: "Exam Marks Published", sub: "Sent when an exam is marked as completed.", appLocked: true },
+  { key: "fee_paid", label: "Fee Paid Receipts", sub: "Confirmation sent instantly upon fee collection.", appLocked: true },
+  { key: "annual_timetable", label: "Initial Timetable", sub: "Timetable sent for the year start or year end.", appLocked: true },
 ];
 
 export default function NotificationsPage() {
-  const [states, setStates] = useState<Record<string, boolean>>({
-    fee_reminder: true, fee_paid: true, timetable: true, absent_digest: true,
+  const [prefs, setPrefs] = useState<Record<string, { wa: boolean; app: boolean }>>({
+    timetable: { wa: false, app: true },
+    fee_reminder: { wa: false, app: true },
+    absent: { wa: false, app: true },
+    exam_marks: { wa: true, app: true },
+    fee_paid: { wa: true, app: true },
+    annual_timetable: { wa: true, app: true },
   });
   const [blastSent, setBlastSent] = useState(false);
 
+  const togglePref = (key: string, type: 'wa' | 'app') => {
+    const event = notifEvents.find(e => e.key === key);
+    if (type === 'wa' && event?.waLocked) return;
+    if (type === 'app' && event?.appLocked) return;
+    setPrefs(p => ({ ...p, [key]: { ...p[key], [type]: !p[key][type] } }));
+  };
+
   return (
     <PageShell>
-      <Topbar title="Notifications" subtitle="Premium · WhatsApp delivery settings" />
+      <Topbar title="Notifications" subtitle="Manage WhatsApp and In-App delivery preferences" />
       <div className="pb fi">
         <div className="g2">
           <div>
-            <div className="sec-hdr"><span className="sec-title">Notification toggles</span></div>
-            <div className="card" style={{ marginBottom: 14 }}>
-              {toggles.map((t) => (
-                <div key={t.key} className="tog-row">
+            <div className="sec-hdr"><span className="sec-title">Delivery Channels</span></div>
+            <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px", padding: "12px 20px", background: "var(--cr)", borderBottom: "1px solid var(--ln)", fontSize: 11, fontWeight: 700, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: ".05em" }}>
+                <div>Notification Event</div>
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <span>In-App</span>
+                  <span style={{ fontSize: 9, color: "var(--tc-d)", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>Free</span>
+                </div>
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <span>WhatsApp</span>
+                  <span style={{ fontSize: 9, color: "var(--ink3)", fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>LKR 2/msg</span>
+                </div>
+              </div>
+              {notifEvents.map((ev) => (
+                <div key={ev.key} style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px", padding: "16px 20px", borderBottom: "1px solid var(--ln)", alignItems: "center" }}>
                   <div>
-                    <div className="tog-lbl">{t.label}</div>
-                    <div className="tog-sub">{t.sub}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>{ev.label}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink3)", paddingRight: 10, lineHeight: 1.4 }}>{ev.sub}</div>
                   </div>
-                  <button
-                    className={`toggle ${states[t.key] ? "on" : ""}`}
-                    style={t.disabled ? { opacity: .5, cursor: "not-allowed" } : {}}
-                    onClick={() => !t.disabled && setStates(prev => ({ ...prev, [t.key]: !prev[t.key] }))}
-                  />
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <button
+                      className={`toggle ${prefs[ev.key].app ? "on" : ""}`}
+                      style={ev.appLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+                      onClick={() => togglePref(ev.key, 'app')}
+                    />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <button
+                      className={`toggle ${prefs[ev.key].wa ? "on" : ""}`}
+                      style={ev.waLocked ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+                      onClick={() => togglePref(ev.key, 'wa')}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
