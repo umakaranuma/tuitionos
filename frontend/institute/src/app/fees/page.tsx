@@ -365,6 +365,83 @@ export default function FeesPage() {
           </div>
         </div>
 
+        {/* Bulk reminder banner */}
+        {(() => {
+          const unpaid = students.filter(s => {
+            const st = getStatus(s);
+            return st !== "paid" && st !== "waived" && !s.isFree;
+          });
+          const notYetReminded = unpaid.filter(s => !reminderSent.has(s.id));
+          const allReminded = unpaid.length > 0 && notYetReminded.length === 0;
+
+          if (unpaid.length === 0) return null;
+
+          return (
+            <div style={{
+              background: allReminded ? "var(--tc-l)" : "#fff",
+              border: `1.5px solid ${allReminded ? "#b8ddd0" : "#e8c36a"}`,
+              borderRadius: 12, padding: "14px 18px", marginBottom: 18,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 16,
+              boxShadow: "0 1px 3px rgba(28,25,23,.05)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  background: allReminded ? "#d4ede3" : "#fef3d7",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, flexShrink: 0,
+                }}>
+                  {allReminded ? "✓" : "📢"}
+                </div>
+                <div>
+                  {allReminded ? (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tc-d)" }}>
+                        Reminders sent to all {unpaid.length} unpaid students
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>
+                        WhatsApp messages queued for {batch.name}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                        {notYetReminded.length} student{notYetReminded.length !== 1 ? "s" : ""} haven't paid yet
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>
+                        {notYetReminded.slice(0, 3).map(s => s.name).join(", ")}
+                        {notYetReminded.length > 3 ? ` and ${notYetReminded.length - 3} more` : ""}
+                        {" · "}{batch.name}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {!allReminded && (
+                <button
+                  className="btn btn-sm"
+                  onClick={sendAllReminders}
+                  style={{
+                    background: "#c07b1a", color: "#fff",
+                    border: "none", borderRadius: 8,
+                    padding: "8px 18px", fontSize: 12.5, fontWeight: 700,
+                    cursor: "pointer", whiteSpace: "nowrap",
+                    display: "flex", alignItems: "center", gap: 6,
+                    boxShadow: "0 2px 6px rgba(192,123,26,.25)",
+                    transition: "all 150ms",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#a86a14"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "#c07b1a"; }}
+                >
+                  📲 Send {notYetReminded.length} reminder{notYetReminded.length !== 1 ? "s" : ""}
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Fee table with pagination */}
         <DataTable<Student>
           columns={columns}
