@@ -147,6 +147,8 @@ export default function ExamsPage() {
     setMarksExam(null);
   };
 
+  const closeMarksEntry = () => { setMarksExam(null); };
+
   /* ── Exam list columns ── */
   const examColumns: Column<Exam>[] = [
     {
@@ -236,8 +238,107 @@ export default function ExamsPage() {
 
   /* ── Marks view ── */
   const renderMarks = () => {
+    /* ── Inline marks entry screen ── */
+    if (marksExam) {
+      const filtered = batchStudents.filter(st =>
+        !marksSearch || st.name.toLowerCase().includes(marksSearch.toLowerCase())
+      );
+      const examMarks = marks.filter(m => m.examId === marksExam.id && m.subject === marksSubject);
+      const enteredCnt = examMarks.filter(m => m.marks !== null).length;
+      const st = STATUS_STYLE[marksExam.status];
+      return (
+        <div>
+          {/* Back header */}
+          <button onClick={closeMarksEntry} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--tc-d)", marginBottom: 16 }}>
+            ← Back to marks & results
+          </button>
+
+          {/* Title card */}
+          <div style={{ background: "#fff", border: "1.5px solid var(--ln)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(28,25,23,.05)", marginBottom: 18 }}>
+            <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>{marksSubject}</div>
+                <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 3 }}>{marksExam.name} · {batch.name} · Max: {marksExam.maxMarks} marks · {enteredCnt}/{batchStudents.length} entered</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ background: st.bg, color: st.fg, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 99 }}>{st.label}</span>
+                <button className="btn btn-ok btn-sm" onClick={saveMarks}>Save marks</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Search + table */}
+          <div style={{ background: "#fff", border: "1.5px solid var(--ln)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(28,25,23,.05)" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--ln)", display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ position: "relative", flex: 1, maxWidth: 320 }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
+                  <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
+                </svg>
+                <input placeholder="Search student…" value={marksSearch} onChange={e => setMarksSearch(e.target.value)}
+                  style={{ paddingLeft: 30, width: "100%", fontSize: 12 }} />
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink3)" }}>{filtered.length} student{filtered.length !== 1 ? "s" : ""}</div>
+            </div>
+            <div className="tw" style={{ margin: 0 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}>#</th>
+                    <th>Student</th>
+                    <th style={{ width: 120 }}>Marks</th>
+                    <th style={{ width: 60 }}>Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((student, idx) => {
+                    const val = editingMarks[student.id] ?? "";
+                    const hasVal = val !== "" && parseInt(val) >= 0;
+                    const grade = hasVal ? gradeLabel(parseInt(val), marksExam.maxMarks) : null;
+                    return (
+                      <tr key={student.id}>
+                        <td style={{ color: "var(--ink3)", fontSize: 11 }}>{idx + 1}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div className="ava" style={{ background: student.bg, color: student.fg, width: 30, height: 30, fontSize: 10, flexShrink: 0 }}>{student.initials}</div>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{student.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <input
+                              type="number" min="0" max={marksExam.maxMarks}
+                              value={val}
+                              onChange={e => setEditingMarks(prev => ({ ...prev, [student.id]: e.target.value }))}
+                              placeholder="—"
+                              style={{ width: 70, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700 }}
+                            />
+                            <span style={{ fontSize: 11, color: "var(--ink3)" }}>/ {marksExam.maxMarks}</span>
+                          </div>
+                        </td>
+                        <td>
+                          {grade && <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: grade.bg, color: grade.fg }}>{grade.label}</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {filtered.length === 0 && <div style={{ textAlign: "center", padding: 30, color: "var(--ink3)", fontSize: 12 }}>No students match "{marksSearch}"</div>}
+            <div style={{ padding: "12px 20px", borderTop: "1px solid var(--ln)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 11, color: "var(--ink3)" }}>{batchStudents.length} students total</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-s btn-sm" onClick={closeMarksEntry}>Cancel</button>
+                <button className="btn btn-ok btn-sm" onClick={saveMarks}>Save marks</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ── Subject cards overview ── */
     if (batchExams.length === 0) return <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)", fontSize: 13 }}>No exams yet.</div>;
-    const completedExams = batchExams.filter(e => e.status === "completed");
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {batchExams.map(exam => {
@@ -465,52 +566,6 @@ export default function ExamsPage() {
         </div>
       </Modal>
 
-      {/* Marks entry modal */}
-      <Modal open={!!marksExam} onClose={() => setMarksExam(null)}
-        title={marksExam ? `${marksSubject} — ${marksExam.name}` : ""}
-        footer={<><button className="btn btn-s btn-sm" onClick={() => setMarksExam(null)}>Cancel</button><button className="btn btn-ok btn-sm" onClick={saveMarks}>Save marks</button></>}
-      >
-        {marksExam && (() => {
-          const filtered = batchStudents.filter(st =>
-            !marksSearch || st.name.toLowerCase().includes(marksSearch.toLowerCase())
-          );
-          return (
-            <div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-                <div style={{ position: "relative", flex: 1 }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
-                    <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
-                  </svg>
-                  <input placeholder="Search student…" value={marksSearch} onChange={e => setMarksSearch(e.target.value)}
-                    style={{ paddingLeft: 30, width: "100%", fontSize: 12 }} />
-                </div>
-                <div style={{ fontSize: 11, color: "var(--ink3)", whiteSpace: "nowrap" }}>out of {marksExam.maxMarks}</div>
-              </div>
-              <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                {filtered.map(st => (
-                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--ln)" }}>
-                    <div className="ava" style={{ background: st.bg, color: st.fg, width: 30, height: 30, fontSize: 10 }}>{st.initials}</div>
-                    <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600 }}>{st.name}</div>
-                    <input
-                      type="number" min="0" max={marksExam.maxMarks}
-                      value={editingMarks[st.id] ?? ""}
-                      onChange={e => setEditingMarks(prev => ({ ...prev, [st.id]: e.target.value }))}
-                      placeholder="—"
-                      style={{ width: 70, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700 }}
-                    />
-                    <span style={{ fontSize: 11, color: "var(--ink3)", width: 30 }}>/ {marksExam.maxMarks}</span>
-                    {editingMarks[st.id] && parseInt(editingMarks[st.id]) >= 0 && (() => {
-                      const g = gradeLabel(parseInt(editingMarks[st.id]), marksExam.maxMarks);
-                      return <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: g.bg, color: g.fg, width: 22, textAlign: "center" }}>{g.label}</span>;
-                    })()}
-                  </div>
-                ))}
-                {filtered.length === 0 && <div style={{ textAlign: "center", padding: 20, color: "var(--ink3)", fontSize: 12 }}>No students match "{marksSearch}"</div>}
-              </div>
-            </div>
-          );
-        })()}
-      </Modal>
 
       {/* Confirm dialog */}
       <Modal open={!!confirmDialog} onClose={() => setConfirmDialog(null)} title={confirmDialog?.title || ""}
