@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { DataTable, Column } from "@/components/ui/DataTable";
 import { BatchTabs } from "@/components/ui/BatchTabs";
 import { BATCHES, ALL_STUDENTS, Student, BatchId, INIT_FEE_STATE, GlobalFeeState, INIT_FEE_HISTORY } from "@/lib/batchData";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ export default function FeesPage() {
   const [historyState, setHistoryState] = useState(INIT_FEE_HISTORY);
   const [markTarget, setMarkTarget]     = useState<Student | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<Student | null>(null);
+  const [search, setSearch]             = useState("");
   const router = useRouter();
   
   const [payForm, setPayForm] = useState({ 
@@ -38,7 +40,7 @@ export default function FeesPage() {
     if (!isCurrent) {
       const hist = historyState[s.id]?.find(r => r.month === selMonth);
       if (hist) return { status: hist.status, paidAmount: hist.amount, credits: 0, date: hist.date, receiptNo: hist.receipt };
-      return { status: "due", paidAmount: 0, credits: 0 }; // no history implies due
+      return { status: "due", paidAmount: 0, credits: 0 };
     }
     return feeState[s.id] || { status: "due", paidAmount: 0, credits: 0 };
   };
@@ -51,21 +53,25 @@ export default function FeesPage() {
     return feeState[s.id]?.status ?? s.fee;
   };
 
+  // Filtered by search
+  const filteredStudents = useMemo(() => students.filter(s =>
+    !search ||
+    s.name.toLowerCase().includes(search.toLowerCase()) ||
+    s.mobile.includes(search) || s.guardian.toLowerCase().includes(search.toLowerCase())
+  ), [students, search]);
+
   const fullyPaid = students.filter(s => getStatus(s) === "paid").length;
   const waived = students.filter(s => getStatus(s) === "waived").length;
-  const partial = students.filter(s => getStatus(s) === "partial").length;
   
-  // Outstanding is (Due amount - Paid amount) for anyone who is not completely paid or waived
   const outstanding = students.reduce((sum, s) => {
     const rec = getRecord(s);
     if (rec.status === "waived" || rec.status === "paid") return sum;
     return sum + Math.max(0, s.feeAmount - rec.paidAmount);
   }, 0);
   
-  // Total Revenue physically collected
   const revenue = students.reduce((sum, s) => sum + getRecord(s).paidAmount, 0);
 
-  const changeBatch = (id: BatchId) => setSelBatch(id);
+  const changeBatch = (id: BatchId) => { setSelBatch(id); setSearch(""); };
 
   const openCollect = (s: Student, isEdit: boolean = false) => {
     const rec = getRecord(s);
@@ -84,7 +90,6 @@ export default function FeesPage() {
   const confirmPaid = () => {
     if (!markTarget) return;
     
-    // Waive path
     if (payForm.isWaived) {
       setFeeState(prev => ({
         ...prev,
@@ -94,7 +99,6 @@ export default function FeesPage() {
       return;
     }
     
-    // Normal / Partial / Advance path
     const amt = parseFloat(payForm.amount) || 0;
     let newStatus: "paid" | "partial" | "due" | "overdue" = "due";
     let credits = 0;
@@ -106,7 +110,6 @@ export default function FeesPage() {
       newStatus = "partial";
     }
 
-    // Update history state if past month
     if (!isCurrent) {
       setHistoryState(prev => {
         const copy = { ...prev };
@@ -157,13 +160,143 @@ export default function FeesPage() {
     return <span className="bdg b-due">Due</span>;
   };
 
+  /* ── Column definitions ── */
+  const columns: Column<Student>[] = [
+    {
+      key: "student",
+      header: "Student",
+      width: 200,
+      render: (s) => (
+        <div className="td-nm" style={{ transition: "all 150ms" }}
+          onClick={() => router.push(`/students/${s.id}`)}>
+          <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 12.5, textDecoration: "underline transparent" }}
+              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+              onMouseLeave={e => e.currentTarget.style.textDecoration = "underline transparent"}>
+              {s.name}
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "guardian",
+      header: "Guardian & mobile",
+      render: (s) => (
+        <div>
+          <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
+          <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.mobile}</div>
+        </div>
+      ),
+    },
+    {
+      key: "fee",
+      header: "Fee (LKR)",
+      render: (s) => {
+        const rec = getRecord(s);
+        const st = rec.status;
+        return (
+          <div className="mono" style={{ fontWeight: 700 }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {s.isFree ? (
+                <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
+              ) : (
+                <>
+                  <span>{s.feeAmount.toLocaleString()}</span>
+                  {st === "partial" && (
+                    <div style={{ fontSize: 9.5, color: "#c07b1a", fontWeight: 600, marginTop: 2 }}>
+                      Remaining: {(s.feeAmount - rec.paidAmount).toLocaleString()}
+                    </div>
+                  )}
+                  {(rec.credits ?? 0) > 0 && (
+                    <div style={{ fontSize: 9.5, color: "var(--tc-d)", fontWeight: 600, marginTop: 2 }}>
+                      +{(rec.credits ?? 0).toLocaleString()} advance
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (s) => {
+        const rec = getRecord(s);
+        const st = rec.status;
+        const sent = reminderSent.has(s.id);
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {statusBadge(s)}
+            {rec.paidDate && st !== "waived" && (
+              <div style={{ fontSize: 10, color: "var(--ink3)" }}>Paid {rec.paidDate}</div>
+            )}
+            {st !== "paid" && st !== "waived" && sent && (
+              <div style={{ fontSize: 10, color: "var(--sp)" }}>✓ Reminder sent</div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      width: 160,
+      render: (s) => {
+        const st = getStatus(s);
+        const sent = reminderSent.has(s.id);
+        return (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+            {!s.isFree && (
+              st === "due" || st === "overdue" ? (
+                <>
+                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect</button>
+                  {!sent
+                    ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Remind</button>
+                    : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
+                  }
+                </>
+              ) : st === "partial" ? (
+                <>
+                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Collect more</button>
+                  <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
+                  {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>Receipt</button>}
+                </>
+              )
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
     <PageShell>
       <Topbar
         title="Fee tracking"
         subtitle={`${batch.name} · ${selMonth}`}
         right={
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ position: "relative" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5"
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
+                <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
+              </svg>
+              <input
+                placeholder="Search student…"
+                style={{ width: 180, paddingLeft: 30 }}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
             <button className="btn btn-s btn-sm">Export Excel</button>
             <button className="btn btn-p btn-sm" onClick={sendAllReminders}>
               Send all reminders
@@ -231,105 +364,16 @@ export default function FeesPage() {
           </div>
         </div>
 
-        {/* Fee table */}
-        <div className="tw">
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Guardian & mobile</th>
-                <th>Fee (LKR)</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map(s => {
-                const rec = getRecord(s);
-                const st = rec.status;
-                const sent = reminderSent.has(s.id);
-                return (
-                  <tr key={s.id} style={{ background: st === "overdue" ? "#fffbeb" : "#fff" }}>
-                    <td style={{ cursor: "pointer" }} onClick={() => router.push(`/students/${s.id}`)}>
-                      <div className="td-nm" style={{ transition: "all 150ms" }}>
-                        <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 12.5, textDecoration: "underline transparent" }}
-                            onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-                            onMouseLeave={e => e.currentTarget.style.textDecoration = "underline transparent"}>
-                            {s.name}
-                          </div>
-                          <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
-                      <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.mobile}</div>
-                    </td>
-                    <td className="mono" style={{ fontWeight: 700 }}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        {s.isFree ? (
-                          <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
-                        ) : (
-                          <>
-                            <span>{s.feeAmount.toLocaleString()}</span>
-                            {st === "partial" && (
-                              <div style={{ fontSize: 9.5, color: "#c07b1a", fontWeight: 600, marginTop: 2 }}>
-                                Remaining: {(s.feeAmount - rec.paidAmount).toLocaleString()}
-                              </div>
-                            )}
-                            {rec.credits > 0 && (
-                              <div style={{ fontSize: 9.5, color: "var(--tc-d)", fontWeight: 600, marginTop: 2 }}>
-                                +{(rec.credits).toLocaleString()} advance
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        {statusBadge(s)}
-                        {rec.paidDate && st !== "waived" && (
-                          <div style={{ fontSize: 10, color: "var(--ink3)" }}>Paid {rec.paidDate}</div>
-                        )}
-                        {st !== "paid" && st !== "waived" && sent && (
-                          <div style={{ fontSize: 10, color: "var(--sp)" }}>✓ Reminder sent</div>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {!s.isFree && (
-                          st === "due" || st === "overdue" ? (
-                            <>
-                              <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect</button>
-                              {!sent
-                                ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Remind</button>
-                                : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
-                              }
-                            </>
-                          ) : st === "partial" ? (
-                            <>
-                              <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Collect more</button>
-                              <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                            </>
-                          ) : (
-                            <>
-                              <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                              {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>Receipt</button>}
-                            </>
-                          )
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {/* Fee table with pagination */}
+        <DataTable<Student>
+          columns={columns}
+          data={filteredStudents}
+          rowKey={s => s.id}
+          defaultPerPage={10}
+          rowBg={s => getStatus(s) === "overdue" ? "#fffbeb" : undefined}
+          emptyMessage={search ? `No students match "${search}"` : "No students in this batch"}
+          title={`${batch.name} · ${filteredStudents.length} student${filteredStudents.length !== 1 ? "s" : ""}`}
+        />
       </div>
 
       {/* Collect / Edit Fee modal */}
@@ -447,11 +491,11 @@ export default function FeesPage() {
                 { label:"Month",        val: CURRENT_MONTH },
                 { label:"Amount (LKR)", val: getRecord(receiptTarget).paidAmount.toLocaleString() },
                 { label:"Paid date",    val: getRecord(receiptTarget).paidDate || "—" },
-                { label:"Credits",      val: getRecord(receiptTarget).credits > 0 ? `LKR ${getRecord(receiptTarget).credits.toLocaleString()}` : "None" },
+                { label:"Credits",      val: (getRecord(receiptTarget).credits ?? 0) > 0 ? `LKR ${(getRecord(receiptTarget).credits ?? 0).toLocaleString()}` : "None" },
               ].map(row=>(
                 <div key={row.label} style={{ padding:"9px 11px",background:"var(--cr-d)",borderRadius:9 }}>
                   <div style={{ fontSize:10,color:"var(--ink3)",fontWeight:600,letterSpacing:".04em",textTransform:"uppercase",marginBottom:2 }}>{row.label}</div>
-                  <div style={{ fontSize:13,fontWeight:700,color:row.label==="Status"?"var(--tc-d)":"var(--ink)" }}>{row.val}</div>
+                  <div style={{ fontSize:13,fontWeight:700,color:"var(--ink)" }}>{row.val}</div>
                 </div>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { DataTable, Column } from "@/components/ui/DataTable";
 import { TEACHERS, INIT_TEACHER_PAYMENTS, BATCHES, Teacher, TeacherPayment, INIT_TIMETABLE } from "@/lib/batchData";
 
 const SUBJECTS_LIST = ["Mathematics", "Physics", "Chemistry", "English", "Tamil Literature", "Biology", "Combined Maths"];
@@ -31,10 +32,14 @@ export default function TeachersPage() {
   const [editTarget, setEditTarget] = useState<Teacher | null>(null);
   const [form, setForm]         = useState(blankForm());
   const [nextId, setNextId]     = useState(TEACHERS.length + 1);
+  const [search, setSearch]     = useState("");
 
   // Record payment modal state
   const [payTarget, setPayTarget] = useState<{ teacherId: number; month: string } | null>(null);
   const [payForm, setPayForm] = useState({ method: "Bank transfer", date: new Date().toISOString().slice(0, 10), referenceNo: "" });
+
+  // Unused but kept for type compat
+  const [viewTeacher, setViewTeacher] = useState<Teacher | null>(null);
 
   // ── Computed KPI values ──
   const now = new Date();
@@ -52,6 +57,14 @@ export default function TeachersPage() {
     const cp = payments.find(p => p.teacherId === t.id && p.month === currentMonth);
     return cp?.status ?? "pending";
   };
+
+  // Search filter
+  const filteredTeachers = teachers.filter(t =>
+    !search ||
+    t.name.toLowerCase().includes(search.toLowerCase()) ||
+    t.subject.toLowerCase().includes(search.toLowerCase()) ||
+    t.mobile.includes(search)
+  );
 
   // ── Add / Edit modals ──
   const openAdd = () => { setForm(blankForm()); setEditTarget(null); setModal("add"); };
@@ -75,10 +88,10 @@ export default function TeachersPage() {
         initials: makeInitials(form.name), bg, fg,
       };
       setTeachers(prev => [...prev, newTeacher]);
-      // Create current month payment record
       setPayments(prev => [...prev, {
         teacherId: nextId, month: currentMonth, amount: newTeacher.monthlySalary,
         status: "pending", paidDate: null, method: null, referenceNo: null,
+        payslipFile: null, notes: null, type: "salary", advanceDeduction: 0, editHistory: [],
       }]);
       setNextId(n => n + 1);
     } else if (editTarget) {
@@ -93,14 +106,12 @@ export default function TeachersPage() {
 
   // ── Record payment ──
   const openRecordPayment = (teacherId: number, month: string) => {
-    const teacher = teachers.find(t => t.id === teacherId);
     setPayForm({
       method: "Bank transfer",
       date: new Date().toISOString().slice(0, 10),
       referenceNo: `SAL-${teacherId}${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getFullYear()).slice(2)}`,
     });
     setPayTarget({ teacherId, month });
-    // Close profile modal while recording
     setViewTeacher(null);
   };
 
@@ -115,6 +126,110 @@ export default function TeachersPage() {
   };
 
   const payTeacher = payTarget ? teachers.find(t => t.id === payTarget.teacherId) : null;
+
+  /* ── Column definitions ── */
+  const columns: Column<Teacher>[] = [
+    {
+      key: "teacher",
+      header: "Teacher",
+      width: 200,
+      render: (t) => (
+        <div className="td-nm" style={{ transition: "all 150ms" }}>
+          <div className="ava" style={{ background: t.bg, color: t.fg }}>{t.initials}</div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 12.5 }}
+              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+              onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
+              {t.name}
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Since {t.joinDate}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "subject",
+      header: "Subject",
+      render: (t) => <span style={{ fontSize: 12.5 }}>{t.subject}</span>,
+    },
+    {
+      key: "mobile",
+      header: "Mobile",
+      render: (t) => <span className="mono">{t.mobile}</span>,
+    },
+    {
+      key: "batches",
+      header: "Batches",
+      render: (t) => (
+        <div>
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>
+            {t.batchIds.map(bid => {
+              const batch = BATCHES.find(b => b.id === bid);
+              return batch ? (
+                <span key={bid} style={{
+                  fontSize: 9.5, fontWeight: 600, padding: "1px 5px",
+                  background: batch.colorL, color: batch.color, borderRadius: 5,
+                }}>
+                  {batch.label}
+                </span>
+              ) : null;
+            })}
+            {t.batchIds.length === 0 && <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>}
+          </div>
+          <div style={{ fontSize: 10.5, color: "var(--ink3)", fontWeight: 600 }}>
+            {INIT_TIMETABLE.filter(s => s.teacherId === t.id).length} classes/wk
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "salary",
+      header: "Monthly Salary",
+      render: (t) => (
+        <span className="mono" style={{ fontWeight: 700 }}>
+          {t.monthlySalary.toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "This Month",
+      render: (t) => {
+        const status = getTeacherCurrentStatus(t);
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {status === "paid" && <span className="bdg b-paid">Settled</span>}
+            {status === "pending" && <span className="bdg b-due">Pending</span>}
+            {status === "overdue" && (
+              <span style={{ background: "#fceaea", color: "#b83030", fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex" }}>Overdue</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      width: 160,
+      render: (t) => {
+        const status = getTeacherCurrentStatus(t);
+        return (
+          <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+            {status !== "paid" && (
+              <button className="btn btn-xs btn-ok" onClick={() => openRecordPayment(t.id, currentMonth)}>
+                Pay
+              </button>
+            )}
+            <button className="btn btn-xs btn-s" onClick={(e) => openEdit(t, e)}>Edit</button>
+            <button className="btn btn-xs btn-d"
+              onClick={() => setTeachers(prev => prev.filter(x => x.id !== t.id))}>
+              Remove
+            </button>
+          </div>
+        );
+      },
+    },
+  ];
 
   // ── Add / Edit form body ──
   const modalBody = (
@@ -204,7 +319,23 @@ export default function TeachersPage() {
       <Topbar
         title="Teachers"
         subtitle={`Staff directory · ${currentMonth}`}
-        right={<button className="btn btn-p btn-sm" onClick={openAdd}>+ Add teacher</button>}
+        right={
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ position: "relative" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5"
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
+                <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
+              </svg>
+              <input
+                placeholder="Search teacher, subject…"
+                style={{ width: 200, paddingLeft: 30 }}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <button className="btn btn-p btn-sm" onClick={openAdd}>+ Add teacher</button>
+          </div>
+        }
       />
       <div className="pb fi">
         {/* KPI Cards */}
@@ -251,94 +382,17 @@ export default function TeachersPage() {
           </div>
         </div>
 
-        {/* Teachers Table */}
-        <div className="tw">
-          <table>
-            <thead>
-              <tr>
-                <th>Teacher</th>
-                <th>Subject</th>
-                <th>Mobile</th>
-                <th>Batches</th>
-                <th>Monthly Salary</th>
-                <th>This Month</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teachers.map(t => {
-                const status = getTeacherCurrentStatus(t);
-                return (
-                  <tr key={t.id} onClick={() => router.push(`/teachers/${t.id}`)} style={{
-                    background: status === "overdue" ? "#fffbeb" : "#fff",
-                    cursor: "pointer",
-                  }}>
-                    <td>
-                      <div className="td-nm" style={{ transition: "all 150ms" }}>
-                        <div className="ava" style={{ background: t.bg, color: t.fg }}>{t.initials}</div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 12.5 }}
-                            onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-                            onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}>
-                            {t.name}
-                          </div>
-                          <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Since {t.joinDate}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>{t.subject}</td>
-                    <td className="mono">{t.mobile}</td>
-                    <td>
-                      <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 4 }}>
-                        {t.batchIds.map(bid => {
-                          const batch = BATCHES.find(b => b.id === bid);
-                          return batch ? (
-                            <span key={bid} style={{
-                              fontSize: 9.5, fontWeight: 600, padding: "1px 5px",
-                              background: batch.colorL, color: batch.color, borderRadius: 5,
-                            }}>
-                              {batch.label}
-                            </span>
-                          ) : null;
-                        })}
-                        {t.batchIds.length === 0 && <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>}
-                      </div>
-                      <div style={{ fontSize: 10.5, color: "var(--ink3)", fontWeight: 600 }}>
-                        {INIT_TIMETABLE.filter(s => s.teacherId === t.id).length} classes/wk
-                      </div>
-                    </td>
-                    <td className="mono" style={{ fontWeight: 700 }}>
-                      {t.monthlySalary.toLocaleString()}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                        {status === "paid" && <span className="bdg b-paid">Settled</span>}
-                        {status === "pending" && <span className="bdg b-due">Pending</span>}
-                        {status === "overdue" && (
-                          <span style={{ background: "#fceaea", color: "#b83030", fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 99, display: "inline-flex" }}>Overdue</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
-                        {status !== "paid" && (
-                          <button className="btn btn-xs btn-ok" onClick={() => openRecordPayment(t.id, currentMonth)}>
-                            Pay
-                          </button>
-                        )}
-                        <button className="btn btn-xs btn-s" onClick={(e) => openEdit(t, e)}>Edit</button>
-                        <button className="btn btn-xs btn-d"
-                          onClick={() => setTeachers(prev => prev.filter(x => x.id !== t.id))}>
-                          Remove
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {/* Teachers Table with Pagination */}
+        <DataTable<Teacher>
+          columns={columns}
+          data={filteredTeachers}
+          rowKey={t => t.id}
+          defaultPerPage={10}
+          onRowClick={t => router.push(`/teachers/${t.id}`)}
+          rowBg={t => getTeacherCurrentStatus(t) === "overdue" ? "#fffbeb" : undefined}
+          emptyMessage={search ? `No teachers match "${search}"` : "No teachers added yet"}
+          title={`${filteredTeachers.length} teacher${filteredTeachers.length !== 1 ? "s" : ""}`}
+        />
       </div>
 
       {/* Add / Edit Teacher modal */}

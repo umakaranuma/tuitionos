@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { DataTable, Column } from "@/components/ui/DataTable";
 import { BatchTabs } from "@/components/ui/BatchTabs";
 import { BATCHES, ALL_STUDENTS, Student, BatchId } from "@/lib/batchData";
 import { useRouter } from "next/navigation";
@@ -19,8 +20,6 @@ function attBg(v: number) {
   return "#fceaea";
 }
 
-const BATCHES_LIST = BATCHES.map(b => b.name);
-
 function makeInitials(n: string) {
   return n.split(" ").filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
 }
@@ -34,32 +33,26 @@ export default function StudentsPage() {
   const [selBatch, setSelBatch] = useState<BatchId>("g7a");
   const [students, setStudents] = useState<Student[]>(ALL_STUDENTS);
   const [search, setSearch]     = useState("");
-  const [modal, setModal]       = useState<"enroll" | "attend" | null>(null);
-  const [viewTarget, setViewTarget] = useState<Student | null>(null);
+  const [modal, setModal]       = useState<"enroll" | null>(null);
   const [form, setForm]         = useState(blankEnroll("g7a"));
   const [nextId, setNextId]     = useState(ALL_STUDENTS.length + 1);
   const router = useRouter();
-  // attendance quick-mark per student today
-  const [todayAtt, setTodayAtt] = useState<Record<number, "present" | "absent">>({});
 
   const batch     = BATCHES.find(b => b.id === selBatch)!;
   const batchStudents = students.filter(s => s.batch === selBatch);
-  const filtered  = batchStudents.filter(s =>
+  const filtered  = useMemo(() => batchStudents.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.mobile.includes(search) || s.guardian.toLowerCase().includes(search.toLowerCase())
-  );
+  ), [batchStudents, search]);
 
   /* batch KPIs */
   const paid      = batchStudents.filter(s => s.fee === "paid" || s.isFree).length;
   const due       = batchStudents.filter(s => s.fee !== "paid" && !s.isFree).length;
   const avgAtt    = batchStudents.length ? Math.round(batchStudents.reduce((a, s) => a + s.attPct, 0) / batchStudents.length) : 0;
-  const markedToday = Object.keys(todayAtt).filter(id => batchStudents.some(s => s.id === Number(id))).length;
 
   const changeBatch = (id: BatchId) => { setSelBatch(id); setSearch(""); };
   const openEnroll  = () => { setForm(blankEnroll(selBatch)); setModal("enroll"); };
-  const openView    = (s: Student) => router.push(`/students/${s.id}`);
-  const openAttend  = (s: Student) => { setViewTarget(s); setModal("attend"); };
-  const close       = () => { setModal(null); setViewTarget(null); };
+  const close       = () => setModal(null);
 
   const markPaid = (id: number) =>
     setStudents(prev => prev.map(s => s.id === id ? { ...s, fee: "paid" } : s));
@@ -85,21 +78,129 @@ export default function StudentsPage() {
     close();
   };
 
+  /* ── Column definitions ── */
+  const columns: Column<Student>[] = [
+    {
+      key: "student",
+      header: "Student",
+      width: 200,
+      render: (s) => (
+        <div className="td-nm">
+          <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 12.5 }}>{s.name}</div>
+            <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "guardian",
+      header: "Guardian & mobile",
+      render: (s) => (
+        <div>
+          <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
+          <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.mobile}</div>
+        </div>
+      ),
+    },
+    {
+      key: "fee",
+      header: `Fee — ${new Date().toLocaleString("en",{month:"short",year:"numeric"})}`,
+      render: (s) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {s.isFree 
+              ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Free Scholar</span>
+              : s.fee === "paid"
+                ? <span className="bdg b-paid">Paid</span>
+                : s.fee === "overdue"
+                  ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Overdue</span>
+                  : <span className="bdg b-due">Due</span>
+            }
+            {!s.isFree && (
+              <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>
+                LKR {s.feeAmount.toLocaleString()}
+              </span>
+            )}
+          </div>
+          {s.fee !== "paid" && !s.isFree && (
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                className="btn btn-xs btn-ok"
+                style={{ fontSize: 10 }}
+                onClick={(e) => { e.stopPropagation(); markPaid(s.id); }}
+              >
+                Mark paid
+              </button>
+              <button
+                className="btn btn-xs btn-s"
+                style={{ fontSize: 10 }}
+                onClick={(e) => { e.stopPropagation(); sendReminder(s); }}
+              >
+                Remind
+              </button>
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "attendance",
+      header: "Attendance",
+      width: 130,
+      render: (s) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{
+            height: 5, width: 60, borderRadius: 99,
+            background: `linear-gradient(to right, ${attColor(s.attPct)} ${s.attPct}%, var(--ln) ${s.attPct}%)`,
+          }} />
+          <span style={{
+            fontSize: 11.5, fontWeight: 700, fontFamily: "var(--font-mono)",
+            color: attColor(s.attPct),
+            background: attBg(s.attPct), padding: "1px 6px", borderRadius: 6,
+          }}>
+            {s.attPct}%
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      width: 100,
+      render: (s) => (
+        <button
+          className="btn btn-xs btn-s"
+          onClick={(e) => { e.stopPropagation(); router.push(`/students/${s.id}`); }}
+        >
+          View profile
+        </button>
+      ),
+    },
+  ];
+
   return (
     <PageShell>
       <Topbar
         title="Students"
-        subtitle="Manage by batch"
+        subtitle="Manage enrolment by batch"
         right={
-          <>
-            <input
-              placeholder="Search name / mobile…"
-              style={{ width: 200 }}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ position: "relative" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5"
+                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
+                <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
+              </svg>
+              <input
+                placeholder="Search name, mobile, guardian…"
+                style={{ width: 240, paddingLeft: 30 }}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
             <button className="btn btn-p btn-sm" onClick={openEnroll}>+ Enroll student</button>
-          </>
+          </div>
         }
       />
       <div className="pb fi">
@@ -112,8 +213,8 @@ export default function StudentsPage() {
           {[
             { label: "Students", val: batchStudents.length, sub: `in ${batch.label}`, color: batch.color, colorL: batch.colorL },
             { label: "Fee paid", val: paid, sub: `${Math.round(paid/Math.max(batchStudents.length,1)*100)}% collected`, color: "#1a5040", colorL: "#d4ede3" },
-            { label: "Fee due", val: due, sub: `LKR ${(due * batchStudents[0]?.feeAmount || 0).toLocaleString()}`, color: "#c07b1a", colorL: "#fef3d7" },
-            { label: "Avg attendance", val: `${avgAtt}%`, sub: `${markedToday}/${batchStudents.length} marked today`, color: "#2a5fa8", colorL: "#d8e6fa" },
+            { label: "Fee due", val: due, sub: `LKR ${(due * (batchStudents[0]?.feeAmount || 0)).toLocaleString()}`, color: "#c07b1a", colorL: "#fef3d7" },
+            { label: "Avg attendance", val: `${avgAtt}%`, sub: `${batchStudents.length} enrolled`, color: "#2a5fa8", colorL: "#d8e6fa" },
           ].map(kpi => (
             <div key={kpi.label} style={{
               background: "#fff", border: `1.5px solid ${kpi.color}22`,
@@ -128,178 +229,17 @@ export default function StudentsPage() {
           ))}
         </div>
 
-        {/* Student table */}
-        <div className="tw">
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Guardian & mobile</th>
-                <th>Fee — {new Date().toLocaleString("en",{month:"short",year:"numeric"})}</th>
-                <th>Attendance</th>
-                <th>Today</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(s => {
-                const att = todayAtt[s.id];
-                return (
-                  <tr key={s.id}>
-                    {/* Name */}
-                    <td>
-                      <div className="td-nm">
-                        <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: 12.5 }}>{s.name}</div>
-                          <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Guardian */}
-                    <td>
-                      <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
-                      <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.mobile}</div>
-                    </td>
-
-                    {/* Fee */}
-                    <td>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {s.isFree 
-                            ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Free Scholar (Permanent)</span>
-                            : s.fee === "paid"
-                              ? <span className="bdg b-paid">Paid</span>
-                              : s.fee === "overdue"
-                                ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Overdue</span>
-                                : <span className="bdg b-due">Due</span>
-                          }
-                          {!s.isFree && (
-                            <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>
-                              LKR {s.feeAmount.toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                        {s.fee !== "paid" && !s.isFree && (
-                          <div style={{ display: "flex", gap: 4 }}>
-                            <button
-                              className="btn btn-xs btn-ok"
-                              style={{ fontSize: 10 }}
-                              onClick={() => markPaid(s.id)}
-                            >
-                              Mark paid
-                            </button>
-                            <button
-                              className="btn btn-xs btn-s"
-                              style={{ fontSize: 10 }}
-                              onClick={() => sendReminder(s)}
-                            >
-                              Remind
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Attendance history */}
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{
-                          height: 5, width: 60, borderRadius: 99,
-                          background: `linear-gradient(to right, ${attColor(s.attPct)} ${s.attPct}%, var(--ln) ${s.attPct}%)`,
-                        }} />
-                        <span style={{
-                          fontSize: 11.5, fontWeight: 700, fontFamily: "var(--font-mono)",
-                          color: attColor(s.attPct),
-                          background: attBg(s.attPct), padding: "1px 6px", borderRadius: 6,
-                        }}>
-                          {s.attPct}%
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Today's quick attendance toggle */}
-                    <td>
-                      {att ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 7,
-                            background: att === "present" ? "#d4ede3" : "#fceaea",
-                            color: att === "present" ? "#1a5040" : "#b83030",
-                            border: `1px solid ${att === "present" ? "#b8ddd0" : "#f5c5c5"}`,
-                          }}>
-                            {att === "present" ? "✓ In" : "✕ Out"}
-                          </span>
-                          <button
-                            style={{ background:"none",border:"none",cursor:"pointer",color:"var(--ink3)",fontSize:12 }}
-                            onClick={() => setTodayAtt(prev => { const n={...prev}; delete n[s.id]; return n; })}
-                          >↩</button>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button
-                            onClick={() => setTodayAtt(prev => ({ ...prev, [s.id]: "present" }))}
-                            style={{
-                              padding: "3px 8px", borderRadius: 7, border: "1.5px solid #b8ddd0",
-                              background: "transparent", color: "#1a5040", fontSize: 11, fontWeight: 700,
-                              cursor: "pointer", transition: "all 120ms",
-                            }}
-                          >✓ In</button>
-                          <button
-                            onClick={() => setTodayAtt(prev => ({ ...prev, [s.id]: "absent" }))}
-                            style={{
-                              padding: "3px 8px", borderRadius: 7, border: "1.5px solid #f5c5c5",
-                              background: "transparent", color: "#b83030", fontSize: 11, fontWeight: 700,
-                              cursor: "pointer", transition: "all 120ms",
-                            }}
-                          >✕ Out</button>
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td>
-                      <button className="btn btn-xs btn-s" onClick={() => openView(s)}>View profile</button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: "28px 0" }}>
-                    {search ? `No students match "${search}"` : "No students in this batch yet"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Attendance save banner */}
-        {markedToday > 0 && (
-          <div style={{
-            position: "fixed", bottom: 24, right: 24,
-            background: "#1a5040", color: "#fff",
-            borderRadius: 12, padding: "12px 18px",
-            fontSize: 12.5, fontWeight: 600,
-            display: "flex", alignItems: "center", gap: 12,
-            boxShadow: "0 8px 24px rgba(28,25,23,.2)",
-            zIndex: 50,
-          }}>
-            <span>{markedToday}/{batchStudents.length} marked for today</span>
-            <button
-              style={{
-                background: "#fff", color: "#1a5040",
-                border: "none", borderRadius: 8, padding: "4px 12px",
-                fontSize: 12, fontWeight: 700, cursor: "pointer",
-              }}
-              onClick={() => alert("Attendance saved. Absent alerts will fire at 6:00 PM.")}
-            >
-              Save &amp; alert
-            </button>
-          </div>
-        )}
+        {/* Student table with pagination */}
+        <DataTable<Student>
+          columns={columns}
+          data={filtered}
+          rowKey={s => s.id}
+          defaultPerPage={10}
+          onRowClick={s => router.push(`/students/${s.id}`)}
+          rowBg={s => s.fee === "overdue" ? "#fffbeb" : undefined}
+          emptyMessage={search ? `No students match "${search}"` : "No students in this batch yet"}
+          title={`${batch.name} · ${filtered.length} student${filtered.length !== 1 ? "s" : ""}`}
+        />
       </div>
 
       {/* Enroll modal */}
