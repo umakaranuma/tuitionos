@@ -52,6 +52,9 @@ export default function ExamsPage() {
   const [editingMarks, setEditingMarks] = useState<Record<number, string>>({});
   const [marksSearch, setMarksSearch] = useState("");
 
+  // Publish Results Modal
+  const [publishResultsModal, setPublishResultsModal] = useState<{ exam: Exam, sent: boolean } | null>(null);
+
   // Grade config
   const [gradeRanges, setGradeRanges] = useState<GradeRange[]>(DEFAULT_GRADES);
 
@@ -353,7 +356,10 @@ export default function ExamsPage() {
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{exam.name}</div>
                   <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>{entered}/{total} marks entered</div>
                 </div>
-                {(() => { const st = STATUS_STYLE[exam.status]; return <span style={{ background: st.bg, color: st.fg, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 99 }}>{st.label}</span>; })()}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {exam.status === "completed" && <button className="btn btn-p btn-xs" onClick={() => setPublishResultsModal({ exam, sent: false })}>Publish results</button>}
+                  {(() => { const st = STATUS_STYLE[exam.status]; return <span style={{ background: st.bg, color: st.fg, fontSize: 10.5, fontWeight: 600, padding: "3px 10px", borderRadius: 99 }}>{st.label}</span>; })()}
+                </div>
               </div>
               <div style={{ padding: "14px 18px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: `repeat(${subjects.length}, 1fr)`, gap: 8 }}>
@@ -575,6 +581,36 @@ export default function ExamsPage() {
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: "#fceaea", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚠️</div>
             <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.5 }}>{confirmDialog.message}</div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Publish Results Modal */}
+      <Modal open={!!publishResultsModal} onClose={() => setPublishResultsModal(null)} title="Publish Exam Results"
+        footer={publishResultsModal && !publishResultsModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setPublishResultsModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={() => setPublishResultsModal({ ...publishResultsModal, sent: true })}>Publish & Notify</button></> : <button className="btn btn-s btn-sm" onClick={() => setPublishResultsModal(null)}>Close</button>}
+      >
+        {publishResultsModal && (
+          <div>
+            {!publishResultsModal.sent ? (
+              <>
+                <div style={{ fontSize: 13, color: "var(--ink)", marginBottom: 16 }}>
+                  You are about to publish the results for <strong>{publishResultsModal.exam.name}</strong>.
+                </div>
+                <div style={{ background: "var(--cr)", border: "1px solid var(--ln)", borderRadius: 10, padding: "14px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>Notification Target</div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink3)", lineHeight: 1.5 }}>
+                    Results will be sent exclusively to the parents of students in <strong>{batch.name}</strong>. 
+                    Delivery channels (WhatsApp / In-App) will be determined by your global Notification settings.
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 24, background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>✓</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Results Published!</div>
+                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 6 }}>The result cards are being sent to the parents of {batch.name}.</div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

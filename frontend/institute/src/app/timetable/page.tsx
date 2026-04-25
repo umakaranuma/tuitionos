@@ -35,6 +35,9 @@ export default function TimetablePage() {
   // Confirm dialog
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
 
+  // Publish Modal
+  const [publishModal, setPublishModal] = useState<{ target: "all" | "batch", sent: boolean } | null>(null);
+
   const batchSessions = sessions.filter(s => s.batchId === selectedBatch);
   const batch = BATCHES.find(b => b.id === selectedBatch);
   const batchExams = exams.filter(e => e.batchId === selectedBatch);
@@ -178,7 +181,7 @@ export default function TimetablePage() {
             <select value={selectedBatch} onChange={e => setSelectedBatch(e.target.value as any)} style={{ width: "auto" }}>
               {BATCHES.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            {viewType === "class" && <button className="btn btn-p btn-sm">Save & notify parents</button>}
+            {viewType === "class" && <button className="btn btn-p btn-sm" onClick={() => setPublishModal({ target: "batch", sent: false })}>Publish timetable</button>}
           </>
         }
       />
@@ -514,6 +517,43 @@ export default function TimetablePage() {
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: "#fceaea", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>⚠️</div>
             <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.5 }}>{confirmDialog.message}</div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Publish Timetable Modal ── */}
+      <Modal open={!!publishModal} onClose={() => setPublishModal(null)} title="Publish Timetable"
+        footer={publishModal && !publishModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setPublishModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={() => setPublishModal({ ...publishModal, sent: true })}>Send Notifications</button></> : <button className="btn btn-s btn-sm" onClick={() => setPublishModal(null)}>Close</button>}
+      >
+        {publishModal && (
+          <div>
+            {!publishModal.sent ? (
+              <>
+                <div style={{ fontSize: 13, color: "var(--ink)", marginBottom: 16 }}>Select target audience for this timetable blast. Notifications will be sent according to your delivery channel settings.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: `1.5px solid ${publishModal.target === "batch" ? "var(--tc)" : "var(--ln)"}`, borderRadius: 10, background: publishModal.target === "batch" ? "var(--tc-l)" : "#fff", cursor: "pointer" }}>
+                    <input type="radio" checked={publishModal.target === "batch"} onChange={() => setPublishModal({ ...publishModal, target: "batch" })} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Currently Selected Batch ({batch?.name})</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>Only notify parents in this specific batch.</div>
+                    </div>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: `1.5px solid ${publishModal.target === "all" ? "var(--tc)" : "var(--ln)"}`, borderRadius: 10, background: publishModal.target === "all" ? "var(--tc-l)" : "#fff", cursor: "pointer" }}>
+                    <input type="radio" checked={publishModal.target === "all"} onChange={() => setPublishModal({ ...publishModal, target: "all" })} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>All Batches</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>Send the comprehensive timetable to all parents in the institute.</div>
+                    </div>
+                  </label>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 24, background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>✓</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Notifications Sent!</div>
+                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 6 }}>The timetable blast is queued for delivery.</div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

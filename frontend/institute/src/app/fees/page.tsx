@@ -29,6 +29,7 @@ export default function FeesPage() {
   });
   
   const [reminderSent, setReminderSent] = useState<Set<number>>(new Set());
+  const [remindModal, setRemindModal] = useState<{ target: "all" | "batch", sent: boolean } | null>(null);
 
   const batch    = BATCHES.find(b => b.id === selBatch)!;
   const students = ALL_STUDENTS.filter(s => s.batch === selBatch);
@@ -146,9 +147,13 @@ export default function FeesPage() {
   };
 
   const sendReminder = (s: Student) => setReminderSent(prev => new Set(Array.from(prev).concat(s.id)));
-  const sendAllReminders = () => {
-    const dueIds = students.filter(s => { const st = getStatus(s); return st !== "paid" && st !== "waived"; }).map(s => s.id);
+  const openRemindModal = () => setRemindModal({ target: "batch", sent: false });
+  const executeBulkRemind = () => {
+    if (!remindModal) return;
+    const targetStudents = remindModal.target === "all" ? ALL_STUDENTS : students;
+    const dueIds = targetStudents.filter(s => { const st = getStatus(s); return st !== "paid" && st !== "waived" && !s.isFree; }).map(s => s.id);
     setReminderSent(prev => new Set(Array.from(prev).concat(dueIds)));
+    setRemindModal({ ...remindModal, sent: true });
   };
 
   const statusBadge = (s: Student) => {
@@ -296,7 +301,7 @@ export default function FeesPage() {
               />
             </div>
             <button className="btn btn-s btn-sm">Download</button>
-            <button className="btn btn-p btn-sm" onClick={sendAllReminders}>
+            <button className="btn btn-p btn-sm" onClick={openRemindModal}>
               Remind all
             </button>
           </div>
@@ -419,7 +424,7 @@ export default function FeesPage() {
               {!allReminded && (
                 <button
                   className="btn btn-sm"
-                  onClick={sendAllReminders}
+                  onClick={openRemindModal}
                   style={{
                     background: "#c07b1a", color: "#fff",
                     border: "none", borderRadius: 8,
@@ -537,44 +542,64 @@ export default function FeesPage() {
         )}
       </Modal>
 
-      {/* Receipt modal */}
-      <Modal
-        open={!!receiptTarget}
-        onClose={closeAll}
-        title="Payment receipt"
-        footer={
-          <>
-            <button className="btn btn-s btn-sm" onClick={closeAll}>Close</button>
-            <button className="btn btn-p btn-sm">Share via WhatsApp</button>
-          </>
-        }
-      >
-        {receiptTarget && (
-          <div>
-            <div style={{
-              border:"2px dashed var(--tc)",borderRadius:14,padding:"20px 22px",
-              background:"var(--tc-l)",textAlign:"center",marginBottom:16,
-            }}>
-              <div style={{ fontSize:11,color:"var(--tc-d)",letterSpacing:".08em",textTransform:"uppercase",fontWeight:700,marginBottom:4 }}>RECEIPT</div>
-              <div style={{ fontSize:22,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
-                {getRecord(receiptTarget).receiptNo || "—"}
+      {/* Receipt Modal */}
+      <Modal open={!!receiptTarget} onClose={closeAll} title="Payment Receipt">
+        {receiptTarget && (() => {
+          const r = getRecord(receiptTarget);
+          return (
+            <div style={{ padding: "0 10px" }}>
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--ink)" }}>LKR {r.paidAmount.toLocaleString()}</div>
+                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 4 }}>Paid on {r.paidDate}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, background: "var(--cr)", padding: 16, borderRadius: 12, border: "1px solid var(--ln)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Receipt No</span><span className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{r.receiptNo}</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Student</span><span style={{ fontSize: 12, fontWeight: 600 }}>{receiptTarget.name} ({selMonth})</span></div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Method</span><span style={{ fontSize: 12, fontWeight: 600 }}>{r.method}</span></div>
+                {r.credits! > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Extra Credits</span><span style={{ fontSize: 12, fontWeight: 600, color: "var(--tc-d)" }}>LKR {r.credits!.toLocaleString()}</span></div>}
+              </div>
+              <div style={{ marginTop: 24, display: "flex", gap: 8 }}>
+                <button className="btn btn-s" style={{ flex: 1 }} onClick={closeAll}>Close</button>
+                <button className="btn btn-p" style={{ flex: 1 }}>Print receipt</button>
               </div>
             </div>
-            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-              {[
-                { label:"Student",      val: receiptTarget.name },
-                { label:"Batch",        val: batch.name },
-                { label:"Month",        val: CURRENT_MONTH },
-                { label:"Amount (LKR)", val: getRecord(receiptTarget).paidAmount.toLocaleString() },
-                { label:"Paid date",    val: getRecord(receiptTarget).paidDate || "—" },
-                { label:"Credits",      val: (getRecord(receiptTarget).credits ?? 0) > 0 ? `LKR ${(getRecord(receiptTarget).credits ?? 0).toLocaleString()}` : "None" },
-              ].map(row=>(
-                <div key={row.label} style={{ padding:"9px 11px",background:"var(--cr-d)",borderRadius:9 }}>
-                  <div style={{ fontSize:10,color:"var(--ink3)",fontWeight:600,letterSpacing:".04em",textTransform:"uppercase",marginBottom:2 }}>{row.label}</div>
-                  <div style={{ fontSize:13,fontWeight:700,color:"var(--ink)" }}>{row.val}</div>
+          );
+        })()}
+      </Modal>
+
+      {/* Remind Bulk Modal */}
+      <Modal open={!!remindModal} onClose={() => setRemindModal(null)} title="Send Fee Reminders"
+        footer={remindModal && !remindModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setRemindModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={executeBulkRemind}>Send Notifications</button></> : <button className="btn btn-s btn-sm" onClick={() => setRemindModal(null)}>Close</button>}
+      >
+        {remindModal && (
+          <div>
+            {!remindModal.sent ? (
+              <>
+                <div style={{ fontSize: 13, color: "var(--ink)", marginBottom: 16 }}>Select the target audience for this fee reminder. Reminders will be sent as Normal Notifications according to your delivery settings.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: `1.5px solid ${remindModal.target === "batch" ? "var(--tc)" : "var(--ln)"}`, borderRadius: 10, background: remindModal.target === "batch" ? "var(--tc-l)" : "#fff", cursor: "pointer" }}>
+                    <input type="radio" checked={remindModal.target === "batch"} onChange={() => setRemindModal({ ...remindModal, target: "batch" })} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Currently Selected Batch ({batch?.name})</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>Notify unpaid parents in this specific batch only.</div>
+                    </div>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: `1.5px solid ${remindModal.target === "all" ? "var(--tc)" : "var(--ln)"}`, borderRadius: 10, background: remindModal.target === "all" ? "var(--tc-l)" : "#fff", cursor: "pointer" }}>
+                    <input type="radio" checked={remindModal.target === "all"} onChange={() => setRemindModal({ ...remindModal, target: "all" })} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>All Unpaid Students</div>
+                      <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>Send reminders to all unpaid parents across the entire institute.</div>
+                    </div>
+                  </label>
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ width: 48, height: 48, borderRadius: 24, background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>✓</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Reminders Sent!</div>
+                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 6 }}>The fee reminders have been queued for delivery.</div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
