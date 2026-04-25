@@ -34,6 +34,11 @@ export default function TeachersPage() {
   const [nextId, setNextId]     = useState(TEACHERS.length + 1);
   const [search, setSearch]     = useState("");
 
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; onConfirm: () => void; type: "danger" | "warning";
+  } | null>(null);
+
   // Record payment modal state
   const [payTarget, setPayTarget] = useState<{ teacherId: number; month: string } | null>(null);
   const [payForm, setPayForm] = useState({ method: "Bank transfer", date: new Date().toISOString().slice(0, 10), referenceNo: "" });
@@ -222,7 +227,18 @@ export default function TeachersPage() {
             )}
             <button className="btn btn-xs btn-s" onClick={(e) => openEdit(t, e)}>Edit</button>
             <button className="btn btn-xs btn-d"
-              onClick={() => setTeachers(prev => prev.filter(x => x.id !== t.id))}>
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmDialog({
+                  title: "Remove teacher?",
+                  message: `Are you sure you want to remove ${t.name} (${t.subject})? This will remove their profile, salary records, and batch assignments. This cannot be undone.`,
+                  type: "danger",
+                  onConfirm: () => {
+                    setTeachers(prev => prev.filter(x => x.id !== t.id));
+                    setConfirmDialog(null);
+                  },
+                });
+              }}>
               Remove
             </button>
           </div>
@@ -458,6 +474,40 @@ export default function TeachersPage() {
             </div>
             <div style={{ background: "var(--tc-l)", border: "1px solid #b8ddd0", borderRadius: 10, padding: "9px 12px", fontSize: 11.5, color: "var(--tc-d)" }}>
               Payment of LKR {payTeacher.monthlySalary.toLocaleString()} to {payTeacher.name} will be marked as settled for {payTarget.month}.
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirmation dialog */}
+      <Modal
+        open={!!confirmDialog}
+        onClose={() => setConfirmDialog(null)}
+        title={confirmDialog?.title || ""}
+        footer={
+          <>
+            <button className="btn btn-s btn-sm" onClick={() => setConfirmDialog(null)}>Cancel</button>
+            <button
+              className={`btn btn-sm ${confirmDialog?.type === "danger" ? "btn-d" : "btn-ok"}`}
+              onClick={confirmDialog?.onConfirm}
+            >
+              {confirmDialog?.type === "danger" ? "Yes, remove" : "Confirm"}
+            </button>
+          </>
+        }
+      >
+        {confirmDialog && (
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+              background: confirmDialog.type === "danger" ? "#fceaea" : "#fef3d7",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18,
+            }}>
+              {confirmDialog.type === "danger" ? "⚠️" : "ℹ️"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.5 }}>
+              {confirmDialog.message}
             </div>
           </div>
         )}

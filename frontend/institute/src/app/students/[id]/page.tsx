@@ -108,12 +108,26 @@ export default function StudentSinglePage() {
         title="Student Profile"
         right={
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-s btn-sm" onClick={() => router.back()}>Back</button>
             <button className="btn btn-p btn-sm">Export Profile PDF</button>
           </div>
         }
       />
       <div className="pb fi form-gap">
+        {/* Back link */}
+        <button
+          onClick={() => router.push("/students")}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, color: "var(--tc-d)",
+            display: "flex", alignItems: "center", gap: 5,
+            padding: 0, marginBottom: -4,
+          }}
+          onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+          onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+        >
+          ← Back to students
+        </button>
+
         {/* Header Strip */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, background: "#fff", border: "1px solid var(--ln)", borderRadius: 12, padding: "18px 22px", boxShadow: "var(--sh)" }}>
           <div className="ava" style={{ background: student.bg, color: student.fg, width: 64, height: 64, fontSize: 22 }}>

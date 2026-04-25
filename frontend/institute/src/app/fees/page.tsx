@@ -168,13 +168,10 @@ export default function FeesPage() {
       header: "Name",
       width: 200,
       render: (s) => (
-        <div className="td-nm" style={{ transition: "all 150ms" }}
-          onClick={() => router.push(`/students/${s.id}`)}>
+        <div className="td-nm" style={{ transition: "all 150ms" }}>
           <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
           <div>
-            <div style={{ fontWeight: 600, fontSize: 12.5, textDecoration: "underline transparent" }}
-              onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
-              onMouseLeave={e => e.currentTarget.style.textDecoration = "underline transparent"}>
+            <div style={{ fontWeight: 600, fontSize: 12.5 }}>
               {s.name}
             </div>
             <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
@@ -448,6 +445,7 @@ export default function FeesPage() {
           data={filteredStudents}
           rowKey={s => s.id}
           defaultPerPage={10}
+          onRowClick={s => router.push(`/students/${s.id}`)}
           rowBg={s => getStatus(s) === "overdue" ? "#fffbeb" : undefined}
           emptyMessage={search ? `No students match "${search}"` : "No students in this batch"}
           title={`All students (${filteredStudents.length})`}

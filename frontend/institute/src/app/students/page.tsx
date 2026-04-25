@@ -33,10 +33,16 @@ export default function StudentsPage() {
   const [selBatch, setSelBatch] = useState<BatchId>("g7a");
   const [students, setStudents] = useState<Student[]>(ALL_STUDENTS);
   const [search, setSearch]     = useState("");
-  const [modal, setModal]       = useState<"enroll" | null>(null);
+  const [modal, setModal]       = useState<"enroll" | "edit" | null>(null);
   const [form, setForm]         = useState(blankEnroll("g7a"));
   const [nextId, setNextId]     = useState(ALL_STUDENTS.length + 1);
+  const [editTarget, setEditTarget] = useState<Student | null>(null);
   const router = useRouter();
+
+  // Confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; onConfirm: () => void; type: "danger" | "warning";
+  } | null>(null);
 
   const batch     = BATCHES.find(b => b.id === selBatch)!;
   const batchStudents = students.filter(s => s.batch === selBatch);
@@ -51,14 +57,44 @@ export default function StudentsPage() {
   const avgAtt    = batchStudents.length ? Math.round(batchStudents.reduce((a, s) => a + s.attPct, 0) / batchStudents.length) : 0;
 
   const changeBatch = (id: BatchId) => { setSelBatch(id); setSearch(""); };
-  const openEnroll  = () => { setForm(blankEnroll(selBatch)); setModal("enroll"); };
-  const close       = () => setModal(null);
+  const openEnroll  = () => { setForm(blankEnroll(selBatch)); setEditTarget(null); setModal("enroll"); };
+  const close       = () => { setModal(null); setEditTarget(null); };
+
+  const openEdit = (s: Student, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setForm({ name: s.name, guardian: s.guardian, mobile: s.mobile, batch: batch.name, joinDate: s.joinDate, isFree: s.isFree ?? false });
+    setEditTarget(s);
+    setModal("edit");
+  };
 
   const markPaid = (id: number) =>
     setStudents(prev => prev.map(s => s.id === id ? { ...s, fee: "paid" } : s));
 
   const sendReminder = (s: Student) => {
-    alert(`Fee reminder sent to ${s.guardian} at ${s.mobile}`);
+    setConfirmDialog({
+      title: "Send fee reminder?",
+      message: `A WhatsApp reminder will be sent to ${s.guardian} (${s.mobile}) about ${s.name}'s pending fee of LKR ${s.feeAmount.toLocaleString()}.`,
+      type: "warning",
+      onConfirm: () => {
+        setConfirmDialog(null);
+        // In production this would call an API
+      },
+    });
+  };
+
+  const removeStudent = (s: Student, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmDialog({
+      title: "Remove student?",
+      message: `Are you sure you want to remove ${s.name} from ${batch.name}? This will remove all their records, attendance, and fee history. This action cannot be undone.`,
+      type: "danger",
+      onConfirm: () => {
+        setStudents(prev => prev.filter(x => x.id !== s.id));
+        const idx = ALL_STUDENTS.findIndex(x => x.id === s.id);
+        if (idx !== -1) ALL_STUDENTS.splice(idx, 1);
+        setConfirmDialog(null);
+      },
+    });
   };
 
   const enroll = () => {
@@ -78,11 +114,31 @@ export default function StudentsPage() {
     close();
   };
 
+  const saveEdit = () => {
+    if (!editTarget || !form.name.trim()) return;
+    setStudents(prev => prev.map(s =>
+      s.id === editTarget.id
+        ? { ...s, name: form.name, initials: makeInitials(form.name), guardian: form.guardian, mobile: form.mobile, joinDate: form.joinDate, isFree: form.isFree }
+        : s
+    ));
+    // Also update the global array
+    const globalStudent = ALL_STUDENTS.find(s => s.id === editTarget.id);
+    if (globalStudent) {
+      globalStudent.name = form.name;
+      globalStudent.initials = makeInitials(form.name);
+      globalStudent.guardian = form.guardian;
+      globalStudent.mobile = form.mobile;
+      globalStudent.joinDate = form.joinDate;
+      globalStudent.isFree = form.isFree;
+    }
+    close();
+  };
+
   /* ── Column definitions ── */
   const columns: Column<Student>[] = [
     {
       key: "student",
-      header: "Student",
+      header: "Name",
       width: 200,
       render: (s) => (
         <div className="td-nm">
@@ -96,7 +152,7 @@ export default function StudentsPage() {
     },
     {
       key: "guardian",
-      header: "Guardian & mobile",
+      header: "Parent & phone",
       render: (s) => (
         <div>
           <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
@@ -111,12 +167,12 @@ export default function StudentsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {s.isFree 
-              ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Free Scholar</span>
+              ? <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Free student</span>
               : s.fee === "paid"
-                ? <span className="bdg b-paid">Paid</span>
+                ? <span className="bdg b-paid">Paid ✓</span>
                 : s.fee === "overdue"
-                  ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Overdue</span>
-                  : <span className="bdg b-due">Due</span>
+                  ? <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99 }}>Late</span>
+                  : <span className="bdg b-due">Not paid</span>
             }
             {!s.isFree && (
               <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>
@@ -168,17 +224,72 @@ export default function StudentsPage() {
     {
       key: "actions",
       header: "Actions",
-      width: 100,
+      width: 140,
       render: (s) => (
-        <button
-          className="btn btn-xs btn-s"
-          onClick={(e) => { e.stopPropagation(); router.push(`/students/${s.id}`); }}
-        >
-          View profile
-        </button>
+        <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+          <button className="btn btn-xs btn-s" onClick={(e) => openEdit(s, e)}>Edit</button>
+          <button className="btn btn-xs btn-d" onClick={(e) => removeStudent(s, e)}>Remove</button>
+        </div>
       ),
     },
   ];
+
+  // Shared form body for Enroll and Edit
+  const formBody = (
+    <div className="form-gap">
+      <div>
+        <label className="flbl freq">Student full name</label>
+        <input placeholder="e.g. Kavitha Suresh" value={form.name}
+          onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+      </div>
+      <div className="field-row">
+        <div>
+          <label className="flbl req">Parent / guardian name</label>
+          <input placeholder="Parent / guardian" value={form.guardian}
+            onChange={e => setForm(f => ({ ...f, guardian: e.target.value }))} />
+        </div>
+        <div>
+          <label className="flbl req">Phone number</label>
+          <input placeholder="+94 77 000 0000" value={form.mobile}
+            onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} />
+          <div className="fhint">For fee reminders &amp; absent alerts</div>
+        </div>
+      </div>
+      <div className="field-row">
+        <div>
+          <label className="flbl">Batch</label>
+          <input value={batch.name} disabled style={{ background: "#f5f5f3", cursor: "not-allowed" }} />
+        </div>
+        <div>
+          <label className="flbl">Join date</label>
+          <input type="date" value={form.joinDate}
+            onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))} />
+        </div>
+      </div>
+      <div style={{ padding: "12px 14px", marginTop: 4, background: form.isFree ? "#f6f3fc" : "#fff", border: form.isFree ? "1px solid #d9ccf5" : "1px solid var(--ln)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: form.isFree ? "#6b3ea8" : "var(--ink)" }}>Free student (no fees)</div>
+          <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>This student will not be billed for any monthly fees.</div>
+        </div>
+        <button className={`toggle ${form.isFree ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, isFree: !f.isFree }))} />
+      </div>
+      {/* Preview */}
+      {form.name && (
+        <div style={{ background: "var(--cr)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%", background: "var(--tc-l)", color: "var(--tc-d)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700,
+          }}>
+            {makeInitials(form.name)}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{form.name}</div>
+            <div style={{ fontSize: 11, color: "var(--ink3)" }}>{form.guardian || "No guardian"} · {batch.name}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <PageShell>
@@ -242,56 +353,57 @@ export default function StudentsPage() {
         />
       </div>
 
-      {/* Enroll modal */}
+      {/* Enroll / Edit modal */}
       <Modal
-        open={modal === "enroll"}
+        open={modal !== null}
         onClose={close}
-        title={`Enroll into ${batch.name}`}
+        title={modal === "edit" ? `Edit ${editTarget?.name}` : `Enroll into ${batch.name}`}
         footer={
           <>
             <button className="btn btn-s btn-sm" onClick={close}>Cancel</button>
-            <button className="btn btn-p btn-sm" onClick={enroll} disabled={!form.name.trim()}>Enroll student</button>
+            <button className="btn btn-p btn-sm"
+              onClick={modal === "edit" ? saveEdit : enroll}
+              disabled={!form.name.trim()}>
+              {modal === "edit" ? "Save changes" : "Enroll student"}
+            </button>
           </>
         }
       >
-        <div className="form-gap">
-          <div>
-            <label className="flbl freq">Student full name</label>
-            <input placeholder="e.g. Kavitha Suresh" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
+        {formBody}
+      </Modal>
+
+      {/* Confirmation dialog */}
+      <Modal
+        open={!!confirmDialog}
+        onClose={() => setConfirmDialog(null)}
+        title={confirmDialog?.title || ""}
+        footer={
+          <>
+            <button className="btn btn-s btn-sm" onClick={() => setConfirmDialog(null)}>Cancel</button>
+            <button
+              className={`btn btn-sm ${confirmDialog?.type === "danger" ? "btn-d" : "btn-ok"}`}
+              onClick={confirmDialog?.onConfirm}
+            >
+              {confirmDialog?.type === "danger" ? "Yes, remove" : "Yes, send"}
+            </button>
+          </>
+        }
+      >
+        {confirmDialog && (
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+              background: confirmDialog.type === "danger" ? "#fceaea" : "#fef3d7",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18,
+            }}>
+              {confirmDialog.type === "danger" ? "⚠️" : "📲"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.5 }}>
+              {confirmDialog.message}
+            </div>
           </div>
-          <div className="field-row">
-            <div>
-              <label className="flbl req">Guardian name</label>
-              <input placeholder="Parent / guardian" value={form.guardian}
-                onChange={e => setForm(f => ({ ...f, guardian: e.target.value }))} />
-            </div>
-            <div>
-              <label className="flbl req">Guardian mobile</label>
-              <input placeholder="+94 77 000 0000" value={form.mobile}
-                onChange={e => setForm(f => ({ ...f, mobile: e.target.value }))} />
-              <div className="fhint">For fee reminders &amp; absent alerts</div>
-            </div>
-          </div>
-          <div className="field-row">
-            <div>
-              <label className="flbl">Batch</label>
-              <input value={batch.name} disabled style={{ background: "#f5f5f3", cursor: "not-allowed" }} />
-            </div>
-            <div>
-              <label className="flbl">Join date</label>
-              <input type="date" value={form.joinDate}
-                onChange={e => setForm(f => ({ ...f, joinDate: e.target.value }))} />
-            </div>
-          </div>
-          <div style={{ padding: "12px 14px", marginTop: 4, background: form.isFree ? "#f6f3fc" : "#fff", border: form.isFree ? "1px solid #d9ccf5" : "1px solid var(--ln)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: form.isFree ? "#6b3ea8" : "var(--ink)" }}>Free Scholar (Permanent)</div>
-              <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Permanently exempt this student from all future monthly fee billing cycles.</div>
-            </div>
-            <button className={`toggle ${form.isFree ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, isFree: !f.isFree }))} />
-          </div>
-        </div>
+        )}
       </Modal>
     </PageShell>
   );

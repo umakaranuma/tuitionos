@@ -231,11 +231,23 @@ export default function TeacherSingleView() {
 
   return (
     <PageShell>
-      <Topbar title={teacher.name} subtitle={`${teacher.subject} teacher`}
-        right={<button className="btn btn-s btn-sm" onClick={() => router.push("/teachers")}>← All teachers</button>}
-      />
+      <Topbar title={teacher.name} subtitle={`${teacher.subject} teacher`} />
 
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        {/* Back link */}
+        <button
+          onClick={() => router.push("/teachers")}
+          style={{
+            background: "none", border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 600, color: "var(--tc-d)",
+            display: "flex", alignItems: "center", gap: 5,
+            padding: 0, marginBottom: 14,
+          }}
+          onMouseEnter={e => e.currentTarget.style.textDecoration = "underline"}
+          onMouseLeave={e => e.currentTarget.style.textDecoration = "none"}
+        >
+          ← Back to teachers
+        </button>
         {/* ── Teacher Header ── */}
         <div style={{
           display: "flex", alignItems: "center", gap: 16,
