@@ -18,14 +18,22 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
   upcoming:  { bg: "#d8e6fa", fg: "#2a5fa8", label: "Upcoming" },
 };
 
-type GradeRange = { label: string; minPct: number; bg: string; fg: string };
+type GradeRange = { label: string; minPct: number; fg: string };
 const DEFAULT_GRADES: GradeRange[] = [
-  { label: "A", minPct: 75, bg: "#d4ede3", fg: "#1a5040" },
-  { label: "B", minPct: 65, bg: "#d8e6fa", fg: "#2a5fa8" },
-  { label: "C", minPct: 50, bg: "#fef3d7", fg: "#c07b1a" },
-  { label: "S", minPct: 35, bg: "#ede8fc", fg: "#6b3ea8" },
-  { label: "F", minPct: 0,  bg: "#fceaea", fg: "#b83030" },
+  { label: "A", minPct: 75, fg: "#1a5040" },
+  { label: "B", minPct: 65, fg: "#2a5fa8" },
+  { label: "C", minPct: 50, fg: "#c07b1a" },
+  { label: "S", minPct: 35, fg: "#6b3ea8" },
+  { label: "F", minPct: 0,  fg: "#b83030" },
 ];
+
+function hexToBg(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * 0.85);
+  return `#${mix(r).toString(16).padStart(2,"0")}${mix(g).toString(16).padStart(2,"0")}${mix(b).toString(16).padStart(2,"0")}`;
+}
 
 export default function ExamsPage() {
   const [tab, setTab] = useState<Tab>("exams");
@@ -52,8 +60,9 @@ export default function ExamsPage() {
 
   const gradeLabel = (m: number, max: number) => {
     const pct = (m / max) * 100;
-    for (const g of gradeRanges) { if (pct >= g.minPct) return g; }
-    return gradeRanges[gradeRanges.length - 1];
+    for (const g of gradeRanges) { if (pct >= g.minPct) return { ...g, bg: hexToBg(g.fg) }; }
+    const last = gradeRanges[gradeRanges.length - 1];
+    return { ...last, bg: hexToBg(last.fg) };
   };
 
   const batch = BATCHES.find(b => b.id === selBatch)!;
@@ -365,29 +374,52 @@ export default function ExamsPage() {
               </div>
               <div style={{ padding: "14px 18px" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {gradeRanges.map((g, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: g.bg, borderRadius: 10, border: `1.5px solid ${g.fg}22` }}>
-                      <input value={g.label} onChange={e => { const v = e.target.value; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, label: v } : r)); }}
-                        style={{ width: 50, textAlign: "center", fontWeight: 700, fontSize: 16, background: "#fff", borderRadius: 6 }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 2 }}>{i === gradeRanges.length - 1 ? "Below all above (Fail)" : `Minimum ${g.minPct}% and above`}</div>
-                        {i < gradeRanges.length - 1 && (
-                          <input type="number" min="0" max="100" value={g.minPct}
-                            onChange={e => { const v = parseInt(e.target.value) || 0; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, minPct: v } : r)); }}
-                            style={{ width: 70, fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 600 }} />
-                        )}
+                  {gradeRanges.map((g, i) => {
+                    const bg = hexToBg(g.fg);
+                    return (
+                      <div key={i} style={{ background: bg, borderRadius: 10, border: `1.5px solid ${g.fg}33`, overflow: "hidden" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px" }}>
+                          <input value={g.label} onChange={e => { const v = e.target.value; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, label: v } : r)); }}
+                            style={{ width: 50, textAlign: "center", fontWeight: 700, fontSize: 16, background: "#fff", borderRadius: 6 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 2 }}>{i === gradeRanges.length - 1 ? "Below all above (Fail)" : `Minimum ${g.minPct}% and above`}</div>
+                            {i < gradeRanges.length - 1 && (
+                              <input type="number" min="0" max="100" value={g.minPct}
+                                onChange={e => { const v = parseInt(e.target.value) || 0; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, minPct: v } : r)); }}
+                                style={{ width: 70, fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 600 }} />
+                            )}
+                          </div>
+                          {/* Color picker */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 10, color: g.fg, fontWeight: 700, letterSpacing: ".03em" }}>Color</span>
+                            <div style={{
+                              width: 34, height: 34, borderRadius: 10, overflow: "hidden",
+                              border: `2.5px solid ${g.fg}`, boxShadow: `0 0 0 2px ${hexToBg(g.fg)}, 0 2px 6px ${g.fg}30`,
+                              cursor: "pointer", position: "relative", flexShrink: 0,
+                            }}>
+                              <input type="color" value={g.fg} onChange={e => { const v = e.target.value; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, fg: v } : r)); }}
+                                style={{
+                                  position: "absolute", inset: -6, width: "calc(100% + 12px)", height: "calc(100% + 12px)",
+                                  border: "none", padding: 0, cursor: "pointer",
+                                }} />
+                            </div>
+                          </div>
+                          {gradeRanges.length > 2 && (
+                            <button className="btn btn-xs btn-d" onClick={() => setConfirmDialog({
+                              title: "Remove grade?",
+                              message: `Are you sure you want to remove grade "${g.label}"? Students currently assigned this grade will be reassigned based on the remaining ranges.`,
+                              onConfirm: () => { setGradeRanges(prev => prev.filter((_, ri) => ri !== i)); setConfirmDialog(null); },
+                            })}>✕</button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ width: 24, height: 24, borderRadius: 6, background: g.fg, flexShrink: 0 }} />
-                      {gradeRanges.length > 2 && (
-                        <button className="btn btn-xs btn-d" onClick={() => setGradeRanges(prev => prev.filter((_, ri) => ri !== i))}>✕</button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                   <button className="btn btn-xs btn-ok" onClick={() => setGradeRanges(prev => [
                     ...prev.slice(0, -1),
-                    { label: "New", minPct: 10, bg: "#e5e5e5", fg: "#555" },
+                    { label: "New", minPct: 10, fg: "#555" },
                     prev[prev.length - 1],
                   ])}>+ Add grade</button>
                   <button className="btn btn-xs btn-s" onClick={() => setGradeRanges(DEFAULT_GRADES)}>Reset to default</button>
@@ -395,7 +427,7 @@ export default function ExamsPage() {
                 <div style={{ background: "var(--cr)", borderRadius: 8, padding: "10px 14px", marginTop: 14, fontSize: 11, color: "var(--ink3)" }}>
                   <strong>Preview:</strong> {gradeRanges.map((g, i) => (
                     <span key={i} style={{ marginLeft: 8 }}>
-                      <span style={{ background: g.bg, color: g.fg, padding: "1px 6px", borderRadius: 4, fontWeight: 700, fontSize: 10 }}>{g.label}</span>
+                      <span style={{ background: hexToBg(g.fg), color: g.fg, padding: "1px 6px", borderRadius: 4, fontWeight: 700, fontSize: 10 }}>{g.label}</span>
                       <span style={{ marginLeft: 3 }}>{i < gradeRanges.length - 1 ? `≥ ${g.minPct}%` : `< ${gradeRanges[i - 1]?.minPct || 0}%`}</span>
                     </span>
                   ))}
