@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
-import { INIT_TIMETABLE, BATCHES, TEACHERS, TimetableSession, INIT_TIMESLOTS, INIT_EXAMS, Exam, ExamScheduleItem } from "@/lib/batchData";
+import { INIT_TIMETABLE, BATCHES, TEACHERS, TimetableSession, INIT_TIMESLOTS, INIT_EXAMS, Exam, ExamScheduleItem, BatchId } from "@/lib/batchData";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 type ViewType = "class" | "exam";
@@ -64,7 +64,8 @@ export default function TimetablePage() {
 
   const saveSlot = () => {
     if (!editSlot) return;
-    const { day, timeStr, batchId } = editSlot;
+    const { day, timeStr } = editSlot;
+    const batchId = editSlot.batchId as BatchId;
     let newSessions = sessions.filter(s => !(s.batchId === batchId && s.day === day && s.timeStr === timeStr));
     if (editForm.type === "class" && editForm.subject && editForm.teacherId) {
       newSessions.push({ id: Date.now(), type: "class", batchId, day, timeStr, subject: editForm.subject, teacherId: parseInt(editForm.teacherId) });
