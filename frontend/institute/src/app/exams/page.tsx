@@ -10,7 +10,7 @@ import {
   Exam, ExamMark, ExamScheduleItem, Student, BatchId
 } from "@/lib/batchData";
 
-type Tab = "exams" | "timetable" | "marks";
+type Tab = "exams" | "timetable" | "marks" | "grades";
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
   completed: { bg: "#d4ede3", fg: "#1a5040", label: "Completed" },
@@ -18,14 +18,14 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
   upcoming:  { bg: "#d8e6fa", fg: "#2a5fa8", label: "Upcoming" },
 };
 
-function gradeLabel(m: number, max: number) {
-  const pct = (m / max) * 100;
-  if (pct >= 75) return { label: "A", bg: "#d4ede3", fg: "#1a5040" };
-  if (pct >= 65) return { label: "B", bg: "#d8e6fa", fg: "#2a5fa8" };
-  if (pct >= 50) return { label: "C", bg: "#fef3d7", fg: "#c07b1a" };
-  if (pct >= 35) return { label: "S", bg: "#ede8fc", fg: "#6b3ea8" };
-  return { label: "F", bg: "#fceaea", fg: "#b83030" };
-}
+type GradeRange = { label: string; minPct: number; bg: string; fg: string };
+const DEFAULT_GRADES: GradeRange[] = [
+  { label: "A", minPct: 75, bg: "#d4ede3", fg: "#1a5040" },
+  { label: "B", minPct: 65, bg: "#d8e6fa", fg: "#2a5fa8" },
+  { label: "C", minPct: 50, bg: "#fef3d7", fg: "#c07b1a" },
+  { label: "S", minPct: 35, bg: "#ede8fc", fg: "#6b3ea8" },
+  { label: "F", minPct: 0,  bg: "#fceaea", fg: "#b83030" },
+];
 
 export default function ExamsPage() {
   const [tab, setTab] = useState<Tab>("exams");
@@ -42,9 +42,19 @@ export default function ExamsPage() {
   const [marksExam, setMarksExam] = useState<Exam | null>(null);
   const [marksSubject, setMarksSubject] = useState("");
   const [editingMarks, setEditingMarks] = useState<Record<number, string>>({});
+  const [marksSearch, setMarksSearch] = useState("");
+
+  // Grade config
+  const [gradeRanges, setGradeRanges] = useState<GradeRange[]>(DEFAULT_GRADES);
 
   // Confirm dialog
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+
+  const gradeLabel = (m: number, max: number) => {
+    const pct = (m / max) * 100;
+    for (const g of gradeRanges) { if (pct >= g.minPct) return g; }
+    return gradeRanges[gradeRanges.length - 1];
+  };
 
   const batch = BATCHES.find(b => b.id === selBatch)!;
   const batchExams = exams.filter(e => e.batchId === selBatch);
@@ -100,6 +110,7 @@ export default function ExamsPage() {
   const openMarksEntry = (exam: Exam, subject: string) => {
     setMarksExam(exam);
     setMarksSubject(subject);
+    setMarksSearch("");
     const subjectMarks = marks.filter(m => m.examId === exam.id && m.subject === subject);
     const initial: Record<number, string> = {};
     subjectMarks.forEach(m => { initial[m.studentId] = m.marks !== null ? String(m.marks) : ""; });
@@ -280,6 +291,7 @@ export default function ExamsPage() {
     { id: "exams", label: "All exams", icon: "📋" },
     { id: "timetable", label: "Exam timetable", icon: "📅" },
     { id: "marks", label: "Marks & results", icon: "📊" },
+    { id: "grades", label: "Grade settings", icon: "⚙️" },
   ];
 
   return (
@@ -342,6 +354,56 @@ export default function ExamsPage() {
         )}
         {tab === "timetable" && renderTimetable()}
         {tab === "marks" && renderMarks()}
+
+        {/* Grade config */}
+        {tab === "grades" && (
+          <div style={{ maxWidth: 600 }}>
+            <div style={{ background: "#fff", border: "1.5px solid var(--ln)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(28,25,23,.05)" }}>
+              <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--ln)" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>Grade ranges</div>
+                <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>Set the minimum percentage for each grade. Students below the lowest range will get the last grade.</div>
+              </div>
+              <div style={{ padding: "14px 18px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {gradeRanges.map((g, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: g.bg, borderRadius: 10, border: `1.5px solid ${g.fg}22` }}>
+                      <input value={g.label} onChange={e => { const v = e.target.value; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, label: v } : r)); }}
+                        style={{ width: 50, textAlign: "center", fontWeight: 700, fontSize: 16, background: "#fff", borderRadius: 6 }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 2 }}>{i === gradeRanges.length - 1 ? "Below all above (Fail)" : `Minimum ${g.minPct}% and above`}</div>
+                        {i < gradeRanges.length - 1 && (
+                          <input type="number" min="0" max="100" value={g.minPct}
+                            onChange={e => { const v = parseInt(e.target.value) || 0; setGradeRanges(prev => prev.map((r, ri) => ri === i ? { ...r, minPct: v } : r)); }}
+                            style={{ width: 70, fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 600 }} />
+                        )}
+                      </div>
+                      <div style={{ width: 24, height: 24, borderRadius: 6, background: g.fg, flexShrink: 0 }} />
+                      {gradeRanges.length > 2 && (
+                        <button className="btn btn-xs btn-d" onClick={() => setGradeRanges(prev => prev.filter((_, ri) => ri !== i))}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <button className="btn btn-xs btn-ok" onClick={() => setGradeRanges(prev => [
+                    ...prev.slice(0, -1),
+                    { label: "New", minPct: 10, bg: "#e5e5e5", fg: "#555" },
+                    prev[prev.length - 1],
+                  ])}>+ Add grade</button>
+                  <button className="btn btn-xs btn-s" onClick={() => setGradeRanges(DEFAULT_GRADES)}>Reset to default</button>
+                </div>
+                <div style={{ background: "var(--cr)", borderRadius: 8, padding: "10px 14px", marginTop: 14, fontSize: 11, color: "var(--ink3)" }}>
+                  <strong>Preview:</strong> {gradeRanges.map((g, i) => (
+                    <span key={i} style={{ marginLeft: 8 }}>
+                      <span style={{ background: g.bg, color: g.fg, padding: "1px 6px", borderRadius: 4, fontWeight: 700, fontSize: 10 }}>{g.label}</span>
+                      <span style={{ marginLeft: 3 }}>{i < gradeRanges.length - 1 ? `≥ ${g.minPct}%` : `< ${gradeRanges[i - 1]?.minPct || 0}%`}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Create exam modal */}
@@ -376,33 +438,46 @@ export default function ExamsPage() {
         title={marksExam ? `${marksSubject} — ${marksExam.name}` : ""}
         footer={<><button className="btn btn-s btn-sm" onClick={() => setMarksExam(null)}>Cancel</button><button className="btn btn-ok btn-sm" onClick={saveMarks}>Save marks</button></>}
       >
-        {marksExam && (
-          <div>
-            <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 12 }}>
-              Enter marks out of {marksExam.maxMarks} for each student · {batch.name}
-            </div>
-            <div style={{ maxHeight: 400, overflowY: "auto" }}>
-              {batchStudents.map(st => (
-                <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--ln)" }}>
-                  <div className="ava" style={{ background: st.bg, color: st.fg, width: 30, height: 30, fontSize: 10 }}>{st.initials}</div>
-                  <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600 }}>{st.name}</div>
-                  <input
-                    type="number" min="0" max={marksExam.maxMarks}
-                    value={editingMarks[st.id] ?? ""}
-                    onChange={e => setEditingMarks(prev => ({ ...prev, [st.id]: e.target.value }))}
-                    placeholder="—"
-                    style={{ width: 70, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700 }}
-                  />
-                  <span style={{ fontSize: 11, color: "var(--ink3)", width: 30 }}>/ {marksExam.maxMarks}</span>
-                  {editingMarks[st.id] && parseInt(editingMarks[st.id]) >= 0 && (() => {
-                    const g = gradeLabel(parseInt(editingMarks[st.id]), marksExam.maxMarks);
-                    return <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: g.bg, color: g.fg, width: 22, textAlign: "center" }}>{g.label}</span>;
-                  })()}
+        {marksExam && (() => {
+          const filtered = batchStudents.filter(st =>
+            !marksSearch || st.name.toLowerCase().includes(marksSearch.toLowerCase())
+          );
+          return (
+            <div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+                <div style={{ position: "relative", flex: 1 }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
+                    <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
+                  </svg>
+                  <input placeholder="Search student…" value={marksSearch} onChange={e => setMarksSearch(e.target.value)}
+                    style={{ paddingLeft: 30, width: "100%", fontSize: 12 }} />
                 </div>
-              ))}
+                <div style={{ fontSize: 11, color: "var(--ink3)", whiteSpace: "nowrap" }}>out of {marksExam.maxMarks}</div>
+              </div>
+              <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                {filtered.map(st => (
+                  <div key={st.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--ln)" }}>
+                    <div className="ava" style={{ background: st.bg, color: st.fg, width: 30, height: 30, fontSize: 10 }}>{st.initials}</div>
+                    <div style={{ flex: 1, fontSize: 12.5, fontWeight: 600 }}>{st.name}</div>
+                    <input
+                      type="number" min="0" max={marksExam.maxMarks}
+                      value={editingMarks[st.id] ?? ""}
+                      onChange={e => setEditingMarks(prev => ({ ...prev, [st.id]: e.target.value }))}
+                      placeholder="—"
+                      style={{ width: 70, textAlign: "center", fontFamily: "var(--font-mono)", fontWeight: 700 }}
+                    />
+                    <span style={{ fontSize: 11, color: "var(--ink3)", width: 30 }}>/ {marksExam.maxMarks}</span>
+                    {editingMarks[st.id] && parseInt(editingMarks[st.id]) >= 0 && (() => {
+                      const g = gradeLabel(parseInt(editingMarks[st.id]), marksExam.maxMarks);
+                      return <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: g.bg, color: g.fg, width: 22, textAlign: "center" }}>{g.label}</span>;
+                    })()}
+                  </div>
+                ))}
+                {filtered.length === 0 && <div style={{ textAlign: "center", padding: 20, color: "var(--ink3)", fontSize: 12 }}>No students match "{marksSearch}"</div>}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* Confirm dialog */}
