@@ -25,8 +25,7 @@ function makeInitials(n: string) {
 }
 
 function blankEnroll(batchId: BatchId) {
-  const batch = BATCHES.find(b => b.id === batchId)!;
-  return { name: "", guardian: "", mobile: "", batch: batch.name, joinDate: new Date().toISOString().slice(0, 10), isFree: false };
+  return { name: "", guardian: "", mobile: "", batch: batchId, joinDate: new Date().toISOString().slice(0, 10), isFree: false };
 }
 
 export default function StudentsPage() {
@@ -62,7 +61,7 @@ export default function StudentsPage() {
 
   const openEdit = (s: Student, e: React.MouseEvent) => {
     e.stopPropagation();
-    setForm({ name: s.name, guardian: s.guardian, mobile: s.mobile, batch: batch.name, joinDate: s.joinDate, isFree: s.isFree ?? false });
+    setForm({ name: s.name, guardian: s.guardian, mobile: s.mobile, batch: s.batch, joinDate: s.joinDate, isFree: s.isFree ?? false });
     setEditTarget(s);
     setModal("edit");
   };
@@ -118,7 +117,7 @@ export default function StudentsPage() {
     if (!editTarget || !form.name.trim()) return;
     setStudents(prev => prev.map(s =>
       s.id === editTarget.id
-        ? { ...s, name: form.name, initials: makeInitials(form.name), guardian: form.guardian, mobile: form.mobile, joinDate: form.joinDate, isFree: form.isFree }
+        ? { ...s, name: form.name, initials: makeInitials(form.name), guardian: form.guardian, mobile: form.mobile, joinDate: form.joinDate, isFree: form.isFree, batch: form.batch }
         : s
     ));
     // Also update the global array
@@ -130,6 +129,7 @@ export default function StudentsPage() {
       globalStudent.mobile = form.mobile;
       globalStudent.joinDate = form.joinDate;
       globalStudent.isFree = form.isFree;
+      globalStudent.batch = form.batch;
     }
     close();
   };
@@ -258,7 +258,16 @@ export default function StudentsPage() {
       <div className="field-row">
         <div>
           <label className="flbl">Batch</label>
-          <input value={batch.name} disabled style={{ background: "#f5f5f3", cursor: "not-allowed" }} />
+          <select 
+            value={form.batch}
+            onChange={e => setForm(f => ({ ...f, batch: e.target.value as BatchId }))}
+            disabled={modal === "enroll"}
+            style={modal === "enroll" ? { background: "#f5f5f3", cursor: "not-allowed" } : {}}
+          >
+            {BATCHES.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="flbl">Join date</label>
@@ -284,7 +293,7 @@ export default function StudentsPage() {
           </div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{form.name}</div>
-            <div style={{ fontSize: 11, color: "var(--ink3)" }}>{form.guardian || "No guardian"} · {batch.name}</div>
+            <div style={{ fontSize: 11, color: "var(--ink3)" }}>{form.guardian || "No guardian"} · {BATCHES.find(b => b.id === form.batch)?.name || batch.name}</div>
           </div>
         </div>
       )}
