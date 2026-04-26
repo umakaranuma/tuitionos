@@ -22,7 +22,7 @@ export interface PlanLimit {
 }
 
 export interface PlanDefinition {
-  key: "basic" | "premium";
+  key: string;
   label: string;
   tagline: string;
   priceLKR: number;

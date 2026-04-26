@@ -36,34 +36,7 @@ export default function SettingsPage() {
       <div className="pb fi">
         <div className="g2">
           <div>
-            <div className="sb-settings">
-              <div className="sb-settings-t">Pricing</div>
-              <div className="sb-settings-d">Changes apply to next billing cycle</div>
-              <div className="fg" style={{ marginBottom: 10 }}>
-                <label>Basic tier (per month)</label>
-                <input
-                  value={pricing.basic}
-                  onChange={(e) => setPricing((p) => ({ ...p, basic: e.target.value }))}
-                  style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}
-                />
-              </div>
-              <div className="fg" style={{ marginBottom: 10 }}>
-                <label>Premium tier (per month)</label>
-                <input
-                  value={pricing.premium}
-                  onChange={(e) => setPricing((p) => ({ ...p, premium: e.target.value }))}
-                  style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}
-                />
-              </div>
-              <div className="fg">
-                <label>Free trial period</label>
-                <input
-                  value={pricing.trial}
-                  onChange={(e) => setPricing((p) => ({ ...p, trial: e.target.value }))}
-                  style={{ maxWidth: 100 }}
-                />
-              </div>
-            </div>
+
 
             <div className="sb-settings">
               <div className="sb-settings-t">Feature flags</div>

@@ -9,9 +9,10 @@ import {
 } from "@/lib/planConfig";
 
 export default function PricingPage() {
-  const [editPlan, setEditPlan] = useState<"basic"|"premium"|null>(null);
+  const [plans, setPlans] = useState(Object.values(PLAN_DEFINITIONS));
+  const [editPlan, setEditPlan] = useState<string | "new" | null>(null);
   const [saved, setSaved] = useState(false);
-  const ep = editPlan ? PLAN_DEFINITIONS[editPlan] : null;
+  const ep = editPlan === "new" ? { key: "new", label: "New Plan", tagline: "Describe this plan", priceLKR: 0, color: "#1a5040", colorLight: "#d4ede3", supportLevel: "Email support", icon: "star" } : plans.find(p => p.key === editPlan) || null;
 
   return (
     <PageShell>
@@ -19,11 +20,13 @@ export default function PricingPage() {
       <div className="pb fi">
 
         {/* ── Plan cards ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, maxWidth: 760, margin: "0 auto 40px" }}>
-          {(["basic", "premium"] as const).map(pk => {
-            const p = PLAN_DEFINITIONS[pk];
-            const included = PLAN_FEATURES.filter(f => pk === "basic" ? f.basic : f.premium);
-            const excluded = PLAN_FEATURES.filter(f => pk === "basic" ? !f.basic : !f.premium);
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, maxWidth: 1060, margin: "0 auto 40px" }}>
+          {plans.map(p => {
+            const pk = p.key;
+            // For newly created plans, default to premium features if not specified
+            const isBasic = pk === "basic";
+            const included = PLAN_FEATURES.filter(f => isBasic ? f.basic : (f as any)[pk] !== false);
+            const excluded = PLAN_FEATURES.filter(f => isBasic ? !f.basic : (f as any)[pk] === false);
             return (
               <div key={pk} style={{
                 background: "#fff", borderRadius: 16, padding: "28px 24px",
@@ -106,6 +109,25 @@ export default function PricingPage() {
               </div>
             );
           })}
+
+          {/* Add New Plan Card */}
+          <div 
+            onClick={() => setEditPlan("new")}
+            style={{
+              background: "var(--cr)", borderRadius: 16, padding: "28px 24px",
+              border: "2px dashed var(--ln)", display: "flex", flexDirection: "column", 
+              alignItems: "center", justifyContent: "center", cursor: "pointer",
+              transition: "border-color 200ms, background 200ms", minHeight: 400
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--tc)"; e.currentTarget.style.background = "var(--tc-l)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--ln)"; e.currentTarget.style.background = "var(--cr)"; }}
+          >
+            <div style={{ width: 64, height: 64, borderRadius: 32, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, boxShadow: "0 2px 10px rgba(0,0,0,.05)" }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--tc)" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-serif)" }}>Create New Plan</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink3)", marginTop: 6, textAlign: "center", maxWidth: 200 }}>Add a custom tier for specific enterprise or trial clients.</div>
+          </div>
         </div>
       </div>
 
@@ -119,7 +141,13 @@ export default function PricingPage() {
         ) : (
           <>
             <button className="btn btn-s btn-sm" onClick={() => setEditPlan(null)}>Cancel</button>
-            <button className="btn btn-p btn-sm" onClick={() => { setSaved(true); setTimeout(() => { setSaved(false); setEditPlan(null); }, 1200); }}>Save changes</button>
+            <button className="btn btn-p btn-sm" onClick={() => { 
+              if (editPlan === "new" && ep) {
+                setPlans(prev => [...prev, { ...ep, key: "new-" + Date.now() }]);
+              }
+              setSaved(true); 
+              setTimeout(() => { setSaved(false); setEditPlan(null); }, 1200); 
+            }}>Save changes</button>
           </>
         )
       }>
@@ -147,10 +175,10 @@ export default function PricingPage() {
             </div>
             <hr className="dv" />
             <div>
-              <label className="flbl" style={{ marginBottom: 8 }}>Features ({PLAN_FEATURES.filter(f => editPlan === "basic" ? f.basic : f.premium).length} of {PLAN_FEATURES.length} enabled)</label>
+              <label className="flbl" style={{ marginBottom: 8 }}>Features</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
                 {PLAN_FEATURES.map(f => {
-                  const on = editPlan === "basic" ? f.basic : f.premium;
+                  const on = editPlan === "basic" ? f.basic : (editPlan === "new" ? true : (f as any)[editPlan as string] !== false);
                   return (
                     <label key={f.id} style={{
                       display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
