@@ -78,10 +78,10 @@ export default function LoginPage() {
             fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 26,
             color: "#fff", marginBottom: 4, lineHeight: 1.2,
           }}>
-            St. Patrick&apos;s Institute
+            Institute Portal
           </h1>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,.45)", fontFamily: "'JetBrains Mono', monospace" }}>
-            stpatricks.tuitionos.lk
+            app.tuitionos.lk
           </div>
         </div>
 
@@ -132,7 +132,7 @@ export default function LoginPage() {
                     Email address
                   </label>
                   <input
-                    type="email" placeholder="admin@stpatricks.lk" value={email}
+                    type="email" placeholder="admin@your-institute.com" value={email}
                     onChange={e => setEmail(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && handleLogin()}
                     autoFocus
@@ -291,7 +291,7 @@ export default function LoginPage() {
                         Email address
                       </label>
                       <input
-                        type="email" placeholder="admin@stpatricks.lk" value={forgotEmail}
+                        type="email" placeholder="admin@your-institute.com" value={forgotEmail}
                         onChange={e => setForgotEmail(e.target.value)}
                         onKeyDown={e => e.key === "Enter" && handleForgot()} autoFocus
                         style={{
