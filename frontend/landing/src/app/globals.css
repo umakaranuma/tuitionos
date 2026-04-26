@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --ink: #1c1917;
+  --ink2: #44403c;
+  --ink3: #78716c;
+  --ln: #e8e3db;
+  --cr: #faf8f4;
+  --tc: #2d7a5a;
+  --tc-l: #d4ede3;
+  --tc-d: #1a5040;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--cr);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+.btn-p {
+  background: var(--tc);
+  color: #fff;
+}
+.btn-p:hover {
+  background: var(--tc-d);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(45,122,90,0.3);
+}
+.btn-s {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--ln);
+}
+.btn-s:hover {
+  background: var(--ln);
+  transform: translateY(-2px);
+}
+
+.glass-nav {
+  background: rgba(250, 248, 244, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(232, 227, 219, 0.8);
+}
+
+.feature-card {
+  background: #fff;
+  border: 1px solid var(--ln);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 24px rgba(28,25,23,0.03);
+  transition: all 0.3s ease;
+}
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 32px rgba(28,25,23,0.06);
+  border-color: var(--tc-l);
+}
