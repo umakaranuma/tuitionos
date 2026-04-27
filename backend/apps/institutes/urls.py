@@ -1,8 +1,10 @@
-from django.urls import path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CreateInstituteView
+from .views import InstituteViewSet
 
 router = DefaultRouter()
-urlpatterns = router.urls + [
-    path('create/', CreateInstituteView.as_view(), name='institute-create'),
+router.register(r'', InstituteViewSet, basename='institute')
+
+urlpatterns = [
+    path('', include(router.urls)),
 ]

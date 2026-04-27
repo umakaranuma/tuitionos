@@ -1,26 +1,37 @@
-from rest_framework.views import APIView
+from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.conf import settings
-from django.utils.crypto import get_random_string
 from .models import Institute, InstituteUser
+from .serializers import InstituteSerializer
 
-class CreateInstituteView(APIView):
+class InstituteViewSet(viewsets.ModelViewSet):
+    queryset = Institute.objects.all()
+    serializer_class = InstituteSerializer
     permission_classes = [] # Allow Fynux Admin in a real scenario, open for now
 
-    def post(self, request):
+    def create(self, request, *args, **kwargs):
         data = request.data
         name = data.get("name")
-        subdomain = data.get("subdomain")
-        owner_name = data.get("adminName")
-        owner_email = data.get("email")
-        owner_mobile = data.get("mobile", "")
+        subdomain = data.get("subdomain", "")
+        owner_name = data.get("adminName", data.get("owner_name", ""))
+        owner_email = data.get("email", data.get("owner_email", ""))
+        owner_mobile = data.get("mobile", data.get("owner_mobile", ""))
         plan = data.get("plan", "basic")
 
-        if not all([name, subdomain, owner_name, owner_email]):
+        if not all([name, owner_name, owner_email]):
             return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Handle Subdomain creation if omitted from frontend
+        if not subdomain:
+            import re
+            base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+            subdomain = base_slug[:30]
+            if Institute.objects.filter(subdomain=subdomain).exists():
+                import uuid
+                subdomain = f"{subdomain[:25]}-{str(uuid.uuid4())[:4]}"
 
         if Institute.objects.filter(subdomain=subdomain).exists():
             return Response({"error": "Institute with this subdomain already exists"}, status=status.HTTP_400_BAD_REQUEST)
@@ -75,8 +86,9 @@ class CreateInstituteView(APIView):
             fail_silently=False,
         )
 
+        serializer = self.get_serializer(institute)
         return Response({
             "message": "Institute created successfully and welcome email sent.",
-            "institute_id": institute.id,
+            "data": serializer.data,
             "reset_link_debug": reset_url # For debugging only
         }, status=status.HTTP_201_CREATED)

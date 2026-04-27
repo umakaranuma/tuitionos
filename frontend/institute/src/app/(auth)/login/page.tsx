@@ -22,18 +22,32 @@ export default function LoginPage() {
   // Mock: detect if first login (temporary password)
   const isFirstLogin = password === "Xk9#mP2qL";
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError("");
     if (!email.trim() || !password.trim()) { setError("Please enter your email and password."); return; }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (isFirstLogin) {
-        setStep("change-password");
-      } else {
+    
+    try {
+      const response = await fetch("http://localhost:8000/api/login/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Store token somewhere securely, e.g. localStorage or cookie
+        localStorage.setItem("token", data.token);
         router.push("/dashboard");
+      } else {
+        setError(data.error || "Invalid credentials.");
       }
-    }, 800);
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChangePassword = () => {
@@ -52,7 +66,7 @@ export default function LoginPage() {
     setError("");
     
     try {
-      const response = await fetch("http://localhost:8000/api/auth/password-reset/", {
+      const response = await fetch("http://localhost:8000/api/reset-password/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),

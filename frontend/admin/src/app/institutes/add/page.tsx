@@ -174,7 +174,7 @@ export default function AddInstitutePage() {
                   setLoading(true);
                   setError("");
                   try {
-                    const res = await fetch("http://localhost:8000/api/admin/institutes/create/", {
+                    const res = await fetch("http://localhost:8000/api/institutes/", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(form)
