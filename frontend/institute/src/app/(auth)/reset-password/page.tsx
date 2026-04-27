@@ -21,7 +21,7 @@ function ResetPasswordForm() {
     
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/reset-password/confirm/", {
+      const response = await fetch("http://localhost:8000/api/reset-password/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uid, token, new_password: newPw }),

@@ -28,7 +28,7 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const response = await fetch("http://localhost:8000/api/login/", {
+      const response = await fetch("http://localhost:8000/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -66,7 +66,7 @@ export default function LoginPage() {
     setError("");
     
     try {
-      const response = await fetch("http://localhost:8000/api/reset-password/", {
+      const response = await fetch("http://localhost:8000/api/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
