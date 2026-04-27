@@ -81,11 +81,40 @@ function FeatureInteractive() {
 export default function LandingPage() {
   const [form, setForm] = useState({ name: "", institute: "", email: "", phone: "" });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Here we would normally submit to our backend API
-    setSubmitted(true);
+    setIsSubmitting(true);
+    
+    try {
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          access_key: "13595c1b-ccf2-403f-b332-b1ba43e4f284",
+          subject: `New Demo Request from ${form.institute}`,
+          from_name: "TuitionOS Website",
+          name: form.name,
+          email: form.email,
+          institute: form.institute,
+          phone: form.phone,
+        }),
+      });
+
+      if (response.ok) {
+        setSubmitted(true);
+      } else {
+        alert("Something went wrong. Please try again.");
+      }
+    } catch (error) {
+      alert("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -295,7 +324,9 @@ export default function LandingPage() {
                       <input required type="tel" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="+94 77 000 0000" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} />
                     </div>
                   </div>
-                  <button type="submit" className="btn btn-p w-full py-4 text-lg mt-4 shadow-lg shadow-[rgba(45,122,90,0.2)]">Book Demo Call</button>
+                  <button type="submit" disabled={isSubmitting} className={`btn btn-p w-full py-4 text-lg mt-4 shadow-lg shadow-[rgba(45,122,90,0.2)] ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}>
+                    {isSubmitting ? "Sending..." : "Book Demo Call"}
+                  </button>
                   <p className="text-center text-xs text-[var(--ink3)] mt-2">By submitting this form, you agree to our Terms of Service and Privacy Policy.</p>
                 </form>
               )}

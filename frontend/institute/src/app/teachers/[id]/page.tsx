@@ -57,7 +57,7 @@ export default function TeacherSingleView() {
   if (!teacher) {
     return (
       <PageShell>
-        <Topbar />
+        <Topbar title="Teacher Not Found" />
         <div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>
           <div style={{ fontSize: 44, marginBottom: 12 }}>😕</div>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Teacher not found</div>
@@ -863,7 +863,7 @@ export default function TeacherSingleView() {
                   <div>
                     <label className="flbl">Subject</label>
                     <select value={ttForm.subject} onChange={e => setTtForm(f => ({ ...f, subject: e.target.value }))}>
-                      {BATCHES.find(b => b.id === ttForm.batchId)?.subjects.includes(teacher.subject) 
+                      {(BATCHES.find(b => b.id === ttForm.batchId)?.subjects as readonly string[])?.includes(teacher.subject) 
                         ? <option value={teacher.subject}>{teacher.subject}</option>
                         : <option value="">— Batch doesn't offer {teacher.subject} —</option>
                       }

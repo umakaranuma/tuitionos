@@ -252,7 +252,7 @@ export function getScheduledSubjects(batchId: string, dayShort: string): string[
     .filter(s => s.batchId === batchId && s.day === dayShort && s.type !== "leave")
     .map(s => s.subject!)
     .filter(Boolean);
-  return [...new Set(subjects)];
+  return subjects.filter((s, i) => subjects.indexOf(s) === i);
 }
 
 /** Get the short day name (Mon, Tue, ...) for today */
