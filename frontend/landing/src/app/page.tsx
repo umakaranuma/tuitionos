@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { sendDemoRequest } from "@/lib/mailService";
 
 const ALL_FEATURES = [
   { id: "dashboard", title: "Institute Dashboard & Analytics", desc: "Get a birds-eye view on total revenue, enrollment trends, and day-to-day operations at a glance.", icon: "📈", img: "/screens/dashboard.png" },
@@ -88,30 +89,10 @@ export default function LandingPage() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch("https://api.web3forms.com/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          access_key: "13595c1b-ccf2-403f-b332-b1ba43e4f284",
-          subject: `New Demo Request from ${form.institute}`,
-          from_name: "TuitionOS Website",
-          name: form.name,
-          email: form.email,
-          institute: form.institute,
-          phone: form.phone,
-        }),
-      });
-
-      if (response.ok) {
-        setSubmitted(true);
-      } else {
-        alert("Something went wrong. Please try again.");
-      }
+      await sendDemoRequest(form);
+      setSubmitted(true);
     } catch (error) {
-      alert("Network error. Please try again.");
+      alert("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
