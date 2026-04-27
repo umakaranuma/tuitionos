@@ -27,7 +27,8 @@ export default function AddInstitutePage() {
     subdomain: "",
   });
   const [subdomainEdited, setSubdomainEdited] = useState(false);
-  const [tempPassword] = useState(generatePassword());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (field: string, value: string) => {
     setForm((prev) => {
@@ -93,10 +94,10 @@ export default function AddInstitutePage() {
                 {[
                   { label: "Institute", val: form.name },
                   { label: "Admin", val: form.adminName },
-                  { label: "Portal URL", val: `https://${form.subdomain}.tuitionos.lk`, mono: true },
+                  { label: "Portal URL", val: `https://app.tuitionos.lk/login`, mono: true },
                   { label: "Plan", val: planInfo[form.plan].label },
                   { label: "Email", val: form.email },
-                  { label: "Temporary password", val: tempPassword, mono: true },
+                  { label: "Authentication", val: "Secure Email Link Sent", mono: true },
                 ].map(row => (
                   <div key={row.label} style={{ padding: "10px 12px", background: "var(--cr)", borderRadius: 9 }}>
                     <div style={{ fontSize: 10, color: "var(--ink3)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 2 }}>{row.label}</div>
@@ -113,10 +114,9 @@ export default function AddInstitutePage() {
               }}>
                 <div style={{ fontWeight: 700, marginBottom: 6 }}>📧 Welcome email sent to {form.email}</div>
                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.6, opacity: .85 }}>
-                  Subject: Your TuitionOS portal is ready — {form.name}<br/>
-                  Portal URL: https://{form.subdomain}.tuitionos.lk<br/>
-                  Temporary password: {tempPassword}<br/>
-                  Plan: {planInfo[form.plan].label} ({planInfo[form.plan].price})
+                  Subject: Welcome to TuitionOS - {form.name}<br/>
+                  Plan: {planInfo[form.plan].label} ({planInfo[form.plan].price})<br/>
+                  Action: Secure link provided to set password and log in.
                 </div>
               </div>
 
@@ -141,6 +141,8 @@ export default function AddInstitutePage() {
               </div>
               <hr className="dv" />
 
+              {error && <div style={{ color: "red", fontSize: 12, marginBottom: 10 }}>{error}</div>}
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
                 {[
                   { label: "Institute name", val: form.name },
@@ -161,15 +163,36 @@ export default function AddInstitutePage() {
                 background: "var(--tc-l)", border: "1px solid #b8ddd0", borderRadius: 10,
                 padding: "10px 14px", fontSize: 12, color: "var(--tc-d)", marginBottom: 18,
               }}>
-                Portal URL: <strong>https://{form.subdomain}.tuitionos.lk</strong>
+                Portal URL: <strong>https://app.tuitionos.lk/login</strong>
                 <br/>
-                <span style={{ fontSize: 11 }}>Temporary password will be auto-generated and emailed to {form.email}.</span>
+                <span style={{ fontSize: 11 }}>Secure login link will be emailed to {form.email}.</span>
               </div>
 
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button className="btn btn-s" onClick={() => setStep("form")}>← Edit</button>
-                <button className="btn btn-p" onClick={() => setStep("success")}>
-                  Confirm & create institute
+                <button className="btn btn-p" disabled={loading} onClick={async () => {
+                  setLoading(true);
+                  setError("");
+                  try {
+                    const res = await fetch("http://localhost:8000/api/admin/institutes/create/", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(form)
+                    });
+                    
+                    if (res.ok) {
+                      setStep("success");
+                    } else {
+                      const data = await res.json();
+                      setError(data.error || "Failed to create institute");
+                    }
+                  } catch (err) {
+                    setError("Network error. Make sure the Django backend is running.");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}>
+                  {loading ? "Creating..." : "Confirm & create institute"}
                 </button>
               </div>
             </div>
@@ -238,41 +261,15 @@ export default function AddInstitutePage() {
               </div>
             </div>
 
-            {/* Section: Subdomain */}
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>
-              Portal subdomain
-            </div>
-            <div className="fg" style={{ marginBottom: 14 }}>
-              <label>Subdomain *</label>
-              <div style={{ display: "flex", gap: 0 }}>
-                <input
-                  placeholder="stpatricks"
-                  style={{ borderRadius: "var(--r) 0 0 var(--r)", borderRight: "none" }}
-                  value={form.subdomain}
-                  onChange={(e) => {
-                    setSubdomainEdited(true);
-                    handleChange("subdomain", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
-                  }}
-                />
-                <span style={{
-                  padding: "8px 11px", background: "var(--cr-d)", border: "1.5px solid var(--ln)",
-                  borderLeft: "none", borderRadius: "0 var(--r) var(--r) 0", fontSize: 12, color: "var(--ink3)",
-                  whiteSpace: "nowrap", display: "flex", alignItems: "center",
-                }}>
-                  .tuitionos.lk
-                </span>
-              </div>
-              {subdomainError && <div style={{ fontSize: 11, color: "var(--rb)", marginTop: 4 }}>{subdomainError}</div>}
-              <div className="hint">Only lowercase letters, numbers, and hyphens · Min 3 chars · Max 30 chars</div>
-            </div>
+            {/* Subdomain is generated automatically for internal use, hidden from UI */}
 
             {/* Preview */}
-            {form.subdomain && !subdomainError && (
+            {form.name && (
               <div style={{
                 background: "var(--tc-l)", border: "1px solid #b8ddd0", borderRadius: "var(--r)",
                 padding: "10px 14px", marginBottom: 14, fontSize: 11.5, color: "var(--tc-d)"
               }}>
-                Portal URL: <strong>https://{form.subdomain}.tuitionos.lk</strong>
+                Portal URL: <strong>https://app.tuitionos.lk/login</strong>
                 {form.email && <> · Welcome email → <strong>{form.email}</strong></>}
                 {form.plan === "trial" && <> · Trial ends in <strong>14 days</strong></>}
               </div>

@@ -46,10 +46,29 @@ export default function LoginPage() {
     }, 600);
   };
 
-  const handleForgot = () => {
+  const handleForgot = async () => {
     if (!forgotEmail.trim()) return;
     setLoading(true);
-    setTimeout(() => { setLoading(false); setForgotSent(true); }, 700);
+    setError("");
+    
+    try {
+      const response = await fetch("http://localhost:8000/api/auth/password-reset/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      
+      if (response.ok) {
+        setForgotSent(true);
+      } else {
+        const data = await response.json();
+        setError(data.error || "Failed to send reset link.");
+      }
+    } catch (err) {
+      setError("Network error. Is the backend running?");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

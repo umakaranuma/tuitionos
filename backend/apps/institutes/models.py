@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 
 class Institute(models.Model):
     PLAN_BASIC = 'basic'
@@ -26,6 +26,14 @@ class Institute(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.subdomain})'
+
+class InstituteUser(models.Model):
+    user = models.OneToOneField('auth.User', on_delete=models.CASCADE, related_name='institute_profile')
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='users')
+    role = models.CharField(max_length=20, choices=[('admin', 'Admin'), ('staff', 'Staff')], default='admin')
+    
+    def __str__(self):
+        return f'{self.user.username} @ {self.institute.name}'
 
 class PlatformSettings(models.Model):
     monthly_fee_basic = models.DecimalField(max_digits=10, decimal_places=2, default=2500)
