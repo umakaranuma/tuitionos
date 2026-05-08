@@ -11,17 +11,55 @@ export default function AdminLoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleCredentials = () => {
+  const [token, setToken] = useState("");
+
+  const handleCredentials = async () => {
     setError("");
     if (!email.trim() || !password.trim()) { setError("Please enter your email and password."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); setStep("2fa"); }, 600);
+    
+    try {
+      // Use the actual API to verify credentials
+      // We import axios locally here or use fetch, but we can also use api from lib
+      const response = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setError(data.error || "Invalid credentials");
+        setLoading(false);
+        return;
+      }
+      
+      if (!data.user.is_fynux_admin) {
+        setError("Unauthorized: You do not have admin privileges.");
+        setLoading(false);
+        return;
+      }
+      
+      // Temporarily hold token until 2FA completes
+      setToken(data.token);
+      setLoading(false); 
+      setStep("2fa");
+    } catch (err) {
+      setError("Network error. Make sure the backend is running.");
+      setLoading(false);
+    }
   };
 
   const handle2FA = () => {
     if (totpCode.length !== 6) { setError("Enter a 6-digit code from your authenticator app."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); router.push("/dashboard"); }, 500);
+    // In a real app, verify the TOTP code against the backend here.
+    // For now, any 6 digit code will pass the UI simulation.
+    setTimeout(() => { 
+      setLoading(false); 
+      localStorage.setItem("token", token);
+      router.push("/dashboard"); 
+    }, 500);
   };
 
   return (
