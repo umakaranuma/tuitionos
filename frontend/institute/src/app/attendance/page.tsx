@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Attendance = { id: number; student: number; student_name: string; batch: number; date: string; is_present: boolean; marked_at: string };
 type Batch = { id: number; name: string };
@@ -31,12 +32,16 @@ export default function AttendancePage() {
   return (
     <PageShell>
       <Topbar title="Attendance" subtitle={`${selectedDate} · ${records.length} records`}
-        right={<div style={{ display: "flex", gap: 8 }}>
+        right={<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input type="date" value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setLoading(true); }} />
-          <select value={selectedBatch} onChange={e => { setSelectedBatch(e.target.value); setLoading(true); }} style={{ minWidth: 160 }}>
-            <option value="">All batches</option>
-            {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          <div style={{ minWidth: 160 }}>
+            <SearchableSelect 
+              value={selectedBatch} 
+              onChange={val => { setSelectedBatch(String(val)); setLoading(true); }}
+              placeholder="All batches"
+              options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.name }))]}
+            />
+          </div>
         </div>} />
       <div className="pb fi">
         <div className="g4" style={{ marginBottom: 18 }}>

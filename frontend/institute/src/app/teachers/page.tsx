@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { api } from "@/lib/api";
 
 type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean };
@@ -85,10 +86,12 @@ export default function TeachersPage() {
           <div className="field-row">
             <div className="fg">
               <label className="flbl">Subject</label>
-              <select value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}>
-                <option value="">None</option>
-                {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-              </select>
+              <SearchableSelect 
+                value={form.subject} 
+                onChange={val => setForm(f => ({ ...f, subject: String(val) }))}
+                placeholder="Select subject..."
+                options={subjects.map(s => ({ value: s.name, label: s.name }))}
+              />
             </div>
             <div className="fg"><label className="flbl">Monthly salary (LKR)</label><input type="number" value={form.monthly_salary} onChange={e => setForm(f => ({ ...f, monthly_salary: e.target.value }))} /></div>
           </div>

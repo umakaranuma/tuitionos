@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Payment = { id: number; teacher: number; teacher_name: string; month: string; amount: string; status: string; paid_date: string | null; method: string; payment_type: string };
 type Advance = { id: number; teacher: number; teacher_name: string; amount: string; request_date: string; reason: string; status: string; repaid_amount: string };
@@ -38,9 +39,15 @@ export default function TeacherSalaryPage() {
   return (
     <PageShell>
       <Topbar title="Teacher Salary" subtitle={month}
-        right={<select value={month} onChange={e => { setMonth(e.target.value); setLoading(true); }} style={{ minWidth: 180 }}>
-          {["April 2026", "March 2026", "February 2026", "January 2026"].map(m => <option key={m}>{m}</option>)}
-        </select>} />
+        right={
+          <div style={{ minWidth: 180 }}>
+            <SearchableSelect 
+              value={month} 
+              onChange={val => { setMonth(String(val)); setLoading(true); }}
+              options={["April 2026", "March 2026", "February 2026", "January 2026"].map(m => ({ value: m, label: m }))}
+            />
+          </div>
+        } />
       <div className="pb fi">
         <div className="g4" style={{ marginBottom: 18 }}>
           <div className="kpi" style={{ "--kc": "var(--tc)" } as any}><div className="kpi-lbl">Total Paid</div><div className="kpi-val">{Math.round(totalPaid / 1000)}K</div><div className="kpi-tr up">{paidCount} teachers</div></div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { api } from "@/lib/api";
 
 type Tx = { id: number; month: string; transaction_type: string; category: string; label: string; amount: string; date: string };
@@ -69,16 +70,22 @@ export default function AccountsPage() {
           <div><label className="flbl freq">Label</label><input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} autoFocus /></div>
           <div className="field-row">
             <div className="fg"><label className="flbl">Type</label>
-              <select value={form.transaction_type} onChange={e => setForm(f => ({ ...f, transaction_type: e.target.value }))}>
-                <option value="expense">Expense</option><option value="income">Income</option>
-              </select>
+              <SearchableSelect 
+                value={form.transaction_type} 
+                onChange={val => setForm(f => ({ ...f, transaction_type: String(val) }))}
+                options={[{ value: "expense", label: "Expense" }, { value: "income", label: "Income" }]}
+              />
             </div>
             <div className="fg"><label className="flbl">Category</label>
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                <option value="utility_bill">Utility Bill</option><option value="staff_salary">Staff Salary</option>
-                <option value="rent">Rent</option><option value="supplies">Supplies</option>
-                <option value="sponsorship">Sponsorship</option><option value="other">Other</option>
-              </select>
+              <SearchableSelect 
+                value={form.category} 
+                onChange={val => setForm(f => ({ ...f, category: String(val) }))}
+                options={[
+                  { value: "utility_bill", label: "Utility Bill" }, { value: "staff_salary", label: "Staff Salary" },
+                  { value: "rent", label: "Rent" }, { value: "supplies", label: "Supplies" },
+                  { value: "sponsorship", label: "Sponsorship" }, { value: "other", label: "Other" }
+                ]}
+              />
             </div>
           </div>
           <div className="field-row">

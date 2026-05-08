@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 
 type Fee = { id: number; student: number; student_name: string; batch: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null; collected_by: string };
 type Batch = { id: number; name: string };
@@ -43,10 +44,16 @@ export default function FeesPage() {
   return (
     <PageShell>
       <Topbar title="Fee Tracking" subtitle={`${paidCount} paid · ${pendingCount} pending`}
-        right={<select value={selectedBatch} onChange={e => handleBatchFilter(e.target.value)} style={{ minWidth: 180 }}>
-          <option value="">All batches</option>
-          {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>} />
+        right={
+          <div style={{ minWidth: 180 }}>
+            <SearchableSelect 
+              value={selectedBatch} 
+              onChange={val => handleBatchFilter(String(val))}
+              placeholder="All batches"
+              options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.name }))]}
+            />
+          </div>
+        } />
       <div className="pb fi">
         {/* KPIs */}
         <div className="g4" style={{ marginBottom: 18 }}>
