@@ -1,34 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { api } from "@/lib/api";
 
-const allInsts = [
-  { n: "St. Patrick's", d: "Jaffna", plan: "premium", s: 312, bill: "May 1", st: "paid", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-  { n: "Alpha Lanka", d: "Colombo", plan: "basic", s: 87, bill: "May 1", st: "trial", bg: "var(--sp-l)", fg: "var(--sp)" },
-  { n: "Bright Minds", d: "Kandy", plan: "basic", s: 145, bill: "Apr 10", st: "due", bg: "var(--sf-l)", fg: "var(--sf)" },
-  { n: "Nova Science", d: "Gampaha", plan: "premium", s: 203, bill: "May 1", st: "paid", bg: "var(--jd-l)", fg: "var(--jd)" },
-  { n: "Edu Leaders", d: "Vavuniya", plan: "basic", s: 68, bill: "Mar 10", st: "overdue", bg: "var(--rb-l)", fg: "var(--rb)" },
-  { n: "Vision Academy", d: "Colombo", plan: "premium", s: 280, bill: "May 1", st: "paid", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-  { n: "Mathura Edu", d: "Jaffna", plan: "basic", s: 110, bill: "May 1", st: "paid", bg: "var(--sp-l)", fg: "var(--sp)" },
-  { n: "Sunrise Tutors", d: "Kandy", plan: "basic", s: 55, bill: "May 1", st: "paid", bg: "var(--jd-l)", fg: "var(--jd)" },
-  { n: "Peak Learners", d: "Colombo", plan: "premium", s: 198, bill: "May 1", st: "paid", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-  { n: "Saris Academy", d: "Jaffna", plan: "basic", s: 75, bill: "May 1", st: "paid", bg: "var(--sp-l)", fg: "var(--sp)" },
-  { n: "Clarity School", d: "Gampaha", plan: "premium", s: 145, bill: "May 1", st: "paid", bg: "var(--jd-l)", fg: "var(--jd)" },
-  { n: "Glow Institute", d: "Kandy", plan: "basic", s: 92, bill: "Apr 5", st: "overdue", bg: "var(--rb-l)", fg: "var(--rb)" },
-];
+type Inst = {
+  id: number; name: string; subdomain: string; plan: string;
+  status: string; owner_name: string; owner_email: string;
+  owner_mobile: string; is_active: boolean; created_at: string;
+};
 
 const planBadge = (p: string) =>
   p === "premium" ? <span className="bdg b-prem">Premium</span> : <span className="bdg b-basic">Basic</span>;
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = {
-    paid: <span className="bdg b-paid">Paid</span>,
-    due: <span className="bdg b-due">Due</span>,
-    overdue: <span className="bdg b-over">Overdue</span>,
+    active: <span className="bdg b-paid">Active</span>,
     trial: <span className="bdg b-trial">Trial</span>,
+    suspended: <span className="bdg b-over">Suspended</span>,
   };
   return map[s] || <span>{s}</span>;
 };
@@ -36,34 +27,51 @@ const statusBadge = (s: string) => {
 const initials = (n: string) =>
   n.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 
+const P: [string, string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"]];
+
 type Filter = "all" | "premium" | "basic" | "overdue";
 
 export default function InstitutesPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  const [allInsts, setAllInsts] = useState<Inst[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/api/institutes").then((r) => {
+      const d = r.data;
+      setAllInsts(Array.isArray(d) ? d : d.results || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
 
   const filtered = allInsts.filter((i) => {
-    const matchSearch = i.n.toLowerCase().includes(search.toLowerCase()) || i.d.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = i.name.toLowerCase().includes(search.toLowerCase()) ||
+      (i.owner_name || "").toLowerCase().includes(search.toLowerCase());
     if (!matchSearch) return false;
     if (filter === "premium") return i.plan === "premium";
     if (filter === "basic") return i.plan === "basic";
-    if (filter === "overdue") return i.st === "overdue" || i.st === "due";
+    if (filter === "overdue") return i.status === "suspended";
     return true;
   });
 
+  const premiumCount = allInsts.filter(i => i.plan === "premium").length;
+  const basicCount = allInsts.filter(i => i.plan === "basic").length;
+  const trialCount = allInsts.filter(i => i.status === "trial").length;
+
   const tabs: { key: Filter; label: string }[] = [
-    { key: "all", label: "All (68)" },
-    { key: "premium", label: "Premium (23)" },
-    { key: "basic", label: "Basic (45)" },
-    { key: "overdue", label: "Overdue (7)" },
+    { key: "all", label: `All (${allInsts.length})` },
+    { key: "premium", label: `Premium (${premiumCount})` },
+    { key: "basic", label: `Basic (${basicCount})` },
+    { key: "overdue", label: `Trial (${trialCount})` },
   ];
 
   return (
     <PageShell>
       <Topbar
         title="All institutes"
-        subtitle="68 active · 4 on trial"
+        subtitle={`${allInsts.length} registered · ${trialCount} on trial`}
         right={
           <>
             <input
@@ -84,60 +92,60 @@ export default function InstitutesPage() {
             <button
               key={t.key}
               onClick={() => setFilter(t.key)}
-              className={`btn btn-sm ${filter === t.key ? "btn-p" : "btn-s"} ${t.key === "overdue" && filter !== t.key ? "btn-d" : ""}`}
+              className={`btn btn-sm ${filter === t.key ? "btn-p" : "btn-s"}`}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        <div className="tw">
-          <table>
-            <thead>
-              <tr>
-                <th>Institute</th>
-                <th>District</th>
-                <th>Plan</th>
-                <th>Students</th>
-                <th>Next bill</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((i, idx) => (
-                <tr key={i.n}>
-                  <td>
-                    <div className="td-nm">
-                      <div className="ava" style={{ background: i.bg, color: i.fg }}>{initials(i.n)}</div>
-                      {i.n}
-                    </div>
-                  </td>
-                  <td style={{ color: "var(--ink3)" }}>{i.d}</td>
-                  <td>{planBadge(i.plan)}</td>
-                  <td className="mono">{i.s}</td>
-                  <td
-                    className="mono"
-                    style={{ color: i.st === "overdue" ? "var(--rb)" : i.st === "due" ? "var(--sf)" : "var(--ink3)" }}
-                  >
-                    {i.bill}
-                  </td>
-                  <td>{statusBadge(i.st)}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      <button className="btn btn-xs btn-s" onClick={() => router.push(`/institutes/${idx + 1}`)}>View</button>
-                      {i.st === "overdue" && <button className="btn btn-xs btn-d">Suspend</button>}
-                      {i.st === "due" && <button className="btn btn-xs btn-ok">Remind</button>}
-                    </div>
-                  </td>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading institutes...</div>
+        ) : (
+          <div className="tw">
+            <table>
+              <thead>
+                <tr>
+                  <th>Institute</th>
+                  <th>Owner</th>
+                  <th>Plan</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink3)", padding: "24px 0" }}>No institutes found</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((i, idx) => {
+                  const [bg, fg] = P[idx % P.length];
+                  return (
+                    <tr key={i.id}>
+                      <td>
+                        <div className="td-nm">
+                          <div className="ava" style={{ background: bg, color: fg }}>{initials(i.name)}</div>
+                          {i.name}
+                        </div>
+                      </td>
+                      <td style={{ color: "var(--ink3)" }}>{i.owner_name}</td>
+                      <td>{planBadge(i.plan)}</td>
+                      <td>{statusBadge(i.status)}</td>
+                      <td className="mono" style={{ color: "var(--ink3)", fontSize: 11 }}>
+                        {new Date(i.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn btn-xs btn-s" onClick={() => router.push(`/institutes/${i.id}`)}>View</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: "24px 0" }}>No institutes found</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </PageShell>
   );

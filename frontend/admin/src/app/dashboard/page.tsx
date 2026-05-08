@@ -1,181 +1,161 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { api } from "@/lib/api";
 
-const insts = [
-  { n: "St. Patrick's", d: "Jaffna", plan: "premium", s: 312, bill: "May 1", st: "paid", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-  { n: "Alpha Lanka", d: "Colombo", plan: "basic", s: 87, bill: "May 1", st: "trial", bg: "var(--sp-l)", fg: "var(--sp)" },
-  { n: "Bright Minds", d: "Kandy", plan: "basic", s: 145, bill: "Apr 10", st: "due", bg: "var(--sf-l)", fg: "var(--sf)" },
-  { n: "Nova Science", d: "Gampaha", plan: "premium", s: 203, bill: "May 1", st: "paid", bg: "var(--jd-l)", fg: "var(--jd)" },
-  { n: "Edu Leaders", d: "Vavuniya", plan: "basic", s: 68, bill: "Mar 10", st: "overdue", bg: "var(--rb-l)", fg: "var(--rb)" },
-  { n: "Vision Academy", d: "Colombo", plan: "premium", s: 280, bill: "May 1", st: "paid", bg: "var(--tc-l)", fg: "var(--tc-d)" },
-  { n: "Mathura Edu", d: "Jaffna", plan: "basic", s: 110, bill: "May 1", st: "paid", bg: "var(--sp-l)", fg: "var(--sp)" },
-  { n: "Sunrise Tutors", d: "Kandy", plan: "basic", s: 55, bill: "May 1", st: "paid", bg: "var(--jd-l)", fg: "var(--jd)" },
-];
-
-const months = ["Jan", "Feb", "Mar", "Apr"];
-const basic = [96, 111, 126, 135];
-const prem = [90, 108, 120, 138];
-const mx = 280;
+type Inst = { id: number; name: string; subdomain: string; plan: string; status: string; owner_name: string; owner_email: string; created_at: string };
+type Stats = { total_institutes: number; premium_count: number; basic_count: number; trial_count: number; trials_expiring: number; overdue_invoices: number; total_revenue: number; total_students: number };
 
 const planBadge = (p: string) =>
   p === "premium" ? <span className="bdg b-prem">Premium</span> : <span className="bdg b-basic">Basic</span>;
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = {
-    paid: <span className="bdg b-paid">Paid</span>,
-    due: <span className="bdg b-due">Due</span>,
-    overdue: <span className="bdg b-over">Overdue</span>,
+    active: <span className="bdg b-paid">Active</span>,
     trial: <span className="bdg b-trial">Trial</span>,
+    suspended: <span className="bdg b-over">Suspended</span>,
   };
   return map[s] || <span>{s}</span>;
 };
 
 const initials = (n: string) => n.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
+const P: [string, string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"],["var(--pr-l)","var(--pr)"]];
+
 export default function DashboardPage() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [insts, setInsts] = useState<Inst[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.get("/api/admin/dashboard").then(r => r.data).catch(() => null),
+      api.get("/api/institutes").then(r => {
+        const d = r.data; return Array.isArray(d) ? d : d.results || [];
+      }).catch(() => []),
+    ]).then(([s, i]) => {
+      setStats(s); setInsts(i); setLoading(false);
+    });
+  }, []);
+
+  const totalMRR = stats ? Math.round(stats.total_revenue / 1000) : 0;
+
   return (
     <PageShell>
       <Topbar
         title="Dashboard"
-        subtitle="April 2026 · Platform overview"
+        subtitle={`May 2026 · Platform overview`}
         right={
           <>
             <button className="btn btn-s btn-sm">Export report</button>
-            <a href="/institutes/add"><button className="btn btn-p btn-sm">+ Add institute</button></a>
+            <Link href="/institutes/add"><button className="btn btn-p btn-sm">+ Add institute</button></Link>
           </>
         }
       />
       <div className="pb fi">
-        {/* KPIs */}
-        <div className="g4" style={{ marginBottom: 18 }}>
-          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
-            <div className="kpi-lbl">Total MRR</div>
-            <div className="kpi-val">387K</div>
-            <div className="kpi-tr up">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
-              +12% vs Mar
-            </div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--jd)" } as any}>
-            <div className="kpi-lbl">Active Institutes</div>
-            <div className="kpi-val">68</div>
-            <div className="kpi-tr up">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
-              +5 this month
-            </div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
-            <div className="kpi-lbl">Overdue</div>
-            <div className="kpi-val">7</div>
-            <div className="kpi-tr dn">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3.5l3.5 3.5 3.5-3.5"/></svg>
-              Action needed
-            </div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
-            <div className="kpi-lbl">Trials Expiring</div>
-            <div className="kpi-val">4</div>
-            <div className="kpi-tr nt">Next 7 days</div>
-          </div>
-        </div>
-
-        <div className="g2">
-          {/* Left column */}
-          <div>
-            <div className="sec-hdr">
-              <span className="sec-title">Recent activity</span>
-              <a href="/institutes"><button className="btn btn-g btn-sm">View all →</button></a>
-            </div>
-            <div className="tw" style={{ marginBottom: 14 }}>
-              <table>
-                <thead><tr><th>Institute</th><th>Plan</th><th>Status</th><th>Date</th></tr></thead>
-                <tbody>
-                  {insts.slice(0, 5).map((i) => (
-                    <tr key={i.n}>
-                      <td>
-                        <div className="td-nm">
-                          <div className="ava" style={{ background: i.bg, color: i.fg }}>{initials(i.n)}</div>
-                          {i.n}
-                        </div>
-                      </td>
-                      <td>{planBadge(i.plan)}</td>
-                      <td>{statusBadge(i.st)}</td>
-                      <td className="mono">Apr {17 - insts.indexOf(i)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="sec-hdr"><span className="sec-title">USD goal tracker</span></div>
-            <div className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
-                <div>
-                  <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "var(--ink)" }}>$1,248</div>
-                  <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Current MRR</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Goal</div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>$2,000/mo</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "var(--font-serif)", fontSize: 22, color: "var(--rb)" }}>$752</div>
-                  <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Remaining</div>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 60, color: "var(--ink3)" }}>Loading dashboard...</div>
+        ) : (
+          <>
+            {/* KPIs */}
+            <div className="g4" style={{ marginBottom: 18 }}>
+              <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
+                <div className="kpi-lbl">Total MRR</div>
+                <div className="kpi-val">{totalMRR > 0 ? `${totalMRR}K` : "—"}</div>
+                <div className="kpi-tr up">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
+                  Platform revenue
                 </div>
               </div>
-              <div className="prog-tr" style={{ height: 8 }}>
-                <div className="prog-fi" style={{ width: "62%", background: "var(--tc)" }} />
+              <div className="kpi" style={{ "--kc": "var(--jd)" } as any}>
+                <div className="kpi-lbl">Active Institutes</div>
+                <div className="kpi-val">{stats?.total_institutes ?? 0}</div>
+                <div className="kpi-tr up">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
+                  {stats?.premium_count ?? 0} premium · {stats?.basic_count ?? 0} basic
+                </div>
               </div>
-              <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 6, textAlign: "center" }}>
-                62% of target · Need ~18 more Premium institutes
+              <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
+                <div className="kpi-lbl">Overdue</div>
+                <div className="kpi-val">{stats?.overdue_invoices ?? 0}</div>
+                <div className="kpi-tr dn">Action needed</div>
+              </div>
+              <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
+                <div className="kpi-lbl">Trials Expiring</div>
+                <div className="kpi-val">{stats?.trials_expiring ?? 0}</div>
+                <div className="kpi-tr nt">Next 7 days</div>
               </div>
             </div>
-          </div>
 
-          {/* Right column */}
-          <div>
-            <div className="sec-hdr"><span className="sec-title">Monthly MRR (2026)</span></div>
-            <div className="card" style={{ padding: 16, marginBottom: 14 }}>
-              <div className="bar-ch">
-                {months.map((m, i) => (
-                  <div key={m} className="bar-col">
-                    <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 90 }}>
-                      <div className="bar" style={{ height: Math.round(basic[i] / mx * 85), background: "var(--tc)", width: 16, opacity: .75 }} />
-                      <div className="bar" style={{ height: Math.round(prem[i] / mx * 85), background: "var(--jd)", width: 16 }} />
-                    </div>
-                    <div className="bar-lbl">{m}</div>
+            <div className="g2">
+              {/* Left column */}
+              <div>
+                <div className="sec-hdr">
+                  <span className="sec-title">Recent institutes</span>
+                  <Link href="/institutes"><button className="btn btn-g btn-sm">View all →</button></Link>
+                </div>
+                <div className="tw" style={{ marginBottom: 14 }}>
+                  <table>
+                    <thead><tr><th>Institute</th><th>Plan</th><th>Status</th><th>Students</th></tr></thead>
+                    <tbody>
+                      {insts.slice(0, 6).map((inst, idx) => {
+                        const [bg, fg] = P[idx % P.length];
+                        return (
+                          <tr key={inst.id}>
+                            <td>
+                              <div className="td-nm">
+                                <div className="ava" style={{ background: bg, color: fg }}>{initials(inst.name)}</div>
+                                {inst.name}
+                              </div>
+                            </td>
+                            <td>{planBadge(inst.plan)}</td>
+                            <td>{statusBadge(inst.status)}</td>
+                            <td className="mono">{stats?.total_students ?? "—"}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Right column */}
+              <div>
+                <div className="sec-hdr"><span className="sec-title">Revenue breakdown</span></div>
+                <div className="card" style={{ padding: 16 }}>
+                  <div className="prog-w">
+                    <div className="prog-hdr"><span className="prog-lbl">Premium institutes ({stats?.premium_count ?? 0})</span><span className="prog-val">LKR {((stats?.premium_count ?? 0) * 6000 / 1000).toFixed(0)}K</span></div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${stats?.total_institutes ? Math.round((stats.premium_count / stats.total_institutes) * 100) : 0}%`, background: "var(--tc)" }} /></div>
                   </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 12, marginTop: 10 }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "var(--ink3)" }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: "var(--tc)", display: "inline-block", opacity: .75 }} />Basic
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10.5, color: "var(--ink3)" }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: "var(--jd)", display: "inline-block" }} />Premium
-                </span>
-              </div>
-            </div>
+                  <div className="prog-w">
+                    <div className="prog-hdr"><span className="prog-lbl">Basic institutes ({stats?.basic_count ?? 0})</span><span className="prog-val">LKR {((stats?.basic_count ?? 0) * 3000 / 1000).toFixed(0)}K</span></div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${stats?.total_institutes ? Math.round((stats.basic_count / stats.total_institutes) * 100) : 0}%`, background: "var(--jd)" }} /></div>
+                  </div>
+                  <div className="prog-w" style={{ marginBottom: 0 }}>
+                    <div className="prog-hdr"><span className="prog-lbl">Trials ({stats?.trial_count ?? 0})</span><span className="prog-val">Free</span></div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${stats?.total_institutes ? Math.round((stats.trial_count / stats.total_institutes) * 100) : 0}%`, background: "var(--sf)" }} /></div>
+                  </div>
+                </div>
 
-            <div className="sec-hdr"><span className="sec-title">Revenue breakdown</span></div>
-            <div className="card" style={{ padding: 16 }}>
-              <div className="prog-w">
-                <div className="prog-hdr"><span className="prog-lbl">Premium collected (23)</span><span className="prog-val">LKR 138K</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: "43%", background: "var(--tc)" }} /></div>
-              </div>
-              <div className="prog-w">
-                <div className="prog-hdr"><span className="prog-lbl">Basic collected (45)</span><span className="prog-val">LKR 183K</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: "57%", background: "var(--jd)" }} /></div>
-              </div>
-              <div className="prog-w" style={{ marginBottom: 0 }}>
-                <div className="prog-hdr"><span className="prog-lbl">Outstanding (7)</span><span className="prog-val">LKR 66K</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: "17%", background: "var(--rb)" }} /></div>
+                <div className="sec-hdr" style={{ marginTop: 14 }}><span className="sec-title">Quick stats</span></div>
+                <div className="card" style={{ padding: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div style={{ padding: "10px 12px", background: "var(--cr)", borderRadius: 9 }}>
+                      <div style={{ fontSize: 10, color: "var(--ink3)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 2 }}>Total students</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-serif)", color: "var(--ink)" }}>{stats?.total_students ?? 0}</div>
+                    </div>
+                    <div style={{ padding: "10px 12px", background: "var(--cr)", borderRadius: 9 }}>
+                      <div style={{ fontSize: 10, color: "var(--ink3)", fontWeight: 600, letterSpacing: ".04em", textTransform: "uppercase", marginBottom: 2 }}>Pending invoices</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "var(--font-serif)", color: "var(--sf)" }}>{(stats?.overdue_invoices ?? 0) + (stats?.trials_expiring ?? 0)}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </PageShell>
   );

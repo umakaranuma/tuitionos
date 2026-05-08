@@ -2,11 +2,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authtoken.models import Token
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.core.mail import send_mail
 from django.conf import settings
-from django.utils.crypto import get_random_string
 
 class LoginView(APIView):
     permission_classes = []
@@ -33,10 +33,15 @@ class LoginView(APIView):
         # Check if Fynux Admin or Institute User
         is_fynux_admin = user.is_staff or user.is_superuser
         institute_id = None
+        institute_name = None
+        role = None
         
         if not is_fynux_admin:
             try:
-                institute_id = user.institute_profile.institute.id
+                profile = user.institute_profile
+                institute_id = profile.institute.id
+                institute_name = profile.institute.name
+                role = profile.role
             except Exception:
                 pass
                 
@@ -47,9 +52,74 @@ class LoginView(APIView):
                 "email": user.email,
                 "name": f"{user.first_name} {user.last_name}".strip(),
                 "is_fynux_admin": is_fynux_admin,
-                "institute_id": institute_id
+                "institute_id": institute_id,
+                "institute_name": institute_name,
+                "role": role,
             }
         })
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            request.user.auth_token.delete()
+        except Exception:
+            pass
+        return Response({"message": "Logged out successfully."})
+
+class MeView(APIView):
+    """Returns the current logged-in user profile with institute info."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_fynux_admin = user.is_staff or user.is_superuser
+        institute_id = None
+        institute_name = None
+        institute_subdomain = None
+        institute_plan = None
+        role = None
+
+        if not is_fynux_admin:
+            try:
+                profile = user.institute_profile
+                inst = profile.institute
+                institute_id = inst.id
+                institute_name = inst.name
+                institute_subdomain = inst.subdomain
+                institute_plan = inst.plan
+                role = profile.role
+            except Exception:
+                pass
+
+        data = {
+            "id": user.id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "name": f"{user.first_name} {user.last_name}".strip(),
+            "is_fynux_admin": is_fynux_admin,
+            "role": role,
+            "institute": None,
+        }
+
+        if not is_fynux_admin:
+            try:
+                profile = user.institute_profile
+                inst = profile.institute
+                data["institute"] = {
+                    "id": inst.id,
+                    "name": inst.name,
+                    "subdomain": inst.subdomain,
+                    "plan": inst.plan,
+                    "status": inst.status,
+                }
+                data["role"] = profile.role
+            except Exception:
+                pass
+
+        return Response(data)
 
 class RequestPasswordResetView(APIView):
     permission_classes = []

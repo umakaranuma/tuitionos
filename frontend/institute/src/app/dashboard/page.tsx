@@ -1,214 +1,161 @@
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
-import { BATCHES, ALL_STUDENTS, INIT_FEE_STATE, TEACHERS, INIT_TEACHER_PAYMENTS } from "@/lib/batchData";
+import { api } from "@/lib/api";
+
+type Stats = {
+  total_students: number; active_batches: number;
+  fees: { total: number; paid: number; pending: number; outstanding: number };
+  attendance: { present_today: number; absent_today: number };
+};
+type Batch = { id: number; name: string; subject_name: string; student_count: number; monthly_fee: string; color: string; color_light: string };
+type Student = { id: number; name: string; grade: string };
 
 export default function DashboardPage() {
-  // ── CORE DATA COMPUTATION ── //
-  const totalStudents = ALL_STUDENTS.length;
-  const activeBatches = BATCHES.length;
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const payableStudents = ALL_STUDENTS.filter(s => !s.isFree);
-  const totalPayableCount = payableStudents.length;
-  const paidCount = payableStudents.filter(s => INIT_FEE_STATE[s.id]?.status === "paid").length;
-  
-  const dueStudents = payableStudents.filter(s => INIT_FEE_STATE[s.id]?.status !== "paid");
-  const feesDueStudentsCount = dueStudents.length;
+  useEffect(() => {
+    Promise.all([
+      api.get("/api/dashboard").then(r => r.data).catch(() => null),
+      api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }).catch(() => []),
+      api.get("/api/students/students").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }).catch(() => []),
+    ]).then(([s, b, st]) => {
+      setStats(s); setBatches(b); setStudents(st); setLoading(false);
+    });
+  }, []);
 
-  const outstandingLKR = dueStudents.reduce((sum, s) => sum + s.feeAmount, 0);
-  const collectedPercentage = totalPayableCount > 0 
-    ? Math.round((paidCount / totalPayableCount) * 100) 
-    : 0;
-
-  // ── ATTENDANCE ALGORITHM (MAPPED) ── //
-  const dynamicAttendance = BATCHES.slice(0, 4).map((b, i) => {
-    // Generate pseudo-deterministic rates based on array index so it remains stable but realistic
-    const monR = 90 + (i * 2) % 10;
-    const tueR = 80 + (i * 5) % 18;
-    const wedR = 92 + (i * 3) % 8;
-    const rate = Math.round((monR + tueR + wedR) / 3);
-    return {
-      batch: b.name,
-      mon: { v: `${monR}%`, ok: monR >= 85 },
-      tue: { v: `${tueR}%`, ok: tueR >= 85 },
-      wed: { v: `${wedR}%`, ok: wedR >= 85 },
-      rate: `${rate}%`,
-      rateOk: rate >= 85
-    };
-  });
-
-  // Calculate static "Absent Today" simulated number based on rates
-  const absentToday = Math.round(totalStudents * 0.08); // Approx 8% typical absent pool
-
-  // ── TEACHER PAYROLL ENGINE ── //
-  const teacherCount = TEACHERS.length;
-  const currentMonthPayments = INIT_TEACHER_PAYMENTS.filter(p => p.month === "April 2026");
-  const payrollPaidAmount = currentMonthPayments.filter(p => p.status === "paid").reduce((sum, p) => sum + p.amount, 0);
-  const payrollTotalAmount = currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-  const payrollPaidPercentage = payrollTotalAmount > 0 ? Math.round((payrollPaidAmount / payrollTotalAmount) * 100) : 0;
-  const payrollPaidCount = currentMonthPayments.filter(p => p.status === "paid").length;
-
-  // ── RECENT ALERTS GENERATOR ── //
-  const activeOverdue = dueStudents.filter(s => INIT_FEE_STATE[s.id]?.status === "overdue").slice(0, 2);
-  const recentAlerts = activeOverdue.map(s => {
-    const batchObj = BATCHES.find(b => b.id === s.batch);
-    return {
-      type: "fee",
-      name: `Fee overdue alert — ${s.name}`,
-      sub: `LKR ${s.feeAmount.toLocaleString()} · ${batchObj?.name || s.batch}`,
-      time: "Yesterday",
-      channel: "WA",
-      cost: "LKR 2"
-    };
-  });
-
-  const absentAlerts = ALL_STUDENTS.slice(10, 12).map(s => {
-    const batchObj = BATCHES.find(b => b.id === s.batch);
-    return {
-      type: "absent",
-      name: s.name,
-      sub: `${batchObj?.subjects[0] || "General"} · ${batchObj?.name}`,
-      time: "Today · 6:00 PM",
-      channel: "SMS",
-      cost: "LKR 1"
-    };
-  });
-
-  const alerts = [...recentAlerts, ...absentAlerts];
+  const totalStudents = stats?.total_students ?? students.length;
+  const activeBatches = stats?.active_batches ?? batches.length;
+  const feesPaid = stats?.fees.paid ?? 0;
+  const feesPending = stats?.fees.pending ?? 0;
+  const outstanding = stats?.fees.outstanding ?? 0;
+  const collectedPct = stats?.fees.total ? Math.round((feesPaid / stats.fees.total) * 100) : 0;
+  const presentToday = stats?.attendance.present_today ?? 0;
+  const absentToday = stats?.attendance.absent_today ?? 0;
+  const attendanceRate = (presentToday + absentToday) > 0 ? Math.round((presentToday / (presentToday + absentToday)) * 100) : 0;
 
   return (
     <PageShell>
       <Topbar
         title="Dashboard"
-        subtitle="Institute Operational Overview"
-        right={<button className="btn btn-s btn-sm">Download report</button>}
+        subtitle="Institute overview"
+        right={
+          <>
+            <button className="btn btn-s btn-sm">Export report</button>
+            <Link href="/students"><button className="btn btn-p btn-sm">+ Add student</button></Link>
+          </>
+        }
       />
-      <div style={{ background: "linear-gradient(90deg, #1a5040, #133a2e)", color: "#fff", padding: "10px 24px", fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 10, fontWeight: 800, background: "#2d7a5a", padding: "2px 8px", borderRadius: 4, letterSpacing: ".05em" }}>TUITION-OS PRO</span>
-          <span>Package automatically activated on <strong>March 1, 2026</strong>. Custom fee engines enabled.</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span>Next scheduled renewal: <strong style={{ color: "#d4ede3" }}>May 1, 2026</strong></span>
-          <Link href="/settings" style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>Manage Billing →</Link>
-        </div>
-      </div>
       <div className="pb fi">
-        <div className="g4" style={{ marginBottom: 18 }}>
-          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
-            <div className="kpi-lbl">Total Students</div>
-            <div className="kpi-val">{totalStudents}</div>
-            <div className="kpi-tr up">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
-              Across all batches
-            </div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--sp)" } as any}>
-            <div className="kpi-lbl">Active Batches</div>
-            <div className="kpi-val">{activeBatches}</div>
-            <div className="kpi-tr nt">Actively scheduled</div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
-            <div className="kpi-lbl">Fees Due</div>
-            <div className="kpi-val">{feesDueStudentsCount}</div>
-            <div className="kpi-tr nt">Students this month</div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
-            <div className="kpi-lbl">Absent Today</div>
-            <div className="kpi-val">{absentToday}</div>
-            <div className="kpi-tr dn">Parents notified</div>
-          </div>
-        </div>
-
-        <div className="g2">
-          <div>
-            <div className="sec-hdr">
-              <span className="sec-title">Fee collection engine</span>
-              <a href="/fees"><button className="btn btn-g btn-sm">View ledger →</button></a>
-            </div>
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="prog-w">
-                <div className="prog-hdr"><span className="prog-lbl">Students Collected</span><span className="prog-val">{paidCount} / {totalPayableCount}</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: `${Math.max(5, collectedPercentage)}%`, background: "var(--tc)" }} /></div>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 60, color: "var(--ink3)" }}>Loading dashboard...</div>
+        ) : (
+          <>
+            {/* KPIs */}
+            <div className="g4" style={{ marginBottom: 18 }}>
+              <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
+                <div className="kpi-lbl">Total Students</div>
+                <div className="kpi-val">{totalStudents}</div>
+                <div className="kpi-tr up">Active enrollments</div>
               </div>
-              <div className="prog-w" style={{ marginBottom: 0 }}>
-                <div className="prog-hdr"><span className="prog-lbl">Outstanding Value (LKR)</span><span className="prog-val">{outstandingLKR.toLocaleString()}</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: `${Math.max(5, 100 - collectedPercentage)}%`, background: "var(--sf)" }} /></div>
+              <div className="kpi" style={{ "--kc": "var(--jd)" } as any}>
+                <div className="kpi-lbl">Fee Collection</div>
+                <div className="kpi-val">{collectedPct}%</div>
+                <div className="kpi-tr up">{feesPaid} of {feesPaid + feesPending} paid</div>
+              </div>
+              <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
+                <div className="kpi-lbl">Outstanding</div>
+                <div className="kpi-val">{outstanding > 0 ? `${Math.round(outstanding / 1000)}K` : "0"}</div>
+                <div className="kpi-tr dn">{feesPending} students due</div>
+              </div>
+              <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
+                <div className="kpi-lbl">Today&apos;s Attendance</div>
+                <div className="kpi-val">{attendanceRate}%</div>
+                <div className="kpi-tr nt">{presentToday} present · {absentToday} absent</div>
               </div>
             </div>
 
-            <div className="sec-hdr">
-              <span className="sec-title">Attendance projection</span>
-              <a href="/attendance"><button className="btn btn-g btn-sm">Mark today →</button></a>
-            </div>
-            <div className="tw">
-              <table>
-                <thead><tr><th>Batch Cluster</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Rate</th></tr></thead>
-                <tbody>
-                  {dynamicAttendance.map((row) => (
-                    <tr key={row.batch}>
-                      <td style={{ fontWeight: 600, color: "var(--ink2)" }}>{row.batch}</td>
-                      <td><span className={`bdg ${row.mon.ok ? "b-present" : "b-absent"}`}>{row.mon.v}</span></td>
-                      <td><span className={`bdg ${row.tue.ok ? "b-present" : "b-absent"}`}>{row.tue.v}</span></td>
-                      <td><span className={`bdg ${row.wed.ok ? "b-present" : "b-absent"}`}>{row.wed.v}</span></td>
-                      <td className="mono" style={{ color: row.rateOk ? "var(--tc)" : "var(--sf)", fontWeight: 700 }}>{row.rate}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            <div className="g2">
+              {/* Left column */}
+              <div>
+                <div className="sec-hdr">
+                  <span className="sec-title">Active Batches</span>
+                  <Link href="/batches"><button className="btn btn-g btn-sm">View all →</button></Link>
+                </div>
+                <div className="tw" style={{ marginBottom: 14 }}>
+                  <table>
+                    <thead><tr><th>Batch</th><th>Subject</th><th>Students</th><th>Fee</th></tr></thead>
+                    <tbody>
+                      {batches.slice(0, 5).map(b => (
+                        <tr key={b.id}>
+                          <td>
+                            <div className="td-nm">
+                              <div className="ava" style={{ background: b.color_light || "var(--tc-l)", color: b.color || "var(--tc)" }}>
+                                {b.name.substring(0, 2).toUpperCase()}
+                              </div>
+                              {b.name}
+                            </div>
+                          </td>
+                          <td style={{ color: "var(--ink3)" }}>{b.subject_name}</td>
+                          <td className="mono">{b.student_count}</td>
+                          <td className="mono">{Number(b.monthly_fee).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-          <div>
-            <div className="sec-hdr"><span className="sec-title">Recent automated alerts</span></div>
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {alerts.length === 0 ? (
-                <div style={{ padding: 30, textAlign: "center", color: "var(--ink3)", fontSize: 13 }}>No alerts sent today.</div>
-              ) : alerts.map((a, i) => (
-                <div key={i} className="notif-r">
-                  <div className="notif-ic" style={{ background: a.type === "absent" ? "var(--rb-l)" : "#fff0db" }}>
-                    {a.type === "absent" ? (
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--rb)" strokeWidth="1.75">
-                        <circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v4M7.5 10.5h.01"/>
-                      </svg>
-                    ) : (
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#c07b1a" strokeWidth="1.75">
-                        <path d="M2 8l4 4 7-7"/>
-                      </svg>
-                    )}
+              {/* Right column */}
+              <div>
+                <div className="sec-hdr"><span className="sec-title">Quick stats</span></div>
+                <div className="card" style={{ padding: 16, marginBottom: 14 }}>
+                  <div className="prog-w">
+                    <div className="prog-hdr">
+                      <span className="prog-lbl">Fees collected ({feesPaid})</span>
+                      <span className="prog-val">{collectedPct}%</span>
+                    </div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${collectedPct}%`, background: "var(--tc)" }} /></div>
                   </div>
-                  <div>
-                    <div className="notif-tl">{a.name}</div>
-                    <div className="notif-sb">{a.sub}</div>
-                    <div className="notif-time">{a.time}</div>
+                  <div className="prog-w">
+                    <div className="prog-hdr">
+                      <span className="prog-lbl">Attendance today</span>
+                      <span className="prog-val">{attendanceRate}%</span>
+                    </div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${attendanceRate}%`, background: attendanceRate >= 85 ? "var(--jd)" : "var(--sf)" }} /></div>
                   </div>
-                  <div className="notif-cost">
-                    <span className="bdg b-wa">{a.channel}</span>
-                    <div style={{ marginTop: 3 }}>{a.cost}</div>
+                  <div className="prog-w" style={{ marginBottom: 0 }}>
+                    <div className="prog-hdr">
+                      <span className="prog-lbl">Outstanding</span>
+                      <span className="prog-val">LKR {outstanding.toLocaleString()}</span>
+                    </div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${feesPending > 0 ? Math.round((feesPending / (feesPaid + feesPending)) * 100) : 0}%`, background: "var(--rb)" }} /></div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          <div>
-            <div className="sec-hdr" style={{ marginTop: 24 }}>
-              <span className="sec-title">Teacher payroll engine</span>
-              <a href="/teachers/salary"><button className="btn btn-g btn-sm">Payouts →</button></a>
-            </div>
-            <div className="card" style={{ marginBottom: 0 }}>
-              <div className="prog-w">
-                <div className="prog-hdr"><span className="prog-lbl">Salaries cleared</span><span className="prog-val">{payrollPaidCount} / {teacherCount}</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: `${Math.max(5, (payrollPaidCount / Math.max(1, teacherCount)) * 100)}%`, background: "var(--tc)" }} /></div>
+                <div className="sec-hdr"><span className="sec-title">Recent students</span></div>
+                <div className="card" style={{ padding: 16 }}>
+                  {students.slice(0, 5).map(s => (
+                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--ln)" }}>
+                      <div className="ava" style={{ background: "var(--tc-l)", color: "var(--tc-d)", width: 28, height: 28, fontSize: 10 }}>
+                        {s.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
+                        <div style={{ fontSize: 10, color: "var(--ink3)" }}>{s.grade}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="prog-w" style={{ marginBottom: 0 }}>
-                <div className="prog-hdr"><span className="prog-lbl">Capital Disbursed (LKR)</span><span className="prog-val">{payrollPaidAmount.toLocaleString()} / {payrollTotalAmount.toLocaleString()}</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: `${Math.max(5, payrollPaidPercentage)}%`, background: "var(--tc)" }} /></div>
-              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </PageShell>
   );

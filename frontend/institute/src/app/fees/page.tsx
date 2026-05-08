@@ -1,608 +1,88 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
-import { Modal } from "@/components/ui/Modal";
-import { DataTable, Column } from "@/components/ui/DataTable";
-import { BatchTabs } from "@/components/ui/BatchTabs";
-import { BATCHES, ALL_STUDENTS, Student, BatchId, INIT_FEE_STATE, GlobalFeeState, INIT_FEE_HISTORY } from "@/lib/batchData";
-import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
-const PAYMENT_METHODS = ["Cash", "Bank transfer", "Online (card)", "Cheque"];
-const MONTH_OPTS = ["April 2026", "March 2026", "February 2026", "January 2026"];
-const CURRENT_MONTH = MONTH_OPTS[0];
+type Fee = { id: number; student: number; student_name: string; batch: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null; collected_by: string };
+type Batch = { id: number; name: string };
+
+const statusBadge = (s: string) => {
+  const map: Record<string, JSX.Element> = { paid: <span className="bdg b-paid">Paid</span>, pending: <span className="bdg b-due">Pending</span>, due: <span className="bdg b-due">Due</span>, overdue: <span className="bdg b-over">Overdue</span> };
+  return map[s] || <span className="bdg b-due">{s}</span>;
+};
 
 export default function FeesPage() {
-  const [selMonth, setSelMonth]         = useState(CURRENT_MONTH);
-  const [selBatch, setSelBatch]         = useState<BatchId>("g10");
-  const [feeState, setFeeState]         = useState<GlobalFeeState>(INIT_FEE_STATE);
-  const [historyState, setHistoryState] = useState(INIT_FEE_HISTORY);
-  const [markTarget, setMarkTarget]     = useState<Student | null>(null);
-  const [receiptTarget, setReceiptTarget] = useState<Student | null>(null);
-  const [search, setSearch]             = useState("");
-  const router = useRouter();
-  
-  const [payForm, setPayForm] = useState({ 
-    method: "Cash", receiptNo: "", 
-    paidDate: new Date().toISOString().slice(0, 10),
-    amount: "", isWaived: false 
-  });
-  
-  const [reminderSent, setReminderSent] = useState<Set<number>>(new Set());
-  const [remindModal, setRemindModal] = useState<{ target: "all" | "batch", sent: boolean } | null>(null);
+  const [fees, setFees] = useState<Fee[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedBatch, setSelectedBatch] = useState("");
 
-  const batch    = BATCHES.find(b => b.id === selBatch)!;
-  const students = ALL_STUDENTS.filter(s => s.batch === selBatch);
-
-  const isCurrent = selMonth === CURRENT_MONTH;
-
-  type FeeRecord = { status: string; paidAmount: number; credits: number; method?: string; paidDate?: string; receiptNo?: string; date?: string };
-  const getRecord = (s: Student): FeeRecord => {
-    if (s.isFree) return { status: "waived", paidAmount: 0, credits: 0 };
-    if (!isCurrent) {
-      const hist = historyState[s.id]?.find(r => r.month === selMonth);
-      if (hist) return { status: hist.status, paidAmount: hist.amount, credits: 0, paidDate: hist.date, receiptNo: hist.receipt };
-      return { status: "due", paidAmount: 0, credits: 0 };
-    }
-    return feeState[s.id] || { status: "due", paidAmount: 0, credits: 0 };
+  const load = (batchId?: string) => {
+    const params: Record<string, string> = {};
+    if (batchId) params.batch = batchId;
+    Promise.all([
+      api.get("/api/fees/", { params }).then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
+      api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
+    ]).then(([f, b]) => { setFees(f); setBatches(b); setLoading(false); });
   };
-  const getStatus = (s: Student) => {
-    if (s.isFree) return "waived";
-    if (!isCurrent) {
-      const hist = historyState[s.id]?.find(r => r.month === selMonth);
-      return hist ? hist.status : "due";
-    }
-    return feeState[s.id]?.status ?? s.fee;
+  useEffect(() => load(), []);
+
+  const handleBatchFilter = (bid: string) => { setSelectedBatch(bid); setLoading(true); load(bid); };
+
+  const markPaid = async (id: number) => {
+    await api.post(`/api/fees/${id}/mark_paid`);
+    load(selectedBatch);
   };
 
-  // Filtered by search
-  const filteredStudents = useMemo(() => students.filter(s =>
-    !search ||
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.mobile.includes(search) || s.guardian.toLowerCase().includes(search.toLowerCase())
-  ), [students, search]);
-
-  const fullyPaid = students.filter(s => getStatus(s) === "paid").length;
-  const waived = students.filter(s => getStatus(s) === "waived").length;
-  
-  const outstanding = students.reduce((sum, s) => {
-    const rec = getRecord(s);
-    if (rec.status === "waived" || rec.status === "paid") return sum;
-    return sum + Math.max(0, s.feeAmount - rec.paidAmount);
-  }, 0);
-  
-  const revenue = students.reduce((sum, s) => sum + getRecord(s).paidAmount, 0);
-
-  const changeBatch = (id: BatchId) => { setSelBatch(id); setSearch(""); };
-
-  const openCollect = (s: Student, isEdit: boolean = false) => {
-    const rec = getRecord(s);
-    setPayForm({ 
-      method: rec.method || "Cash", 
-      receiptNo: rec.receiptNo || `RCP-${String(ALL_STUDENTS.indexOf(s) + 50).padStart(4, "0")}`, 
-      paidDate: rec.paidDate || new Date().toISOString().slice(0, 10),
-      amount: String(rec.paidAmount || s.feeAmount),
-      isWaived: rec.status === "waived"
-    });
-    setMarkTarget(s);
-  };
-  const openReceipt = (s: Student) => setReceiptTarget(s);
-  const closeAll    = () => { setMarkTarget(null); setReceiptTarget(null); };
-
-  const confirmPaid = () => {
-    if (!markTarget) return;
-    
-    if (payForm.isWaived) {
-      setFeeState(prev => ({
-        ...prev,
-        [markTarget.id]: { status: "waived", paidAmount: 0, credits: 0, method: undefined, receiptNo: undefined, paidDate: undefined }
-      }));
-      closeAll();
-      return;
-    }
-    
-    const amt = parseFloat(payForm.amount) || 0;
-    let newStatus: "paid" | "partial" | "due" | "overdue" = "due";
-    let credits = 0;
-    
-    if (amt >= markTarget.feeAmount) {
-      newStatus = "paid";
-      credits = amt - markTarget.feeAmount;
-    } else if (amt > 0) {
-      newStatus = "partial";
-    }
-
-    if (!isCurrent) {
-      setHistoryState(prev => {
-        const copy = { ...prev };
-        const studentHist = [...(copy[markTarget.id] || [])];
-        const idx = studentHist.findIndex(r => r.month === selMonth);
-        const newRecord = { 
-          month: selMonth, amount: payForm.isWaived ? 0 : amt, 
-          status: payForm.isWaived ? "waived" as const : newStatus,
-          date: payForm.isWaived ? undefined : payForm.paidDate,
-          receipt: payForm.isWaived ? undefined : payForm.receiptNo
-        };
-        if (idx !== -1) studentHist[idx] = newRecord;
-        else studentHist.push(newRecord);
-        copy[markTarget.id] = studentHist;
-        return copy;
-      });
-      closeAll();
-      return;
-    }
-
-    setFeeState(prev => ({
-      ...prev,
-      [markTarget.id]: { 
-        status: newStatus, 
-        paidAmount: amt, 
-        credits,
-        receiptNo: payForm.receiptNo, 
-        paidDate: payForm.paidDate,
-        method: payForm.method
-      },
-    }));
-    closeAll();
-  };
-
-  const sendReminder = (s: Student) => setReminderSent(prev => new Set(Array.from(prev).concat(s.id)));
-  const openRemindModal = () => setRemindModal({ target: "batch", sent: false });
-  const executeBulkRemind = () => {
-    if (!remindModal) return;
-    const targetStudents = remindModal.target === "all" ? ALL_STUDENTS : students;
-    const dueIds = targetStudents.filter(s => { const st = getStatus(s); return st !== "paid" && st !== "waived" && !s.isFree; }).map(s => s.id);
-    setReminderSent(prev => new Set(Array.from(prev).concat(dueIds)));
-    setRemindModal({ ...remindModal, sent: true });
-  };
-
-  const statusBadge = (s: Student) => {
-    const st = getStatus(s);
-    if (s.isFree) return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Free student</span>;
-    if (st === "paid")    return <span className="bdg b-paid">Paid ✓</span>;
-    if (st === "waived")  return <span style={{ background:"#ede8fc",color:"#6b3ea8",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Waived</span>;
-    if (st === "partial") return <span style={{ background:"#fef3d7",color:"#c07b1a",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Part paid</span>;
-    if (st === "overdue") return <span style={{ background:"#fceaea",color:"#b83030",fontSize:10.5,fontWeight:600,padding:"2px 8px",borderRadius:99,display:"inline-flex" }}>Late</span>;
-    return <span className="bdg b-due">Not paid</span>;
-  };
-
-  /* ── Column definitions ── */
-  const columns: Column<Student>[] = [
-    {
-      key: "student",
-      header: "Name",
-      width: 200,
-      render: (s) => (
-        <div className="td-nm" style={{ transition: "all 150ms" }}>
-          <div className="ava" style={{ background: s.bg, color: s.fg }}>{s.initials}</div>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 12.5 }}>
-              {s.name}
-            </div>
-            <div style={{ fontSize: 10.5, color: "var(--ink3)" }}>Joined {s.joinDate}</div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "guardian",
-      header: "Parent & phone",
-      render: (s) => (
-        <div>
-          <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>{s.guardian}</div>
-          <div style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.mobile}</div>
-        </div>
-      ),
-    },
-    {
-      key: "fee",
-      header: "Amount (LKR)",
-      render: (s) => {
-        const rec = getRecord(s);
-        const st = rec.status;
-        return (
-          <div className="mono" style={{ fontWeight: 700 }}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {s.isFree ? (
-                <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
-              ) : (
-                <>
-                  <span>{s.feeAmount.toLocaleString()}</span>
-                  {st === "partial" && (
-                    <div style={{ fontSize: 9.5, color: "#c07b1a", fontWeight: 600, marginTop: 2 }}>
-                      Left: LKR {(s.feeAmount - rec.paidAmount).toLocaleString()}
-                    </div>
-                  )}
-                  {(rec.credits ?? 0) > 0 && (
-                    <div style={{ fontSize: 9.5, color: "var(--tc-d)", fontWeight: 600, marginTop: 2 }}>
-                      +LKR {(rec.credits ?? 0).toLocaleString()} extra paid
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (s) => {
-        const rec = getRecord(s);
-        const st = rec.status;
-        const sent = reminderSent.has(s.id);
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {statusBadge(s)}
-            {rec.paidDate && st !== "waived" && (
-              <div style={{ fontSize: 10, color: "var(--ink3)" }}>Paid {rec.paidDate}</div>
-            )}
-            {st !== "paid" && st !== "waived" && sent && (
-              <div style={{ fontSize: 10, color: "var(--sp)" }}>✓ Reminder sent</div>
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      key: "actions",
-      header: "Actions",
-      width: 160,
-      render: (s) => {
-        const st = getStatus(s);
-        const sent = reminderSent.has(s.id);
-        return (
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-            {!s.isFree && (
-              st === "due" || st === "overdue" ? (
-                <>
-                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s)}>Collect fee</button>
-                  {!sent
-                    ? <button className="btn btn-xs btn-s" onClick={() => sendReminder(s)}>Send reminder</button>
-                    : <button className="btn btn-xs btn-s" style={{ opacity:.5 }} disabled>Sent</button>
-                  }
-                </>
-              ) : st === "partial" ? (
-                <>
-                  <button className="btn btn-xs btn-ok" onClick={() => openCollect(s, true)}>Add payment</button>
-                  <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                </>
-              ) : (
-                <>
-                  <button className="btn btn-xs btn-s" onClick={() => openCollect(s, true)}>Edit</button>
-                  {st === "paid" && <button className="btn btn-xs btn-s" onClick={() => openReceipt(s)}>View receipt</button>}
-                </>
-              )
-            )}
-          </div>
-        );
-      },
-    },
-  ];
+  const paidCount = fees.filter(f => f.status === "paid").length;
+  const pendingCount = fees.filter(f => f.status !== "paid").length;
+  const totalCollected = fees.filter(f => f.status === "paid").reduce((s, f) => s + Number(f.amount), 0);
+  const totalOutstanding = fees.filter(f => f.status !== "paid").reduce((s, f) => s + Number(f.amount), 0);
 
   return (
     <PageShell>
-      <Topbar
-        title="Fees"
-        subtitle={`${batch.name} · ${selMonth}`}
-        right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ position: "relative" }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5"
-                style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
-                <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
-              </svg>
-              <input
-                placeholder="Search student…"
-                style={{ width: 180, paddingLeft: 30 }}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-            <button className="btn btn-s btn-sm">Download</button>
-            <button className="btn btn-p btn-sm" onClick={openRemindModal}>
-              Remind all
-            </button>
-          </div>
-        }
-      />
+      <Topbar title="Fee Tracking" subtitle={`${paidCount} paid · ${pendingCount} pending`}
+        right={<select value={selectedBatch} onChange={e => handleBatchFilter(e.target.value)} style={{ minWidth: 180 }}>
+          <option value="">All batches</option>
+          {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>} />
       <div className="pb fi">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <BatchTabs active={selBatch} onChange={changeBatch} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: ".06em" }}>Month:</span>
-            <select 
-              value={selMonth} 
-              onChange={e => setSelMonth(e.target.value)}
-              style={{
-                padding: "8px 12px", borderRadius: 8, border: "1.5px solid var(--ln)", outline: "none",
-                fontSize: 12.5, fontWeight: 600, color: "var(--ink)", background: "#fff", cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,.04)"
-              }}
-            >
-              {MONTH_OPTS.map(m => <option key={m} value={m}>{m} {m === CURRENT_MONTH ? "(Current)" : ""}</option>)}
-            </select>
-          </div>
+        {/* KPIs */}
+        <div className="g4" style={{ marginBottom: 18 }}>
+          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}><div className="kpi-lbl">Collected</div><div className="kpi-val">{Math.round(totalCollected / 1000)}K</div><div className="kpi-tr up">{paidCount} students</div></div>
+          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}><div className="kpi-lbl">Outstanding</div><div className="kpi-val">{Math.round(totalOutstanding / 1000)}K</div><div className="kpi-tr dn">{pendingCount} students</div></div>
+          <div className="kpi" style={{ "--kc": "var(--jd)" } as any}><div className="kpi-lbl">Collection Rate</div><div className="kpi-val">{fees.length > 0 ? Math.round((paidCount / fees.length) * 100) : 0}%</div><div className="kpi-tr nt">This month</div></div>
+          <div className="kpi" style={{ "--kc": "var(--sf)" } as any}><div className="kpi-lbl">Total Records</div><div className="kpi-val">{fees.length}</div><div className="kpi-tr nt">All fees</div></div>
         </div>
 
-        {/* Batch KPI bar */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 18 }}>
-          {[
-            { label:"Students",       val: students.length,        sub: batch.label,         color: batch.color,    colorL: batch.colorL },
-            { label:"Paid",           val: fullyPaid,              sub: `${waived} free / waived`, color:"#1a5040", colorL:"#d4ede3" },
-            { label:"Not paid",       val: `${students.length - fullyPaid - waived}`, sub: `LKR ${outstanding.toLocaleString()} remaining`, color:"#c07b1a", colorL:"#fef3d7" },
-            { label:"Collected",      val: `${(revenue/1000).toFixed(0)}k`, sub: `LKR ${revenue.toLocaleString()} received`, color:"var(--tc)", colorL:"var(--tc-l)" },
-          ].map(kpi => (
-            <div key={kpi.label} style={{
-              background:"#fff",
-              border:`1.5px solid ${kpi.color}22`,
-              borderTop:`4px solid ${kpi.color}`,
-              borderRadius:12, padding:"12px 14px",
-              boxShadow:"0 1px 3px rgba(28,25,23,.06)",
-            }}>
-              <div style={{ fontSize:10.5,fontWeight:700,color:"var(--ink3)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4 }}>{kpi.label}</div>
-              <div style={{ fontSize:22,fontWeight:700,color:kpi.color,fontFamily:"var(--font-mono)",lineHeight:1 }}>{kpi.val}</div>
-              <div style={{ fontSize:10.5,color:"var(--ink3)",marginTop:4 }}>{kpi.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Collection progress bar */}
-        <div style={{ background:"#fff",border:"1.5px solid var(--ln)",borderRadius:12,padding:"14px 16px",marginBottom:18,boxShadow:"0 1px 3px rgba(28,25,23,.05)" }}>
-          <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8 }}>
-            <span style={{ fontWeight:700,color:"var(--ink)" }}>Fee collection — {CURRENT_MONTH}</span>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
+          <div className="tw">
+            <table>
+              <thead><tr><th>Student</th><th>Batch</th><th>Month</th><th>Amount (LKR)</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {fees.map(f => (
+                  <tr key={f.id}>
+                    <td style={{ fontWeight: 600 }}>{f.student_name}</td>
+                    <td style={{ color: "var(--ink3)" }}>{f.batch_name}</td>
+                    <td className="mono">{f.month}</td>
+                    <td className="mono">{Number(f.amount).toLocaleString()}</td>
+                    <td>{statusBadge(f.status)}</td>
+                    <td>
+                      {f.status !== "paid" ? (
+                        <button className="btn btn-xs btn-ok" onClick={() => markPaid(f.id)}>Mark paid</button>
+                      ) : (
+                        <span style={{ fontSize: 10.5, color: "var(--ink3)" }}>{f.collected_by}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {fees.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No fee records found</td></tr>}
+              </tbody>
+            </table>
           </div>
-          <div style={{ height:8,background:"var(--ln)",borderRadius:99,overflow:"hidden" }}>
-            <div style={{
-              height:"100%",
-              width:`${Math.round((revenue / Math.max(revenue + outstanding, 1)) * 100)}%`,
-              background:"linear-gradient(to right,#2d7a5a,#478f6e)",
-              borderRadius:99,transition:"width 400ms cubic-bezier(.16,1,.3,1)",
-            }} />
-          </div>
-          <div style={{ display:"flex",justifyContent:"space-between",fontSize:10.5,color:"var(--ink3)",marginTop:5 }}>
-            <span style={{ color:"#1a5040",fontWeight:600 }}>LKR {revenue.toLocaleString()} received</span>
-            <span style={{ color:"#c07b1a",fontWeight:600 }}>LKR {outstanding.toLocaleString()} remaining</span>
-          </div>
-        </div>
-
-        {/* Bulk reminder banner */}
-        {(() => {
-          const unpaid = students.filter(s => {
-            const st = getStatus(s);
-            return st !== "paid" && st !== "waived" && !s.isFree;
-          });
-          const notYetReminded = unpaid.filter(s => !reminderSent.has(s.id));
-          const allReminded = unpaid.length > 0 && notYetReminded.length === 0;
-
-          if (unpaid.length === 0) return null;
-
-          return (
-            <div style={{
-              background: allReminded ? "var(--tc-l)" : "#fff",
-              border: `1.5px solid ${allReminded ? "#b8ddd0" : "#e8c36a"}`,
-              borderRadius: 12, padding: "14px 18px", marginBottom: 18,
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 16,
-              boxShadow: "0 1px 3px rgba(28,25,23,.05)",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10,
-                  background: allReminded ? "#d4ede3" : "#fef3d7",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 18, flexShrink: 0,
-                }}>
-                  {allReminded ? "✓" : "📢"}
-                </div>
-                <div>
-                  {allReminded ? (
-                    <>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--tc-d)" }}>
-                        Reminders sent to all {unpaid.length} unpaid students
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>
-                        WhatsApp messages queued for {batch.name}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
-                        {notYetReminded.length} student{notYetReminded.length !== 1 ? "s" : ""} haven't paid yet
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>
-                        {notYetReminded.slice(0, 3).map(s => s.name).join(", ")}
-                        {notYetReminded.length > 3 ? ` and ${notYetReminded.length - 3} more` : ""}
-                        {" · "}{batch.name}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {!allReminded && (
-                <button
-                  className="btn btn-sm"
-                  onClick={openRemindModal}
-                  style={{
-                    background: "#c07b1a", color: "#fff",
-                    border: "none", borderRadius: 8,
-                    padding: "8px 18px", fontSize: 12.5, fontWeight: 700,
-                    cursor: "pointer", whiteSpace: "nowrap",
-                    display: "flex", alignItems: "center", gap: 6,
-                    boxShadow: "0 2px 6px rgba(192,123,26,.25)",
-                    transition: "all 150ms",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#a86a14"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "#c07b1a"; }}
-                >
-                  📲 Send {notYetReminded.length} reminder{notYetReminded.length !== 1 ? "s" : ""}
-                </button>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* Fee table with pagination */}
-        <DataTable<Student>
-          columns={columns}
-          data={filteredStudents}
-          rowKey={s => s.id}
-          defaultPerPage={10}
-          onRowClick={s => router.push(`/students/${s.id}`)}
-          rowBg={s => getStatus(s) === "overdue" ? "#fffbeb" : undefined}
-          emptyMessage={search ? `No students match "${search}"` : "No students in this batch"}
-          title={`All students (${filteredStudents.length})`}
-        />
+        )}
       </div>
-
-      {/* Collect / Edit Fee modal */}
-      <Modal
-        open={!!markTarget}
-        onClose={closeAll}
-        title={markTarget && feeState[markTarget.id]?.status !== "due" && feeState[markTarget.id]?.status !== "overdue" ? "Edit payment" : "Collect fee"}
-        footer={
-          <>
-            <button className="btn btn-s btn-sm" onClick={closeAll}>Cancel</button>
-            <button className="btn btn-ok btn-sm" onClick={confirmPaid}>Save</button>
-          </>
-        }
-      >
-        {markTarget && (
-          <div className="form-gap">
-            <div style={{ display:"flex",alignItems:"center",gap:12,background:"var(--cr)",borderRadius:10,padding:"10px 13px" }}>
-              <div className="ava" style={{ background:markTarget.bg,color:markTarget.fg }}>{markTarget.initials}</div>
-              <div>
-                <div style={{ fontSize:13,fontWeight:700,color:"var(--ink)" }}>{markTarget.name}</div>
-                <div style={{ fontSize:11,color:"var(--ink3)" }}>{batch.name}</div>
-              </div>
-              <div style={{ marginLeft:"auto",textAlign:"right" }}>
-                <div style={{ fontSize:11,color:"var(--ink3)" }}>{selMonth} fee</div>
-                <div style={{ fontSize:16,fontWeight:700,color:"var(--ink)",fontFamily:"var(--font-mono)" }}>
-                  LKR {markTarget.feeAmount.toLocaleString()}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0 4px", borderBottom: "1px solid var(--ln)" }}>
-              <div>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Skip fee for {isCurrent ? "this month" : selMonth}</div>
-                <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>Student won't be charged for {isCurrent ? "this" : "that"} month.</div>
-              </div>
-              <button 
-                className={`toggle ${payForm.isWaived ? "on" : ""}`}
-                onClick={() => setPayForm(f => ({ ...f, isWaived: !f.isWaived }))}
-              />
-            </div>
-
-            {!payForm.isWaived && (
-              <>
-                <div className="field-row">
-                  <div>
-                    <label className="flbl freq">Amount received (LKR)</label>
-                    <input 
-                      type="number" 
-                      value={payForm.amount} 
-                      onChange={e => setPayForm(f=>({...f, amount:e.target.value}))} 
-                    />
-                    <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 6 }}>
-                      {(parseFloat(payForm.amount) || 0) < markTarget.feeAmount ? "This is less than the full fee — will show as partly paid." : 
-                       (parseFloat(payForm.amount) || 0) > markTarget.feeAmount ? `Full fee paid + LKR ${((parseFloat(payForm.amount) || 0) - markTarget.feeAmount).toLocaleString()} extra.` :
-                       "Exact fee amount — will be marked as fully paid."}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="flbl">Paid by</label>
-                    <select value={payForm.method} onChange={e => setPayForm(f=>({...f,method:e.target.value}))}>
-                      {PAYMENT_METHODS.map(m=><option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="field-row">
-                  <div>
-                    <label className="flbl">Date paid</label>
-                    <input type="date" value={payForm.paidDate} onChange={e=>setPayForm(f=>({...f,paidDate:e.target.value}))}/>
-                  </div>
-                  <div>
-                    <label className="flbl">Receipt number</label>
-                    <input placeholder="e.g. RCP-0045" value={payForm.receiptNo} onChange={e=>setPayForm(f=>({...f,receiptNo:e.target.value}))}/>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div style={{ background:"var(--tc-l)",border:"1px solid #b8ddd0",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"var(--tc-d)", marginTop: 8 }}>
-              {payForm.isWaived 
-                ? "This student's fee will be skipped for this month." 
-                : `A payment confirmation will be sent to ${markTarget.guardian}.`}
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Receipt Modal */}
-      <Modal open={!!receiptTarget} onClose={closeAll} title="Payment Receipt">
-        {receiptTarget && (() => {
-          const r = getRecord(receiptTarget);
-          return (
-            <div style={{ padding: "0 10px" }}>
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--ink)" }}>LKR {r.paidAmount.toLocaleString()}</div>
-                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 4 }}>Paid on {r.paidDate}</div>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12, background: "var(--cr)", padding: 16, borderRadius: 12, border: "1px solid var(--ln)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Receipt No</span><span className="mono" style={{ fontSize: 12, fontWeight: 600 }}>{r.receiptNo}</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Student</span><span style={{ fontSize: 12, fontWeight: 600 }}>{receiptTarget.name} ({selMonth})</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Method</span><span style={{ fontSize: 12, fontWeight: 600 }}>{r.method}</span></div>
-                {r.credits! > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "var(--ink3)", fontSize: 12 }}>Extra Credits</span><span style={{ fontSize: 12, fontWeight: 600, color: "var(--tc-d)" }}>LKR {r.credits!.toLocaleString()}</span></div>}
-              </div>
-              <div style={{ marginTop: 24, display: "flex", gap: 8 }}>
-                <button className="btn btn-s" style={{ flex: 1 }} onClick={closeAll}>Close</button>
-                <button className="btn btn-p" style={{ flex: 1 }}>Print receipt</button>
-              </div>
-            </div>
-          );
-        })()}
-      </Modal>
-
-      {/* Remind Bulk Modal */}
-      <Modal open={!!remindModal} onClose={() => setRemindModal(null)} title="Send Fee Reminders"
-        footer={remindModal && !remindModal.sent ? <><button className="btn btn-s btn-sm" onClick={() => setRemindModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={executeBulkRemind}>Send Notifications</button></> : <button className="btn btn-s btn-sm" onClick={() => setRemindModal(null)}>Close</button>}
-      >
-        {remindModal && (
-          <div>
-            {!remindModal.sent ? (
-              <>
-                <div style={{ fontSize: 13, color: "var(--ink)", marginBottom: 16 }}>Select the target audience for this fee reminder. Reminders will be sent as Normal Notifications according to your delivery settings.</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: `1.5px solid ${remindModal.target === "batch" ? "var(--tc)" : "var(--ln)"}`, borderRadius: 10, background: remindModal.target === "batch" ? "var(--tc-l)" : "#fff", cursor: "pointer" }}>
-                    <input type="radio" checked={remindModal.target === "batch"} onChange={() => setRemindModal({ ...remindModal, target: "batch" })} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>Currently Selected Batch ({batch?.name})</div>
-                      <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>Notify unpaid parents in this specific batch only.</div>
-                    </div>
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", border: `1.5px solid ${remindModal.target === "all" ? "var(--tc)" : "var(--ln)"}`, borderRadius: 10, background: remindModal.target === "all" ? "var(--tc-l)" : "#fff", cursor: "pointer" }}>
-                    <input type="radio" checked={remindModal.target === "all"} onChange={() => setRemindModal({ ...remindModal, target: "all" })} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>All Unpaid Students</div>
-                      <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>Send reminders to all unpaid parents across the entire institute.</div>
-                    </div>
-                  </label>
-                </div>
-              </>
-            ) : (
-              <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <div style={{ width: 48, height: 48, borderRadius: 24, background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, margin: "0 auto 16px" }}>✓</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Reminders Sent!</div>
-                <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 6 }}>The fee reminders have been queued for delivery.</div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
     </PageShell>
   );
 }
