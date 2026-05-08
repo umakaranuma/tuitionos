@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from apps.students.models import Student
 from apps.institutes.models import Institute
 
@@ -16,4 +16,5 @@ class NotificationLog(models.Model):
     sent_at = models.DateTimeField(auto_now_add=True)
     error_message = models.TextField(blank=True)
     class Meta:
+        db_table = 'notification_logs'
         ordering = ['-sent_at']

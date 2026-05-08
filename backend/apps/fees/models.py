@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from apps.students.models import Student
 from apps.academics.models import Batch
 
@@ -13,5 +13,6 @@ class FeePayment(models.Model):
     collected_by = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
+        db_table = 'fee_payments'
         unique_together = ('student', 'batch', 'month')
         ordering = ['-month']

@@ -16,6 +16,7 @@ class Invoice(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'invoices'
         ordering = ['-month']
         unique_together = ('institute', 'month')
 
@@ -42,5 +43,6 @@ class InstituteTransaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = 'institute_transactions'
         ordering = ['-date']
     def __str__(self): return f'{self.label} ({self.amount})'

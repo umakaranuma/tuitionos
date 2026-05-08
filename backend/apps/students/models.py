@@ -13,6 +13,8 @@ class Student(models.Model):
     is_active = models.BooleanField(default=True)
     join_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        db_table = 'students'
     def __str__(self): return self.name
 
 class StudentBatchEnrollment(models.Model):
@@ -24,4 +26,5 @@ class StudentBatchEnrollment(models.Model):
     promoted_at = models.DateTimeField(null=True, blank=True)
     enrolled_at = models.DateTimeField(auto_now_add=True)
     class Meta:
+        db_table = 'student_batch_enrollments'
         unique_together = ('student', 'batch', 'academic_year')

@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from apps.academics.models import Batch
 
 class TimetableSlot(models.Model):
@@ -12,4 +12,5 @@ class TimetableSlot(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
+        db_table = 'timetable_slots'
         ordering = ['day_of_week', 'start_time']

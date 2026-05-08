@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from apps.students.models import Student
 from apps.academics.models import Batch, Subject
 
@@ -10,5 +10,6 @@ class Attendance(models.Model):
     is_present = models.BooleanField(default=True)
     marked_at = models.DateTimeField(auto_now_add=True)
     class Meta:
+        db_table = 'attendance'
         unique_together = ('student', 'batch', 'date')
         ordering = ['-date']

@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from apps.academics.models import Batch
 
 class BatchPromotionMap(models.Model):
@@ -8,4 +8,5 @@ class BatchPromotionMap(models.Model):
     is_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
+        db_table = 'batch_promotion_maps'
         unique_together = ('source_batch', 'academic_year')
