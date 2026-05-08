@@ -32,6 +32,13 @@ class TeacherViewSet(InstituteBaseViewSet):
     queryset = Teacher.objects.all()
     serializer_class = TeacherSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        subject = self.request.query_params.get('subject')
+        if subject:
+            qs = qs.filter(subject=subject)
+        return qs
+
 
 class BatchViewSet(InstituteBaseViewSet):
     queryset = Batch.objects.prefetch_related('batch_subjects__subject', 'batch_subjects__teacher').all()

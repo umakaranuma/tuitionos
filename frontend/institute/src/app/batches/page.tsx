@@ -8,28 +8,49 @@ import { api } from "@/lib/api";
 type BatchSubject = { id?: number; subject: number; subject_name?: string; teacher: number | null; teacher_name?: string | null };
 type Batch = { id: number; name: string; label: string; subjects: BatchSubject[]; academic_year: number; monthly_fee: string; color: string; color_light: string; student_count: number; is_active: boolean };
 type Subject = { id: number; name: string };
-type Teacher = { id: number; name: string };
+type Teacher = { id: number; name: string; subject: string };
 
 export default function BatchesPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [teachersBySubject, setTeachersBySubject] = useState<Record<string, Teacher[]>>({});
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Batch | null>(null);
   const [form, setForm] = useState({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [] as { subject: string; teacher: string }[] });
 
   const load = () => {
-    Promise.all([
-      api.get("/api/academics/batches").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
-      api.get("/api/academics/subjects").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
-      api.get("/api/academics/teachers").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
-    ]).then(([b, s, t]) => { setBatches(b); setSubjects(s); setTeachers(t); setLoading(false); });
+    api.get("/api/academics/batches").then(r => {
+      setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
+      setLoading(false);
+    });
+  };
+
+  const fetchSubjects = async () => {
+    if (subjects.length > 0) return;
+    try {
+      const r = await api.get("/api/academics/subjects");
+      setSubjects(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch (e) {}
+  };
+
+  const fetchTeachers = async (subjectName: string) => {
+    if (!subjectName || teachersBySubject[subjectName]) return;
+    try {
+      const r = await api.get(`/api/academics/teachers?subject=${encodeURIComponent(subjectName)}`);
+      setTeachersBySubject(prev => ({ ...prev, [subjectName]: Array.isArray(r.data) ? r.data : r.data.results || [] }));
+    } catch (e) {}
   };
   useEffect(load, []);
 
-  const openAdd = () => { setForm({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [{ subject: "", teacher: "" }] }); setEditTarget(null); setModal("add"); };
+  const openAdd = () => { 
+    fetchSubjects();
+    setForm({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [{ subject: "", teacher: "" }] }); 
+    setEditTarget(null); setModal("add"); 
+  };
   const openEdit = (b: Batch) => { 
+    fetchSubjects();
+    b.subjects.forEach(s => { if (s.subject_name) fetchTeachers(s.subject_name); });
     setForm({ 
       name: b.name, label: b.label, academic_year: String(b.academic_year), monthly_fee: String(b.monthly_fee),
       subjects: b.subjects.map(s => ({ subject: String(s.subject), teacher: s.teacher ? String(s.teacher) : "" }))
@@ -96,17 +117,35 @@ export default function BatchesPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--bg-d)", padding: 12, borderRadius: 8 }}>
               {form.subjects.map((s, idx) => (
                 <div key={idx} style={{ display: "flex", gap: 8 }}>
-                  <select value={s.subject} onChange={e => {
-                    const newSubs = [...form.subjects]; newSubs[idx].subject = e.target.value; setForm({ ...form, subjects: newSubs });
-                  }} style={{ flex: 1 }}>
+                  <select 
+                    value={s.subject} 
+                    onFocus={fetchSubjects} onClick={fetchSubjects}
+                    onChange={e => {
+                      const newSubs = [...form.subjects]; newSubs[idx].subject = e.target.value; setForm({ ...form, subjects: newSubs });
+                    }} style={{ flex: 1 }}>
                     <option value="">Select subject...</option>
                     {subjects.map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
                   </select>
-                  <select value={s.teacher} onChange={e => {
-                    const newSubs = [...form.subjects]; newSubs[idx].teacher = e.target.value; setForm({ ...form, subjects: newSubs });
-                  }} style={{ flex: 1 }}>
+                  <select 
+                    value={s.teacher} 
+                    onFocus={() => {
+                      const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
+                      if (subjectName) fetchTeachers(subjectName);
+                    }} 
+                    onClick={() => {
+                      const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
+                      if (subjectName) fetchTeachers(subjectName);
+                    }}
+                    onChange={e => {
+                      const newSubs = [...form.subjects]; newSubs[idx].teacher = e.target.value; setForm({ ...form, subjects: newSubs });
+                    }} style={{ flex: 1 }}>
                     <option value="">Select teacher...</option>
-                    {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    {(subjects.find(sub => sub.id === Number(s.subject))?.name 
+                      ? teachersBySubject[subjects.find(sub => sub.id === Number(s.subject))!.name] || []
+                      : []
+                    ).map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
                   </select>
                   <button className="btn btn-xs btn-d" onClick={() => {
                     setForm({ ...form, subjects: form.subjects.filter((_, i) => i !== idx) });
