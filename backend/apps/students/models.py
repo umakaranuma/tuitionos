@@ -8,7 +8,7 @@ class Student(models.Model):
     parent_name = models.CharField(max_length=200, blank=True)
     parent_mobile = models.CharField(max_length=20)
     has_whatsapp = models.BooleanField(default=True)
-    grade = models.CharField(max_length=50)
+    batch = models.CharField(max_length=50)
     is_free = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     join_date = models.DateField(null=True, blank=True)

@@ -4,7 +4,7 @@ from apps.institutes.models import Institute
 class Subject(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='subjects')
     name = models.CharField(max_length=200)
-    grade = models.CharField(max_length=50)
+    batch = models.CharField(max_length=50)
     icon = models.CharField(max_length=10, default='∑')
     color_bg = models.CharField(max_length=30, blank=True)
     color_fg = models.CharField(max_length=30, blank=True)
@@ -12,7 +12,7 @@ class Subject(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         db_table = 'subjects'
-    def __str__(self): return f'{self.name} (Grade {self.grade})'
+    def __str__(self): return f'{self.name} (Batch {self.batch})'
 
 class Teacher(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='teachers')

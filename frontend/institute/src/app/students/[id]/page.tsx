@@ -5,7 +5,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 
-type Student = { id: number; name: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; grade: string; is_free: boolean; is_active: boolean; join_date: string };
+type Student = { id: number; name: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; join_date: string };
 type Enrollment = { id: number; batch: number; batch_name: string; academic_year: number; status: string; enrolled_at: string };
 type Fee = { id: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null };
 
@@ -32,7 +32,7 @@ export default function StudentDetailPage() {
 
   return (
     <PageShell>
-      <Topbar title={student.name} subtitle={student.grade}
+      <Topbar title={student.name} subtitle={student.batch}
         right={<button className="btn btn-g btn-sm" onClick={() => router.back()}>← Back</button>} />
       <div className="pb fi">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
@@ -42,7 +42,7 @@ export default function StudentDetailPage() {
               {[
                 { label: "Parent", val: student.parent_name || "—" },
                 { label: "Mobile", val: student.parent_mobile },
-                { label: "Grade", val: student.grade },
+                { label: "Batch", val: student.batch },
                 { label: "Joined", val: student.join_date || "—" },
                 { label: "WhatsApp", val: student.has_whatsapp ? "Yes" : "No" },
                 { label: "Status", val: student.is_free ? "Free" : student.is_active ? "Active" : "Inactive" },

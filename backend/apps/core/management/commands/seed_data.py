@@ -84,7 +84,7 @@ class Command(BaseCommand):
         for name, grade, icon in subj_data:
             s, _ = Subject.objects.get_or_create(
                 institute=inst, name=name,
-                defaults={'grade': grade, 'icon': icon, 'is_active': True}
+                defaults={'batch': grade, 'icon': icon, 'is_active': True}
             )
             subjects[name] = s
 
@@ -173,7 +173,7 @@ class Command(BaseCommand):
                 institute=inst, name=sname, parent_mobile=mobile,
                 defaults={
                     'parent_name': pname, 'has_whatsapp': True,
-                    'grade': grade, 'is_active': True,
+                    'batch': grade, 'is_active': True,
                     'join_date': date(2025, 1, 6),
                 }
             )

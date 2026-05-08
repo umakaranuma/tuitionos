@@ -11,7 +11,7 @@ type Stats = {
   attendance: { present_today: number; absent_today: number };
 };
 type Batch = { id: number; name: string; subject_name: string; student_count: number; monthly_fee: string; color: string; color_light: string };
-type Student = { id: number; name: string; grade: string };
+type Student = { id: number; name: string; batch: string };
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -147,7 +147,7 @@ export default function DashboardPage() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
-                        <div style={{ fontSize: 10, color: "var(--ink3)" }}>{s.grade}</div>
+                        <div style={{ fontSize: 10, color: "var(--ink3)" }}>{s.batch}</div>
                       </div>
                     </div>
                   ))}

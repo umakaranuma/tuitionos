@@ -8,7 +8,7 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'name', 'initials', 'parent_name', 'parent_mobile',
-            'has_whatsapp', 'grade', 'is_free', 'is_active',
+            'has_whatsapp', 'batch', 'is_free', 'is_active',
             'join_date', 'created_at',
         ]
 

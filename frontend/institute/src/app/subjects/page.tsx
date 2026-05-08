@@ -13,14 +13,14 @@ const BG_OPTS = [
   { label: "Purple", bg: "var(--pr-l)", fg: "var(--pr)" },
 ];
 
-type Subject = { id: number; name: string; icon: string; grade: string; color_bg: string; color_fg: string; is_active: boolean };
+type Subject = { id: number; name: string; icon: string; batch: string; color_bg: string; color_fg: string; is_active: boolean };
 
 export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Subject | null>(null);
-  const [form, setForm] = useState({ name: "", grade: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" });
+  const [form, setForm] = useState({ name: "", batch: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" });
 
   const load = () => {
     api.get("/api/academics/subjects").then(r => {
@@ -29,8 +29,8 @@ export default function SubjectsPage() {
   };
   useEffect(load, []);
 
-  const openAdd = () => { setForm({ name: "", grade: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" }); setEditTarget(null); setModal("add"); };
-  const openEdit = (s: Subject) => { setForm({ name: s.name, grade: s.grade, icon: s.icon, color_bg: s.color_bg || "var(--sp-l)", color_fg: s.color_fg || "var(--sp)" }); setEditTarget(s); setModal("edit"); };
+  const openAdd = () => { setForm({ name: "", batch: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" }); setEditTarget(null); setModal("add"); };
+  const openEdit = (s: Subject) => { setForm({ name: s.name, batch: s.batch, icon: s.icon, color_bg: s.color_bg || "var(--sp-l)", color_fg: s.color_fg || "var(--sp)" }); setEditTarget(s); setModal("edit"); };
   const close = () => setModal(null);
 
   const save = async () => {
@@ -64,7 +64,7 @@ export default function SubjectsPage() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>Grade: {s.grade}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>Batch: {s.batch}</div>
                   </div>
                   <div style={{ display: "flex", gap: 4 }}>
                     <button className="btn btn-xs btn-s" onClick={() => openEdit(s)}>Edit</button>
@@ -85,7 +85,7 @@ export default function SubjectsPage() {
         footer={<><button className="btn btn-s btn-sm" onClick={close}>Cancel</button><button className="btn btn-p btn-sm" onClick={save} disabled={!form.name.trim()}>{modal === "add" ? "Create" : "Save"}</button></>}>
         <div className="form-gap">
           <div><label className="flbl freq">Subject name</label><input placeholder="e.g. Combined Mathematics" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus /></div>
-          <div><label className="flbl">Grade</label><input placeholder="e.g. All, O/L, A/L" value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} /></div>
+          <div><label className="flbl">Batch</label><input placeholder="e.g. All, O/L, A/L" value={form.batch} onChange={e => setForm(f => ({ ...f, batch: e.target.value }))} /></div>
           <div>
             <label className="flbl">Colour theme</label>
             <div style={{ display: "flex", gap: 6, marginTop: 6 }}>

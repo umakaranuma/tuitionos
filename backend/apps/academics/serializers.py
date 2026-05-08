@@ -8,7 +8,7 @@ from .models import (
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'grade', 'icon', 'color_bg', 'color_fg', 'is_active', 'created_at']
+        fields = ['id', 'name', 'batch', 'icon', 'color_bg', 'color_fg', 'is_active', 'created_at']
 
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
