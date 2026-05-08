@@ -31,8 +31,6 @@ class Batch(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='batches')
     name = models.CharField(max_length=200)
     label = models.CharField(max_length=100, blank=True)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='batches')
-    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='batches')
     academic_year = models.PositiveIntegerField()
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2)
     color = models.CharField(max_length=30, blank=True)
@@ -42,6 +40,14 @@ class Batch(models.Model):
     class Meta:
         db_table = 'batches'
     def __str__(self): return self.name
+
+class BatchSubject(models.Model):
+    batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='batch_subjects')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='batch_subjects')
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='batch_subjects')
+    class Meta:
+        db_table = 'batch_subjects'
+        unique_together = ('batch', 'subject')
 
 class BatchTeacherConfig(models.Model):
     batch = models.OneToOneField(Batch, on_delete=models.CASCADE, related_name='teacher_config')

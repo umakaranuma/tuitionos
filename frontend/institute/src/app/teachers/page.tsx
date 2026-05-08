@@ -6,20 +6,27 @@ import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 
 type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean };
+type Subject = { id: number; name: string };
 
 const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"],["var(--pr-l)","var(--pr)"]];
 const initials = (n: string) => n.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Teacher | null>(null);
   const [form, setForm] = useState({ name: "", mobile: "", email: "", subject: "", monthly_salary: "" });
 
   const load = () => {
-    api.get("/api/academics/teachers").then(r => {
-      const d = r.data; setTeachers(Array.isArray(d) ? d : d.results || []); setLoading(false);
+    Promise.all([
+      api.get("/api/academics/teachers").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
+      api.get("/api/academics/subjects").then(r => Array.isArray(r.data) ? r.data : r.data.results || [])
+    ]).then(([t, s]) => {
+      setTeachers(t);
+      setSubjects(s);
+      setLoading(false);
     }).catch(() => setLoading(false));
   };
   useEffect(load, []);
@@ -76,7 +83,13 @@ export default function TeachersPage() {
         <div className="form-gap">
           <div><label className="flbl freq">Full name</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus /></div>
           <div className="field-row">
-            <div className="fg"><label className="flbl">Subject</label><input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} /></div>
+            <div className="fg">
+              <label className="flbl">Subject</label>
+              <select value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}>
+                <option value="">None</option>
+                {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
             <div className="fg"><label className="flbl">Monthly salary (LKR)</label><input type="number" value={form.monthly_salary} onChange={e => setForm(f => ({ ...f, monthly_salary: e.target.value }))} /></div>
           </div>
           <div className="field-row">

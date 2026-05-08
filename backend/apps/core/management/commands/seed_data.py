@@ -115,15 +115,19 @@ class Command(BaseCommand):
             ('g11', 'Grade 11 — A/L Science', 'Grade 11', 'Physics', 2, 2026, 7000, '#b83030', '#fceaea'),
         ]
         batches = {}
+        from apps.academics.models import BatchSubject
         for bid, name, label, subj_name, teacher_id, year, fee, color, colorl in batch_data:
             b, _ = Batch.objects.get_or_create(
                 institute=inst, name=name,
                 defaults={
-                    'label': label, 'subject': subjects[subj_name],
-                    'teacher': teachers.get(teacher_id),
+                    'label': label,
                     'academic_year': year, 'monthly_fee': fee,
                     'color': color, 'color_light': colorl, 'is_active': True,
                 }
+            )
+            BatchSubject.objects.get_or_create(
+                batch=b, subject=subjects[subj_name],
+                defaults={'teacher': teachers.get(teacher_id) if teacher_id else None}
             )
             batches[bid] = b
 
