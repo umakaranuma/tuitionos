@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,23 +29,11 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const response = await fetch("http://localhost:8000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Store token somewhere securely, e.g. localStorage or cookie
-        localStorage.setItem("token", data.token);
-        router.push("/dashboard");
-      } else {
-        setError(data.error || "Invalid credentials.");
-      }
-    } catch (err) {
-      setError("Network error. Please try again.");
+      const response = await api.post("/api/login", { email, password });
+      localStorage.setItem("token", response.data.token);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Invalid credentials.");
     } finally {
       setLoading(false);
     }

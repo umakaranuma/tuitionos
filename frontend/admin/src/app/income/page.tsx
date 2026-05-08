@@ -1,112 +1,105 @@
+"use client";
+import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { api } from "@/lib/api";
 
-const monthlyData = [
-  { month: "Apr 2026", basic: 135000, premium: 138000, total: 387000, usd: "$1,248", status: "collecting" },
-  { month: "Mar 2026", basic: 126000, premium: 120000, total: 345000, usd: "$1,113", status: "done" },
-  { month: "Feb 2026", basic: 111000, premium: 108000, total: 309000, usd: "$997", status: "done" },
-  { month: "Jan 2026", basic: 96000, premium: 90000, total: 276000, usd: "$890", status: "done" },
-];
-
-const statusBadge = (s: string) =>
-  s === "done" ? <span className="bdg b-paid">Done</span> : <span className="bdg b-due">Collecting</span>;
+type Invoice = { id: number; institute: number; institute_name: string; amount: string; month: string; status: string; paid_at: string | null };
 
 export default function IncomePage() {
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/api/admin/billing/invoices").then(r => {
+      const d = r.data;
+      setInvoices(Array.isArray(d) ? d : d.results || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const totalMRR = invoices.reduce((acc, inv) => acc + Number(inv.amount), 0);
+  const collected = invoices.filter(i => i.status === "paid").reduce((acc, inv) => acc + Number(inv.amount), 0);
+  const outstanding = totalMRR - collected;
+
+  // Group by month
+  const monthlyData = invoices.reduce((acc, inv) => {
+    const month = inv.month;
+    if (!acc[month]) acc[month] = { month, total: 0, collected: 0 };
+    acc[month].total += Number(inv.amount);
+    if (inv.status === "paid") acc[month].collected += Number(inv.amount);
+    return acc;
+  }, {} as Record<string, { month: string; total: number; collected: number }>);
+  
+  const monthlyList = Object.values(monthlyData).sort((a, b) => b.month.localeCompare(a.month));
+
   return (
     <PageShell>
-      <Topbar
-        title="Income"
-        subtitle="April 2026"
-        right={<button className="btn btn-s btn-sm">Export CSV</button>}
-      />
+      <Topbar title="Income" subtitle={`${invoices.length} total invoices`} right={<button className="btn btn-s btn-sm">Export CSV</button>} />
       <div className="pb fi">
-        <div className="g4" style={{ marginBottom: 18 }}>
-          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
-            <div className="kpi-lbl">This Month MRR</div>
-            <div className="kpi-val">387K</div>
-            <div className="kpi-tr nt mono">≈ USD 1,248</div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--jd)" } as any}>
-            <div className="kpi-lbl">Collected</div>
-            <div className="kpi-val">321K</div>
-            <div className="kpi-tr up">
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
-              61 institutes
-            </div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
-            <div className="kpi-lbl">Outstanding</div>
-            <div className="kpi-val">66K</div>
-            <div className="kpi-tr dn">7 institutes</div>
-          </div>
-          <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
-            <div className="kpi-lbl">Notif Spend</div>
-            <div className="kpi-val">18.2K</div>
-            <div className="kpi-tr nt">4.7% of MRR</div>
-          </div>
-        </div>
-
-        <div className="g2">
-          <div>
-            <div className="sec-hdr"><span className="sec-title">Monthly breakdown</span></div>
-            <div className="tw">
-              <table>
-                <thead><tr><th>Month</th><th>Basic</th><th>Premium</th><th>Total LKR</th><th>USD</th><th>Status</th></tr></thead>
-                <tbody>
-                  {monthlyData.map((m) => (
-                    <tr key={m.month}>
-                      <td>{m.month}</td>
-                      <td className="mono">{m.basic.toLocaleString()}</td>
-                      <td className="mono">{m.premium.toLocaleString()}</td>
-                      <td className="mono" style={{ fontWeight: 600 }}>{m.total.toLocaleString()}</td>
-                      <td className="mono">{m.usd}</td>
-                      <td>{statusBadge(m.status)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div>
-            <div className="sec-hdr"><span className="sec-title">Revenue by plan</span></div>
-            <div className="card" style={{ marginBottom: 14 }}>
-              <div className="prog-w">
-                <div className="prog-hdr"><span className="prog-lbl">Premium revenue</span><span className="prog-val">LKR 138K</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: "43%", background: "var(--tc)" }} /></div>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
+          <>
+            <div className="g4" style={{ marginBottom: 18 }}>
+              <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
+                <div className="kpi-lbl">Total MRR</div>
+                <div className="kpi-val">{Math.round(totalMRR / 1000)}K</div>
+                <div className="kpi-tr nt mono">LKR</div>
               </div>
-              <div className="prog-w">
-                <div className="prog-hdr"><span className="prog-lbl">Basic revenue</span><span className="prog-val">LKR 183K</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: "57%", background: "var(--sp)" }} /></div>
+              <div className="kpi" style={{ "--kc": "var(--jd)" } as any}>
+                <div className="kpi-lbl">Collected</div>
+                <div className="kpi-val">{Math.round(collected / 1000)}K</div>
+                <div className="kpi-tr up">{invoices.filter(i => i.status === "paid").length} invoices</div>
               </div>
-              <div className="prog-w" style={{ marginBottom: 0 }}>
-                <div className="prog-hdr"><span className="prog-lbl">Outstanding</span><span className="prog-val">LKR 66K</span></div>
-                <div className="prog-tr"><div className="prog-fi" style={{ width: "17%", background: "var(--rb)" }} /></div>
+              <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
+                <div className="kpi-lbl">Outstanding</div>
+                <div className="kpi-val">{Math.round(outstanding / 1000)}K</div>
+                <div className="kpi-tr dn">{invoices.filter(i => i.status !== "paid").length} invoices</div>
               </div>
             </div>
 
-            <div className="sec-hdr"><span className="sec-title">$2,000 goal tracker</span></div>
-            <div className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 9 }}>
-                <div>
-                  <div style={{ fontFamily: "var(--font-serif)", fontSize: 20 }}>$1,248</div>
-                  <div style={{ fontSize: 10, color: "var(--ink3)" }}>Current MRR</div>
-                </div>
-                <div style={{ fontSize: 10, color: "var(--ink3)" }}>Target: $2,000</div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--rb)" }}>$752</div>
-                  <div style={{ fontSize: 10, color: "var(--ink3)" }}>Remaining</div>
+            <div className="g2">
+              <div>
+                <div className="sec-hdr"><span className="sec-title">Monthly breakdown</span></div>
+                <div className="tw">
+                  <table>
+                    <thead><tr><th>Month</th><th>Total LKR</th><th>Collected</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {monthlyList.map((m) => (
+                        <tr key={m.month}>
+                          <td>{m.month}</td>
+                          <td className="mono" style={{ fontWeight: 600 }}>{m.total.toLocaleString()}</td>
+                          <td className="mono">{m.collected.toLocaleString()}</td>
+                          <td>{m.total === m.collected ? <span className="bdg b-paid">Done</span> : <span className="bdg b-due">Collecting</span>}</td>
+                        </tr>
+                      ))}
+                      {monthlyList.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No data yet</td></tr>}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div className="prog-tr" style={{ height: 8 }}>
-                <div className="prog-fi" style={{ width: "62%", background: "var(--tc)" }} />
-              </div>
-              <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 5, textAlign: "center" }}>
-                62% · Need ~18 more Premium institutes
+
+              <div>
+                <div className="sec-hdr"><span className="sec-title">All Invoices</span></div>
+                <div className="tw">
+                  <table>
+                    <thead><tr><th>Institute</th><th>Month</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {invoices.map(i => (
+                        <tr key={i.id}>
+                          <td>{i.institute_name}</td>
+                          <td>{i.month}</td>
+                          <td className="mono">{Number(i.amount).toLocaleString()}</td>
+                          <td>{i.status === "paid" ? <span className="bdg b-paid">Paid</span> : <span className="bdg b-due">{i.status}</span>}</td>
+                        </tr>
+                      ))}
+                      {invoices.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No invoices</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </PageShell>
   );
