@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { api } from "@/lib/api";
 
 type BatchSubject = { id?: number; subject: number; subject_name?: string; teacher: number | null; teacher_name?: string | null };
@@ -117,36 +118,35 @@ export default function BatchesPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--bg-d)", padding: 12, borderRadius: 8 }}>
               {form.subjects.map((s, idx) => (
                 <div key={idx} style={{ display: "flex", gap: 8 }}>
-                  <select 
-                    value={s.subject} 
-                    onFocus={fetchSubjects} onClick={fetchSubjects}
-                    onChange={e => {
-                      const newSubs = [...form.subjects]; newSubs[idx].subject = e.target.value; setForm({ ...form, subjects: newSubs });
-                    }} style={{ flex: 1 }}>
-                    <option value="">Select subject...</option>
-                    {subjects.map(sub => <option key={sub.id} value={sub.id}>{sub.name}</option>)}
-                  </select>
-                  <select 
-                    value={s.teacher} 
-                    onFocus={() => {
-                      const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
-                      if (subjectName) fetchTeachers(subjectName);
-                    }} 
-                    onClick={() => {
-                      const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
-                      if (subjectName) fetchTeachers(subjectName);
-                    }}
-                    onChange={e => {
-                      const newSubs = [...form.subjects]; newSubs[idx].teacher = e.target.value; setForm({ ...form, subjects: newSubs });
-                    }} style={{ flex: 1 }}>
-                    <option value="">Select teacher...</option>
-                    {(subjects.find(sub => sub.id === Number(s.subject))?.name 
-                      ? teachersBySubject[subjects.find(sub => sub.id === Number(s.subject))!.name] || []
-                      : []
-                    ).map(t => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
+                  <div style={{ flex: 1 }}>
+                    <SearchableSelect 
+                      value={s.subject} 
+                      onOpen={fetchSubjects}
+                      onChange={val => {
+                        const newSubs = [...form.subjects]; newSubs[idx].subject = String(val); setForm({ ...form, subjects: newSubs });
+                      }}
+                      placeholder="Select subject..."
+                      options={subjects.map(sub => ({ value: sub.id, label: sub.name }))}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <SearchableSelect 
+                      value={s.teacher} 
+                      onOpen={() => {
+                        const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
+                        if (subjectName) fetchTeachers(subjectName);
+                      }}
+                      onChange={val => {
+                        const newSubs = [...form.subjects]; newSubs[idx].teacher = String(val); setForm({ ...form, subjects: newSubs });
+                      }}
+                      placeholder="Select teacher..."
+                      disabled={!s.subject}
+                      options={(subjects.find(sub => sub.id === Number(s.subject))?.name 
+                        ? teachersBySubject[subjects.find(sub => sub.id === Number(s.subject))!.name] || []
+                        : []
+                      ).map(t => ({ value: t.id, label: t.name }))}
+                    />
+                  </div>
                   <button className="btn btn-xs btn-d" onClick={() => {
                     setForm({ ...form, subjects: form.subjects.filter((_, i) => i !== idx) });
                   }}>✕</button>
