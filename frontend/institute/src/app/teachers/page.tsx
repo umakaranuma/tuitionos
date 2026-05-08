@@ -32,6 +32,13 @@ export default function TeachersPage() {
   };
   useEffect(load, []);
 
+  const searchSubjects = async (q: string) => {
+    try {
+      const r = await api.get(`/api/academics/subjects?search=${encodeURIComponent(q)}`);
+      setSubjects(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch (e) {}
+  };
+
   const openAdd = () => { setForm({ name: "", mobile: "", email: "", subject: "", monthly_salary: "" }); setEditTarget(null); setModal("add"); };
   const openEdit = (t: Teacher) => { setForm({ name: t.name, mobile: t.mobile, email: t.email, subject: t.subject, monthly_salary: String(t.monthly_salary) }); setEditTarget(t); setModal("edit"); };
   const close = () => setModal(null);
@@ -90,6 +97,7 @@ export default function TeachersPage() {
                 value={form.subject} 
                 onChange={val => setForm(f => ({ ...f, subject: String(val) }))}
                 placeholder="Select subject..."
+                onSearch={searchSubjects}
                 options={subjects.map(s => ({ value: s.name, label: s.name }))}
               />
             </div>

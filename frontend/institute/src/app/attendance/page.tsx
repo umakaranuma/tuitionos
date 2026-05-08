@@ -25,6 +25,13 @@ export default function AttendancePage() {
   };
   useEffect(load, [selectedBatch, selectedDate]);
 
+  const searchBatches = async (q: string) => {
+    try {
+      const r = await api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`);
+      setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch (e) {}
+  };
+
   const present = records.filter(r => r.is_present).length;
   const absent = records.filter(r => !r.is_present).length;
   const rate = records.length > 0 ? Math.round((present / records.length) * 100) : 0;
@@ -39,6 +46,7 @@ export default function AttendancePage() {
               value={selectedBatch} 
               onChange={val => { setSelectedBatch(String(val)); setLoading(true); }}
               placeholder="All batches"
+              onSearch={searchBatches}
               options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.name }))]}
             />
           </div>

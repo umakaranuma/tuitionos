@@ -29,6 +29,13 @@ export default function FeesPage() {
   };
   useEffect(() => load(), []);
 
+  const searchBatches = async (q: string) => {
+    try {
+      const r = await api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`);
+      setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch (e) {}
+  };
+
   const handleBatchFilter = (bid: string) => { setSelectedBatch(bid); setLoading(true); load(bid); };
 
   const markPaid = async (id: number) => {
@@ -50,6 +57,7 @@ export default function FeesPage() {
               value={selectedBatch} 
               onChange={val => handleBatchFilter(String(val))}
               placeholder="All batches"
+              onSearch={searchBatches}
               options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.name }))]}
             />
           </div>

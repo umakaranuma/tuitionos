@@ -20,7 +20,11 @@ class InstituteBaseViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, InstituteOnly]
 
     def get_queryset(self):
-        return self.queryset.filter(institute=self.request.institute)
+        qs = self.queryset.filter(institute=self.request.institute)
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(name__icontains=search)
+        return qs
 
 
 class SubjectViewSet(InstituteBaseViewSet):
@@ -43,13 +47,6 @@ class TeacherViewSet(InstituteBaseViewSet):
 class BatchViewSet(InstituteBaseViewSet):
     queryset = Batch.objects.prefetch_related('batch_subjects__subject', 'batch_subjects__teacher').all()
     serializer_class = BatchSerializer
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(name__icontains=search)
-        return qs
 
 
 class ExamViewSet(InstituteBaseViewSet):

@@ -35,13 +35,22 @@ export default function BatchesPage() {
     } catch (e) {}
   };
 
-  const fetchTeachers = async (subjectName: string) => {
-    if (!subjectName || teachersBySubject[subjectName]) return;
+  const fetchTeachers = async (subjectName: string, query: string = "") => {
+    if (!subjectName && !query) return;
     try {
-      const r = await api.get(`/api/academics/teachers?subject=${encodeURIComponent(subjectName)}`);
+      const qs = query ? `&search=${encodeURIComponent(query)}` : "";
+      const r = await api.get(`/api/academics/teachers?subject=${encodeURIComponent(subjectName)}${qs}`);
       setTeachersBySubject(prev => ({ ...prev, [subjectName]: Array.isArray(r.data) ? r.data : r.data.results || [] }));
     } catch (e) {}
   };
+
+  const searchSubjects = async (q: string) => {
+    try {
+      const r = await api.get(`/api/academics/subjects?search=${encodeURIComponent(q)}`);
+      setSubjects(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch (e) {}
+  };
+
   useEffect(load, []);
 
   const openAdd = () => { 
@@ -126,6 +135,7 @@ export default function BatchesPage() {
                         const newSubs = [...form.subjects]; newSubs[idx].subject = String(val); setForm({ ...form, subjects: newSubs });
                       }}
                       placeholder="Select subject..."
+                      onSearch={searchSubjects}
                       options={subjects.map(sub => ({ value: sub.id, label: sub.name }))}
                     />
                   </div>
@@ -141,6 +151,10 @@ export default function BatchesPage() {
                       }}
                       placeholder="Select teacher..."
                       disabled={!s.subject}
+                      onSearch={q => {
+                        const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
+                        if (subjectName) fetchTeachers(subjectName, q);
+                      }}
                       options={(subjects.find(sub => sub.id === Number(s.subject))?.name 
                         ? teachersBySubject[subjects.find(sub => sub.id === Number(s.subject))!.name] || []
                         : []
