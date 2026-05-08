@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Pagination } from "@/components/ui/Pagination";
 
 type Payment = { id: number; teacher: number; teacher_name: string; month: string; amount: string; status: string; paid_date: string | null; method: string; payment_type: string };
 type Advance = { id: number; teacher: number; teacher_name: string; amount: string; request_date: string; reason: string; status: string; repaid_amount: string };
@@ -18,14 +19,23 @@ export default function TeacherSalaryPage() {
   const [advances, setAdvances] = useState<Advance[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState("April 2026");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
 
   const load = () => {
+    setLoading(true);
+    const params: Record<string, string | number> = { month, page, limit };
     Promise.all([
-      api.get("/api/academics/teacher-payments", { params: { month } }).then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
+      api.get("/api/academics/teacher-payments", { params }).then(r => { 
+        const d = r.data; 
+        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+        return Array.isArray(d) ? d : d.results || []; 
+      }),
       api.get("/api/academics/teacher-advances").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
     ]).then(([p, a]) => { setPayments(p); setAdvances(a); setLoading(false); });
   };
-  useEffect(load, [month]);
+  useEffect(load, [month, page, limit]);
 
   const markPaid = async (id: number) => {
     await api.post(`/api/academics/teacher-payments/${id}/mark_paid`, { method: "Bank transfer" });
@@ -43,7 +53,7 @@ export default function TeacherSalaryPage() {
           <div style={{ minWidth: 180 }}>
             <SearchableSelect 
               value={month} 
-              onChange={val => { setMonth(String(val)); setLoading(true); }}
+              onChange={val => { setMonth(String(val)); setPage(1); }}
               options={["April 2026", "March 2026", "February 2026", "January 2026"].map(m => ({ value: m, label: m }))}
             />
           </div>
@@ -71,8 +81,18 @@ export default function TeacherSalaryPage() {
                       <td>{p.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => markPaid(p.id)}>Mark paid</button>}</td>
                     </tr>
                   ))}
+                  {payments.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No salary records for this month</td></tr>}
                 </tbody>
               </table>
+              <Pagination 
+                page={page} 
+                limit={limit} 
+                totalCount={meta.total_count} 
+                totalPages={meta.total_pages} 
+                onPageChange={setPage} 
+                onLimitChange={l => { setLimit(l); setPage(1); }} 
+                itemName="salary records" 
+              />
             </div>
 
             {advances.length > 0 && (

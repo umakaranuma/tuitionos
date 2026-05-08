@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Pagination } from "@/components/ui/Pagination";
 
 type Student = { id: number; name: string; initials: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; join_date: string };
 type Batch = { id: number; name: string };
@@ -18,16 +19,30 @@ export default function StudentsPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [modal, setModal] = useState<"add" | null>(null);
   const [form, setForm] = useState({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true });
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const load = () => {
+    setLoading(true);
     Promise.all([
-      api.get("/api/students/students").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
+      api.get(`/api/students/students?page=${page}&limit=${limit}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`).then(r => { 
+        const d = r.data; 
+        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+        return Array.isArray(d) ? d : d.results || []; 
+      }),
       api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; })
     ]).then(([s, b]) => { setStudents(s); setBatches(b); setLoading(false); }).catch(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(load, [page, limit, debouncedSearch]);
 
   const searchBatches = (q: string) => {
     api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`).then(r => {
@@ -36,7 +51,7 @@ export default function StudentsPage() {
     });
   };
 
-  const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.batch.toLowerCase().includes(search.toLowerCase()));
+  const filtered = students;
 
   const save = async () => {
     if (!form.name.trim()) return;
@@ -73,6 +88,15 @@ export default function StudentsPage() {
                 {filtered.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No students found</td></tr>}
               </tbody>
             </table>
+            <Pagination 
+              page={page} 
+              limit={limit} 
+              totalCount={meta.total_count} 
+              totalPages={meta.total_pages} 
+              onPageChange={setPage} 
+              onLimitChange={l => { setLimit(l); setPage(1); }} 
+              itemName="students" 
+            />
           </div>
         )}
       </div>

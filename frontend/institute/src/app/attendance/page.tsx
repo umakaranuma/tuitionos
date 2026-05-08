@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Pagination } from "@/components/ui/Pagination";
 
 type Attendance = { id: number; student: number; student_name: string; batch: number; date: string; is_present: boolean; marked_at: string };
 type Batch = { id: number; name: string };
@@ -14,16 +15,24 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
 
   const load = () => {
-    const params: Record<string, string> = { date: selectedDate };
+    setLoading(true);
+    const params: Record<string, string | number> = { date: selectedDate, page, limit };
     if (selectedBatch) params.batch = selectedBatch;
     Promise.all([
-      api.get("/api/attendance/", { params }).then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
+      api.get("/api/attendance/", { params }).then(r => { 
+        const d = r.data; 
+        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+        return Array.isArray(d) ? d : d.results || []; 
+      }),
       api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
     ]).then(([a, b]) => { setRecords(a); setBatches(b); setLoading(false); });
   };
-  useEffect(load, [selectedBatch, selectedDate]);
+  useEffect(load, [selectedBatch, selectedDate, page, limit]);
 
   const searchBatches = async (q: string) => {
     try {
@@ -40,11 +49,11 @@ export default function AttendancePage() {
     <PageShell>
       <Topbar title="Attendance" subtitle={`${selectedDate} · ${records.length} records`}
         right={<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input type="date" value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setLoading(true); }} />
+          <input type="date" value={selectedDate} onChange={e => { setSelectedDate(e.target.value); setPage(1); }} />
           <div style={{ minWidth: 160 }}>
             <SearchableSelect 
               value={selectedBatch} 
-              onChange={val => { setSelectedBatch(String(val)); setLoading(true); }}
+              onChange={val => { setSelectedBatch(String(val)); setPage(1); }}
               placeholder="All batches"
               onSearch={searchBatches}
               options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.name }))]}
@@ -71,9 +80,18 @@ export default function AttendancePage() {
                     <td className="mono" style={{ color: "var(--ink3)" }}>{r.marked_at ? new Date(r.marked_at).toLocaleTimeString() : "—"}</td>
                   </tr>
                 ))}
-                {records.length === 0 && <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No attendance records for this date</td></tr>}
+                {records.length === 0 && <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No records for this date</td></tr>}
               </tbody>
             </table>
+            <Pagination 
+              page={page} 
+              limit={limit} 
+              totalCount={meta.total_count} 
+              totalPages={meta.total_pages} 
+              onPageChange={setPage} 
+              onLimitChange={l => { setLimit(l); setPage(1); }} 
+              itemName="attendance records" 
+            />
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Pagination } from "@/components/ui/Pagination";
 
 type Fee = { id: number; student: number; student_name: string; batch: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null; collected_by: string };
 type Batch = { id: number; name: string };
@@ -18,16 +19,25 @@ export default function FeesPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
 
   const load = (batchId?: string) => {
-    const params: Record<string, string> = {};
-    if (batchId) params.batch = batchId;
+    setLoading(true);
+    const params: Record<string, string | number> = { page, limit };
+    if (batchId !== undefined ? batchId : selectedBatch) params.batch = batchId !== undefined ? batchId : selectedBatch;
+    
     Promise.all([
-      api.get("/api/fees/", { params }).then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
+      api.get("/api/fees/", { params }).then(r => { 
+        const d = r.data; 
+        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+        return Array.isArray(d) ? d : d.results || []; 
+      }),
       api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
     ]).then(([f, b]) => { setFees(f); setBatches(b); setLoading(false); });
   };
-  useEffect(() => load(), []);
+  useEffect(() => load(), [page, limit]);
 
   const searchBatches = async (q: string) => {
     try {
@@ -36,7 +46,7 @@ export default function FeesPage() {
     } catch (e) {}
   };
 
-  const handleBatchFilter = (bid: string) => { setSelectedBatch(bid); setLoading(true); load(bid); };
+  const handleBatchFilter = (bid: string) => { setSelectedBatch(bid); setPage(1); load(bid); };
 
   const markPaid = async (id: number) => {
     await api.post(`/api/fees/${id}/mark_paid`);
@@ -95,6 +105,15 @@ export default function FeesPage() {
                 {fees.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No fee records found</td></tr>}
               </tbody>
             </table>
+            <Pagination 
+              page={page} 
+              limit={limit} 
+              totalCount={meta.total_count} 
+              totalPages={meta.total_pages} 
+              onPageChange={setPage} 
+              onLimitChange={l => { setLimit(l); setPage(1); }} 
+              itemName="fee records" 
+            />
           </div>
         )}
       </div>

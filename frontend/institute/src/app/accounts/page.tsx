@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Pagination } from "@/components/ui/Pagination";
 import { api } from "@/lib/api";
 
 type Tx = { id: number; month: string; transaction_type: string; category: string; label: string; amount: string; date: string };
@@ -14,14 +15,21 @@ export default function AccountsPage() {
   const [txns, setTxns] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [form, setForm] = useState({ month: "May 2026", transaction_type: "expense", category: "utility_bill", label: "", amount: "", date: new Date().toISOString().split("T")[0] });
 
   const load = () => {
-    api.get("/api/billing/transactions").then(r => {
-      const d = r.data; setTxns(Array.isArray(d) ? d : d.results || []); setLoading(false);
+    setLoading(true);
+    api.get(`/api/billing/transactions?page=${page}&limit=${limit}`).then(r => {
+      const d = r.data; 
+      if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+      setTxns(Array.isArray(d) ? d : d.results || []); 
+      setLoading(false);
     }).catch(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(load, [page, limit]);
 
   const save = async () => {
     if (!form.label.trim() || !form.amount) return;
@@ -57,9 +65,18 @@ export default function AccountsPage() {
                     <td className="mono" style={{ color: "var(--ink3)" }}>{t.date}</td>
                   </tr>
                 ))}
-                {txns.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No transactions yet</td></tr>}
+                {txns.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No transactions found</td></tr>}
               </tbody>
             </table>
+            <Pagination 
+              page={page} 
+              limit={limit} 
+              totalCount={meta.total_count} 
+              totalPages={meta.total_pages} 
+              onPageChange={setPage} 
+              onLimitChange={l => { setLimit(l); setPage(1); }} 
+              itemName="transactions" 
+            />
           </div>
         )}
       </div>

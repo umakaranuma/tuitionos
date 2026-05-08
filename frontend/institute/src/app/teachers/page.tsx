@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Pagination } from "@/components/ui/Pagination";
 import { api } from "@/lib/api";
 
 type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean };
@@ -16,13 +17,21 @@ export default function TeachersPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Teacher | null>(null);
   const [form, setForm] = useState({ name: "", mobile: "", email: "", subject: "", monthly_salary: "" });
 
   const load = () => {
+    setLoading(true);
     Promise.all([
-      api.get("/api/academics/teachers").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
+      api.get(`/api/academics/teachers?page=${page}&limit=${limit}`).then(r => {
+        const d = r.data;
+        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+        return Array.isArray(d) ? d : d.results || [];
+      }),
       api.get("/api/academics/subjects").then(r => Array.isArray(r.data) ? r.data : r.data.results || [])
     ]).then(([t, s]) => {
       setTeachers(t);
@@ -30,7 +39,7 @@ export default function TeachersPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(load, [page, limit]);
 
   const searchSubjects = async (q: string) => {
     try {
@@ -82,6 +91,15 @@ export default function TeachersPage() {
                 {teachers.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No teachers yet</td></tr>}
               </tbody>
             </table>
+            <Pagination 
+              page={page} 
+              limit={limit} 
+              totalCount={meta.total_count} 
+              totalPages={meta.total_pages} 
+              onPageChange={setPage} 
+              onLimitChange={l => { setLimit(l); setPage(1); }} 
+              itemName="teachers" 
+            />
           </div>
         )}
       </div>

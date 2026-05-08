@@ -12,9 +12,11 @@ class StudentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, InstituteOnly]
 
     def get_queryset(self):
-        return Student.objects.filter(
-            institute=self.request.institute
-        ).order_by('name')
+        qs = Student.objects.filter(institute=self.request.institute)
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(name__icontains=search)
+        return qs.order_by('name')
 
     @action(detail=True, methods=['post'])
     def enroll(self, request, pk=None):
