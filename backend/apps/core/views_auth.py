@@ -8,17 +8,19 @@ User = get_user_model()
 from django.core.mail import send_mail
 from django.conf import settings
 
+import pyotp
+
 class LoginView(APIView):
     permission_classes = []
 
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
+        totp_code = request.data.get("totp_code")
         
         if not email or not password:
             return Response({"error": "Please provide email and password"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Authenticate using email instead of username
         try:
             user_obj = User.objects.get(email=email)
             user = authenticate(username=user_obj.username, password=password)
@@ -28,10 +30,35 @@ class LoginView(APIView):
         if not user:
             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
         
+        is_fynux_admin = user.is_staff or user.is_superuser
+        
+        # Admin TOTP flow
+        if is_fynux_admin:
+            if not user.totp_secret:
+                user.totp_secret = pyotp.random_base32()
+                user.save()
+            
+            if not totp_code:
+                # Need TOTP
+                totp = pyotp.TOTP(user.totp_secret)
+                uri = totp.provisioning_uri(name=user.email, issuer_name="TuitionOS Admin")
+                return Response({
+                    "requires_2fa": True,
+                    "is_setup": user.is_totp_enabled,
+                    "setup_uri": uri if not user.is_totp_enabled else None,
+                    "user": {"is_fynux_admin": True}
+                })
+            else:
+                totp = pyotp.TOTP(user.totp_secret)
+                if not totp.verify(totp_code):
+                    return Response({"error": "Invalid 2FA code"}, status=status.HTTP_400_BAD_REQUEST)
+                
+                if not user.is_totp_enabled:
+                    user.is_totp_enabled = True
+                    user.save()
+        
         token, _ = Token.objects.get_or_create(user=user)
         
-        # Check if Fynux Admin or Institute User
-        is_fynux_admin = user.is_staff or user.is_superuser
         institute_id = None
         institute_name = None
         role = None

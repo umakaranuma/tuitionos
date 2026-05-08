@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { QRCodeSVG } from "qrcode.react";
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -10,8 +12,7 @@ export default function AdminLoginPage() {
   const [step, setStep] = useState<"creds" | "2fa">("creds");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [token, setToken] = useState("");
+  const [setupUri, setSetupUri] = useState("");
 
   const handleCredentials = async () => {
     setError("");
@@ -19,8 +20,6 @@ export default function AdminLoginPage() {
     setLoading(true);
     
     try {
-      // Use the actual API to verify credentials
-      // We import axios locally here or use fetch, but we can also use api from lib
       const response = await fetch("http://localhost:8000/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -40,26 +39,41 @@ export default function AdminLoginPage() {
         return;
       }
       
-      // Temporarily hold token until 2FA completes
-      setToken(data.token);
+      if (data.requires_2fa) {
+        if (data.setup_uri) setSetupUri(data.setup_uri);
+        setStep("2fa");
+      } else {
+        localStorage.setItem("token", data.token);
+        router.push("/dashboard");
+      }
       setLoading(false); 
-      setStep("2fa");
     } catch (err) {
       setError("Network error. Make sure the backend is running.");
       setLoading(false);
     }
   };
 
-  const handle2FA = () => {
+  const handle2FA = async () => {
     if (totpCode.length !== 6) { setError("Enter a 6-digit code from your authenticator app."); return; }
     setLoading(true);
-    // In a real app, verify the TOTP code against the backend here.
-    // For now, any 6 digit code will pass the UI simulation.
-    setTimeout(() => { 
-      setLoading(false); 
-      localStorage.setItem("token", token);
-      router.push("/dashboard"); 
-    }, 500);
+    try {
+      const response = await fetch("http://localhost:8000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, totp_code: totpCode })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Invalid 2FA code");
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem("token", data.token);
+      router.push("/dashboard");
+    } catch (err) {
+      setError("Network error.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -163,6 +177,12 @@ export default function AdminLoginPage() {
                   </svg>
                   2FA is mandatory for admin access
                 </div>
+                {setupUri && (
+                  <div style={{ textAlign: "center", marginBottom: 12, background: "#fff", padding: 12, borderRadius: 8 }}>
+                    <div style={{ fontSize: 12, color: "#1e293b", fontWeight: 600, marginBottom: 8 }}>Scan with Google Authenticator</div>
+                    <QRCodeSVG value={setupUri} size={150} />
+                  </div>
+                )}
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", marginBottom: 4, display: "block" }}>
                     Authenticator code
