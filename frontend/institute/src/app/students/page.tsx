@@ -29,6 +29,13 @@ export default function StudentsPage() {
   };
   useEffect(load, []);
 
+  const searchBatches = (q: string) => {
+    api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`).then(r => {
+      const d = r.data;
+      setBatches(Array.isArray(d) ? d : d.results || []);
+    });
+  };
+
   const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.batch.toLowerCase().includes(search.toLowerCase()));
 
   const save = async () => {
@@ -85,6 +92,7 @@ export default function StudentsPage() {
               onChange={val => setForm(f => ({ ...f, batch: String(val) }))}
               placeholder="Select batch..."
               options={batches.map(b => ({ value: b.name, label: b.name }))}
+              onSearch={searchBatches}
             />
           </div>
         </div>

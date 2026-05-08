@@ -44,6 +44,13 @@ class BatchViewSet(InstituteBaseViewSet):
     queryset = Batch.objects.prefetch_related('batch_subjects__subject', 'batch_subjects__teacher').all()
     serializer_class = BatchSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(name__icontains=search)
+        return qs
+
 
 class ExamViewSet(InstituteBaseViewSet):
     queryset = Exam.objects.select_related('batch').prefetch_related('schedule').all()
