@@ -1,17 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --ink: #1c1917;
-  --ink2: #44403c;
-  --ink3: #78716c;
-  --ln: #e8e3db;
-  --cr: #faf8f4;
-  --tc: #2d7a5a;
-  --tc-l: #d4ede3;
-  --tc-d: #1a5040;
+  --ink: #0f172a;
+  --ink2: #334155;
+  --ink3: #64748b;
+  --ln: #e2e8f0;
+  --cr: #f8fafc;
+  --tc: #4f46e5;
+  --tc-l: #e0e7ff;
+  --tc-d: #3730a3;
   --font-serif: 'Instrument Serif', Georgia, serif;
-  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-body: 'Inter', sans-serif;
 }
 
 body {
@@ -25,9 +25,9 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 24px;
+  padding: 14px 28px;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -36,19 +36,22 @@ body {
 .btn-p {
   background: var(--tc);
   color: #fff;
+  box-shadow: 0 4px 12px -2px rgba(79,70,229,0.2);
 }
 .btn-p:hover {
   background: var(--tc-d);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(45,122,90,0.3);
+  box-shadow: 0 8px 16px -4px rgba(79,70,229,0.3);
 }
 .btn-s {
   background: #fff;
   color: var(--ink);
   border: 1px solid var(--ln);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
 .btn-s:hover {
-  background: var(--ln);
+  background: var(--cr-d);
+  border-color: var(--ink3);
   transform: translateY(-2px);
 }
 
