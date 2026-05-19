@@ -6,10 +6,10 @@ import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 
 type Inst = { id: number; name: string; subdomain: string; plan: string; status: string; owner_name: string; owner_email: string; created_at: string };
-type Stats = { total_institutes: number; premium_count: number; basic_count: number; trial_count: number; trials_expiring: number; overdue_invoices: number; total_revenue: number; total_students: number };
+type Stats = { total_institutes: number; premium_count: number; basic_count: number; solo_count: number; trial_count: number; trials_expiring: number; overdue_invoices: number; total_revenue: number; total_students: number };
 
 const planBadge = (p: string) =>
-  p === "premium" ? <span className="bdg b-prem">Premium</span> : <span className="bdg b-basic">Basic</span>;
+  p === "institute_pro" ? <span className="bdg b-prem">Institute Pro</span> : (p === "solo" ? <span className="bdg b-basic">Solo</span> : <span className="bdg b-basic">Institute</span>);
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = {
@@ -74,7 +74,7 @@ export default function DashboardPage() {
                 <div className="kpi-val">{stats?.total_institutes ?? 0}</div>
                 <div className="kpi-tr up">
                   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 7.5l3.5-3.5 3.5 3.5"/></svg>
-                  {stats?.premium_count ?? 0} premium · {stats?.basic_count ?? 0} basic
+                  {stats?.premium_count ?? 0} pro · {stats?.basic_count ?? 0} inst · {stats?.solo_count ?? 0} solo
                 </div>
               </div>
               <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
@@ -126,12 +126,16 @@ export default function DashboardPage() {
                 <div className="sec-hdr"><span className="sec-title">Revenue breakdown</span></div>
                 <div className="card" style={{ padding: 16 }}>
                   <div className="prog-w">
-                    <div className="prog-hdr"><span className="prog-lbl">Premium institutes ({stats?.premium_count ?? 0})</span><span className="prog-val">LKR {((stats?.premium_count ?? 0) * 6000 / 1000).toFixed(0)}K</span></div>
+                    <div className="prog-hdr"><span className="prog-lbl">Institute Pro ({stats?.premium_count ?? 0})</span><span className="prog-val">LKR {((stats?.premium_count ?? 0) * 6000 / 1000).toFixed(0)}K</span></div>
                     <div className="prog-tr"><div className="prog-fi" style={{ width: `${stats?.total_institutes ? Math.round((stats.premium_count / stats.total_institutes) * 100) : 0}%`, background: "var(--tc)" }} /></div>
                   </div>
                   <div className="prog-w">
-                    <div className="prog-hdr"><span className="prog-lbl">Basic institutes ({stats?.basic_count ?? 0})</span><span className="prog-val">LKR {((stats?.basic_count ?? 0) * 3000 / 1000).toFixed(0)}K</span></div>
+                    <div className="prog-hdr"><span className="prog-lbl">Institutes ({stats?.basic_count ?? 0})</span><span className="prog-val">LKR {((stats?.basic_count ?? 0) * 3000 / 1000).toFixed(0)}K</span></div>
                     <div className="prog-tr"><div className="prog-fi" style={{ width: `${stats?.total_institutes ? Math.round((stats.basic_count / stats.total_institutes) * 100) : 0}%`, background: "var(--jd)" }} /></div>
+                  </div>
+                  <div className="prog-w">
+                    <div className="prog-hdr"><span className="prog-lbl">Solo ({stats?.solo_count ?? 0})</span><span className="prog-val">LKR {((stats?.solo_count ?? 0) * 1500 / 1000).toFixed(0)}K</span></div>
+                    <div className="prog-tr"><div className="prog-fi" style={{ width: `${stats?.total_institutes ? Math.round((stats.solo_count / stats.total_institutes) * 100) : 0}%`, background: "var(--sp)" }} /></div>
                   </div>
                   <div className="prog-w" style={{ marginBottom: 0 }}>
                     <div className="prog-hdr"><span className="prog-lbl">Trials ({stats?.trial_count ?? 0})</span><span className="prog-val">Free</span></div>

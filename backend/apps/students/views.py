@@ -18,6 +18,16 @@ class StudentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(name__icontains=search)
         return qs.order_by('name')
 
+    def create(self, request, *args, **kwargs):
+        from apps.core.plan_config import check_limit_access
+        current_count = Student.objects.filter(institute=request.institute).count()
+        if not check_limit_access(request.institute, 'students', current_count):
+            return Response(
+                {"error": "Student limit reached. Please upgrade your package to add more students."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+
     @action(detail=True, methods=['post'])
     def enroll(self, request, pk=None):
         student = self.get_object()

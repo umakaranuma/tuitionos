@@ -8,6 +8,7 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [step, setStep] = useState<"creds" | "2fa">("creds");
   const [error, setError] = useState("");
@@ -143,16 +144,21 @@ export default function AdminLoginPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", marginBottom: 4, display: "block" }}>Password</label>
-                  <input
-                    type="password" placeholder="Min 16 characters" value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleCredentials()}
-                    style={{
-                      fontSize: 13, color: "#fff", background: "#0f172a", border: "1.5px solid #334155",
-                      borderRadius: 8, padding: "10px 12px", outline: "none", width: "100%",
-                      fontFamily: "'Plus Jakarta Sans', sans-serif",
-                    }}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPassword ? "text" : "password"} placeholder="Min 16 characters" value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleCredentials()}
+                      style={{
+                        fontSize: 13, color: "#fff", background: "#0f172a", border: "1.5px solid #334155",
+                        borderRadius: 8, padding: "10px 40px 10px 12px", outline: "none", width: "100%",
+                        fontFamily: "'Plus Jakarta Sans', sans-serif",
+                      }}
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", display: "flex", padding: 4 }}>
+                      {showPassword ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                    </button>
+                  </div>
                 </div>
                 <button
                   onClick={handleCredentials} disabled={loading}

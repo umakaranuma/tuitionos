@@ -101,7 +101,7 @@ export default function InstituteDetailPage() {
                 { label: "Admin", val: inst.owner_name },
                 { label: "Email", val: inst.owner_email },
                 { label: "Mobile", val: inst.owner_mobile },
-                { label: "Plan", val: plan === "premium" ? "Premium (LKR 6,000/mo)" : "Basic (LKR 3,000/mo)" },
+                { label: "Plan", val: plan === "institute_pro" ? "Institute Pro (LKR 6,000/mo)" : (plan === "solo" ? "Solo (LKR 1,500/mo)" : "Institute (LKR 3,000/mo)") },
                 { label: "Created", val: new Date(inst.created_at).toLocaleDateString() },
                 { label: "Trial ends", val: inst.trial_ends_at || "N/A" },
               ].map(row => (
@@ -187,8 +187,9 @@ export default function InstituteDetailPage() {
       }>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {([
-            { key: "basic", label: "Basic", price: "LKR 3,000/mo", desc: "Max 200 students · 10 batches · Attendance + fees", color: "#2a5fa8" },
-            { key: "premium", label: "Premium", price: "LKR 6,000/mo", desc: "Unlimited · Notifications · Timetable · Promotion", color: "#9b5e35" },
+            { key: "solo", label: "Solo", price: "LKR 1,500/mo", desc: "Max 75 students · 3 batches · Basic fee tracking", color: "#475569" },
+            { key: "institute", label: "Institute", price: "LKR 3,000/mo", desc: "Max 200 students · 10 batches · Attendance + fees", color: "#2a5fa8" },
+            { key: "institute_pro", label: "Institute Pro", price: "LKR 6,000/mo", desc: "Unlimited · Notifications · Timetable · Promotion", color: "#9b5e35" },
           ] as const).map(p => (
             <div key={p.key} onClick={() => setPlan(p.key)} style={{
               border: `2px solid ${plan === p.key ? p.color : "var(--ln)"}`,

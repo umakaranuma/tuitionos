@@ -83,6 +83,7 @@ export default function LandingPage() {
   const [form, setForm] = useState({ name: "", institute: "", email: "", phone: "" });
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +92,9 @@ export default function LandingPage() {
     try {
       await sendDemoRequest(form);
       setSubmitted(true);
+      setErrorMsg("");
     } catch (error) {
-      alert("Something went wrong. Please try again.");
+      setErrorMsg("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -163,156 +165,164 @@ export default function LandingPage() {
 
             <FeatureInteractive />
 
+                {/* Pricing Section */}
+        <section id="pricing" className="py-16 lg:py-20 px-6 bg-[var(--cr)]">
+          <div className="max-w-7xl mx-auto text-center mb-12">
+            <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[var(--ink)] mb-4">Simple, transparent pricing</h2>
+            <p className="text-[var(--ink3)] text-lg max-w-2xl mx-auto">Start with our risk-free 14-day trial. No credit card required. Upgrade when you're ready to scale.</p>
           </div>
-        </section>
-
-        {/* Pricing & Form Section */}
-        <section className="py-16 lg:py-20 px-6 bg-[var(--cr)]">
-          <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
-            
-            {/* Pricing Info */}
-            <div id="pricing">
-              <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[var(--ink)] mb-4">Simple, transparent pricing</h2>
-              <p className="text-[var(--ink3)] text-lg mb-8">Start with our risk-free 14-day trial. No credit card required. Upgrade when you're ready to scale.</p>
+          <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-6 lg:gap-8">
+            {/* Solo Plan */}
+            <div className="bg-white border border-[var(--ln)] rounded-2xl p-8 shadow-sm flex flex-col hover:border-[var(--tc)] transition-colors">
+              <h3 className="text-2xl font-bold text-[var(--ink)] mb-2">Solo Plan</h3>
+              <div className="text-[var(--ink3)] mb-6">For single teachers</div>
+              <div className="flex items-end gap-2 mb-8 pb-8 border-b border-[var(--ln)]">
+                <span className="text-4xl font-serif font-bold text-[var(--ink)]">LKR 1,500</span>
+                <span className="text-[var(--ink3)] font-medium mb-1">/ month</span>
+              </div>
               
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Basic Plan */}
-                <div className="bg-white border border-[var(--ln)] rounded-2xl p-8 shadow-sm flex flex-col">
-                  <h3 className="text-2xl font-bold text-[var(--ink)] mb-2">Basic Plan</h3>
-                  <div className="text-[var(--ink3)] mb-6">For getting started</div>
-                  <div className="flex items-end gap-2 mb-8 pb-8 border-b border-[var(--ln)]">
-                    <span className="text-4xl font-serif font-bold text-[var(--ink)]">LKR 3,000</span>
-                    <span className="text-[var(--ink3)] font-medium mb-1">/ month</span>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '450px' }}>
-                    <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 200 Students</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 10 Batches</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> 5 GB Storage</li>
-                    </ul>
+              <div className="flex-1">
+                <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 75 Students</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 3 Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> 1 GB Storage</li>
+                </ul>
 
-                    <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Core Features</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Student enrollment & management</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Subject & teacher management</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Batch creation & scheduling</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Attendance tracking (per-subject)</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Fee collection, receipts & ledger</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Teacher salary management</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Financial accounts dashboard</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Dashboard with KPIs & analytics</li>
-                    </ul>
+                <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Core Features</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Student enrollment</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Batch scheduling</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Attendance tracking</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Fee collection</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Dashboard analytics</li>
+                </ul>
 
-                    <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Notifications</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink3)] font-medium text-[13.5px] mb-6 opacity-60">
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> WhatsApp notifications (automated)</li>
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Fee due reminders (1st of month)</li>
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Daily absent digest (6:00 PM)</li>
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Fee paid confirmation alerts</li>
-                    </ul>
-
-                    <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Scheduling & Advanced</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink3)] font-medium text-[13.5px] opacity-60">
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Timetable management & PDF</li>
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Automated Year-end promotion</li>
-                      <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Priority WhatsApp support</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Premium Plan */}
-                <div className="bg-white border-2 border-[var(--tc)] rounded-2xl p-8 shadow-lg relative flex flex-col">
-                  <div className="absolute top-0 right-8 transform -translate-y-1/2 bg-[var(--tc)] text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase">Most Popular</div>
-                  <h3 className="text-2xl font-bold text-[var(--ink)] mb-2">Premium Plan</h3>
-                  <div className="text-[var(--ink3)] mb-6">Full-powered management</div>
-                  <div className="flex items-end gap-2 mb-8 pb-8 border-b border-[var(--ln)]">
-                    <span className="text-5xl font-serif font-bold text-[var(--ink)]">LKR 6,000</span>
-                    <span className="text-[var(--ink3)] font-medium mb-1">/ month</span>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: '450px' }}>
-                    <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Limits</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Students</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Batches</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> 10 GB Storage</li>
-                    </ul>
-
-                    <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Core Features</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Student enrollment & management</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Subject & teacher management</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Batch creation & scheduling</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Attendance tracking (per-subject)</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Fee collection, receipts & ledger</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Teacher salary management</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Financial accounts dashboard</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Dashboard with KPIs & analytics</li>
-                    </ul>
-
-                    <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Automated Notifications</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> WhatsApp notifications (automated)</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Fee due reminders (1st of month)</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Daily absent digest (6:00 PM)</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Fee paid confirmation alerts</li>
-                    </ul>
-
-                    <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Scheduling & Advanced</div>
-                    <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px]">
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Timetable management & PDF</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Annual timetable PDF blast</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Year-end promotion (automated)</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Promotion notifications to parents</li>
-                      <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Priority WhatsApp support</li>
-                    </ul>
-                  </div>
-                </div>
+                <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Advanced</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink3)] font-medium text-[13.5px] opacity-60">
+                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> WhatsApp notifications</li>
+                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Timetable management</li>
+                </ul>
               </div>
             </div>
 
-            {/* Contact Form */}
-            <div id="demo" className="bg-white border border-[var(--ln)] rounded-3xl p-8 lg:p-10 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[var(--tc-d)] to-[var(--tc-l)]" />
-              <h3 className="font-serif text-3xl font-bold text-[var(--ink)] mb-3">Request your demo</h3>
-              <p className="text-[var(--ink3)] mb-8">We'll set up a personalized walkthrough of the platform for your institute.</p>
+            {/* Institute Plan */}
+            <div className="bg-white border border-[var(--ln)] rounded-2xl p-8 shadow-sm flex flex-col hover:border-[var(--tc)] transition-colors">
+              <h3 className="text-2xl font-bold text-[var(--ink)] mb-2">Institute Plan</h3>
+              <div className="text-[var(--ink3)] mb-6">For growing institutes</div>
+              <div className="flex items-end gap-2 mb-8 pb-8 border-b border-[var(--ln)]">
+                <span className="text-4xl font-serif font-bold text-[var(--ink)]">LKR 3,000</span>
+                <span className="text-[var(--ink3)] font-medium mb-1">/ month</span>
+              </div>
               
-              {submitted ? (
-                <div className="bg-[var(--tc-l)] border border-[var(--tc)] rounded-2xl p-8 text-center text-[var(--tc-d)]">
-                  <div className="text-4xl mb-4">🎉</div>
-                  <h4 className="text-xl font-bold mb-2">Request Received!</h4>
-                  <p>Our team will contact you within 24 hours to schedule your demo.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-                  <div>
-                    <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Your Name</label>
-                    <input required type="text" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="e.g. John Doe" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} />
-                  </div>
-                  <div>
-                    <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Institute Name</label>
-                    <input required type="text" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="e.g. Excellence Academy" value={form.institute} onChange={e=>setForm({...form,institute:e.target.value})} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Email Address</label>
-                      <input required type="email" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="john@example.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} />
-                    </div>
-                    <div>
-                      <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Phone Number</label>
-                      <input required type="tel" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="+94 77 000 0000" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} />
-                    </div>
-                  </div>
-                  <button type="submit" disabled={isSubmitting} className={`btn btn-p w-full py-4 text-lg mt-4 shadow-lg shadow-[rgba(45,122,90,0.2)] ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}>
-                    {isSubmitting ? "Sending..." : "Book Demo Call"}
-                  </button>
-                  <p className="text-center text-xs text-[var(--ink3)] mt-2">By submitting this form, you agree to our Terms of Service and Privacy Policy.</p>
-                </form>
-              )}
+              <div className="flex-1">
+                <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 200 Students</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 10 Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> 5 GB Storage</li>
+                </ul>
+
+                <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Core Features</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Subject management</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Teacher salary tracking</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Attendance & fees</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Financial accounts</li>
+                </ul>
+
+                <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Advanced</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink3)] font-medium text-[13.5px] opacity-60">
+                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> WhatsApp notifications</li>
+                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Timetable management</li>
+                </ul>
+              </div>
             </div>
 
+            {/* Institute Pro Plan */}
+            <div className="bg-white border-2 border-[var(--tc)] rounded-2xl p-8 shadow-lg relative flex flex-col">
+              <div className="absolute top-0 right-8 transform -translate-y-1/2 bg-[var(--tc)] text-white px-4 py-1 rounded-full text-xs font-bold tracking-wide uppercase">Most Popular</div>
+              <h3 className="text-2xl font-bold text-[var(--ink)] mb-2">Institute Pro</h3>
+              <div className="text-[var(--ink3)] mb-6">Full-powered management</div>
+              <div className="flex items-end gap-2 mb-8 pb-8 border-b border-[var(--ln)]">
+                <span className="text-5xl font-serif font-bold text-[var(--ink)]">LKR 6,000</span>
+                <span className="text-[var(--ink3)] font-medium mb-1">/ month</span>
+              </div>
+              
+              <div className="flex-1">
+                <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Limits</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Students</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> 10 GB Storage</li>
+                </ul>
+
+                <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Core Features</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> All Institute features</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Advanced financial reporting</li>
+                </ul>
+
+                <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Advanced Features</div>
+                <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> WhatsApp notifications</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Timetable management</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Year-end promotion</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Demo Section */}
+        <section id="demo" className="py-16 lg:py-20 px-6">
+          <div className="max-w-3xl mx-auto bg-white border border-[var(--ln)] rounded-3xl p-8 lg:p-10 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[var(--tc-d)] to-[var(--tc-l)]" />
+            <h3 className="font-serif text-3xl font-bold text-[var(--ink)] mb-3">Request your demo</h3>
+            <p className="text-[var(--ink3)] mb-8">We'll set up a personalized walkthrough of the platform for your institute.</p>
+            
+            {submitted ? (
+              <div className="bg-[var(--tc-l)] border border-[var(--tc)] rounded-2xl p-8 text-center text-[var(--tc-d)]">
+                <div className="text-4xl mb-4">🎉</div>
+                <h4 className="text-xl font-bold mb-2">Request Received!</h4>
+                <p>Our team will contact you within 24 hours to schedule your demo.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                <div>
+                  <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Your Name</label>
+                  <input required type="text" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="e.g. John Doe" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Institute Name</label>
+                  <input required type="text" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="e.g. Excellence Academy" value={form.institute} onChange={e=>setForm({...form,institute:e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Email Address</label>
+                    <input required type="email" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="john@example.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Phone Number</label>
+                    <input required type="tel" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="+94 77 000 0000" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} />
+                  </div>
+                </div>
+                
+                {errorMsg && (
+                  <div className="bg-[#fceaea] border border-[#f5c5c5] rounded-xl px-4 py-3 text-[13.5px] text-[#b83030] font-medium flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="7" cy="7" r="6"/><path d="M7 4.5v3M7 9.5h.01"/>
+                    </svg>
+                    {errorMsg}
+                  </div>
+                )}
+
+                <button type="submit" disabled={isSubmitting} className={`btn btn-p w-full py-4 text-lg mt-2 shadow-lg shadow-[rgba(45,122,90,0.2)] ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}>
+                  {isSubmitting ? "Sending..." : "Book Demo Call"}
+                </button>
+                <p className="text-center text-xs text-[var(--ink3)] mt-2">By submitting this form, you agree to our Terms of Service and Privacy Policy.</p>
+              </form>
+            )}
           </div>
         </section>
       </main>

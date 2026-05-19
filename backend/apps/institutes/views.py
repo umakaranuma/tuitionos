@@ -20,7 +20,7 @@ class InstituteViewSet(viewsets.ModelViewSet):
         owner_name = data.get("adminName", data.get("owner_name", ""))
         owner_email = data.get("email", data.get("owner_email", ""))
         owner_mobile = data.get("mobile", data.get("owner_mobile", ""))
-        plan = data.get("plan", "basic")
+        plan = data.get("plan", "institute")
 
         if not all([name, owner_name, owner_email]):
             return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)

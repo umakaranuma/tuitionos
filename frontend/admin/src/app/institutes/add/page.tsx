@@ -23,7 +23,7 @@ export default function AddInstitutePage() {
   const [step, setStep] = useState<"form" | "review" | "success">("form");
   const [form, setForm] = useState({
     name: "", district: "Jaffna", mobile: "", email: "",
-    adminName: "", plan: "basic" as "basic" | "premium" | "trial",
+    adminName: "", plan: "institute" as "solo" | "institute" | "institute_pro" | "trial",
     subdomain: "",
   });
   const [subdomainEdited, setSubdomainEdited] = useState(false);
@@ -54,9 +54,10 @@ export default function AddInstitutePage() {
     && form.subdomain.length >= 3 && !subdomainError;
 
   const planInfo = {
-    basic: { label: "Basic", price: "LKR 3,000/mo", features: "Max 200 students · 10 batches · Attendance + fees" },
-    premium: { label: "Premium", price: "LKR 6,000/mo", features: "Unlimited students · Notifications · Timetable" },
-    trial: { label: "14-day Trial", price: "Free for 14 days", features: "Full Premium features during trial period" },
+    solo: { label: "Solo", price: "LKR 1,500/mo", features: "Max 75 students · 3 batches · Basic reporting" },
+    institute: { label: "Institute", price: "LKR 3,000/mo", features: "Max 200 students · 10 batches · PDF exports" },
+    institute_pro: { label: "Institute Pro", price: "LKR 6,000/mo", features: "Unlimited students · Notifications · Timetable" },
+    trial: { label: "14-day Trial", price: "Free for 14 days", features: "Full Pro features during trial period" },
   };
 
   return (
@@ -124,7 +125,7 @@ export default function AddInstitutePage() {
                 <button className="btn btn-s" onClick={() => router.push("/institutes")}>
                   View all institutes
                 </button>
-                <button className="btn btn-p" onClick={() => { setStep("form"); setForm({ name: "", district: "Jaffna", mobile: "", email: "", adminName: "", plan: "basic", subdomain: "" }); setSubdomainEdited(false); }}>
+                <button className="btn btn-p" onClick={() => { setStep("form"); setForm({ name: "", district: "Jaffna", mobile: "", email: "", adminName: "", plan: "institute", subdomain: "" }); setSubdomainEdited(false); }}>
                   + Add another
                 </button>
               </div>
@@ -232,8 +233,9 @@ export default function AddInstitutePage() {
               <div className="fg">
                 <label>Subscription plan *</label>
                 <select value={form.plan} onChange={(e) => handleChange("plan", e.target.value)}>
-                  <option value="basic">Basic — LKR 3,000/mo</option>
-                  <option value="premium">Premium — LKR 6,000/mo</option>
+                  <option value="solo">Solo — LKR 1,500/mo</option>
+                  <option value="institute">Institute — LKR 3,000/mo</option>
+                  <option value="institute_pro">Institute Pro — LKR 6,000/mo</option>
                   <option value="trial">14-day free trial</option>
                 </select>
                 <div className="hint">{planInfo[form.plan].features}</div>

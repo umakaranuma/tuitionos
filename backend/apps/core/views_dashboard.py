@@ -71,8 +71,9 @@ class AdminDashboardView(APIView):
         today = timezone.now().date()
 
         total_institutes = Institute.objects.filter(is_active=True).count()
-        premium_count = Institute.objects.filter(is_active=True, plan='premium').count()
-        basic_count = Institute.objects.filter(is_active=True, plan='basic').count()
+        premium_count = Institute.objects.filter(is_active=True, plan='institute_pro').count()
+        basic_count = Institute.objects.filter(is_active=True, plan='institute').count()
+        solo_count = Institute.objects.filter(is_active=True, plan='solo').count()
         trial_count = Institute.objects.filter(is_active=True, status='trial').count()
 
         # Invoices
@@ -97,6 +98,7 @@ class AdminDashboardView(APIView):
             'total_institutes': total_institutes,
             'premium_count': premium_count,
             'basic_count': basic_count,
+            'solo_count': solo_count,
             'trial_count': trial_count,
             'trials_expiring': trials_expiring,
             'overdue_invoices': overdue_invoices,

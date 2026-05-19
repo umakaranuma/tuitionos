@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 
 type Slot = { id: number; batch: number; batch_name: string; day_of_week: string; start_time: string; end_time: string; room: string; notes: string };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -11,12 +12,33 @@ const DAY_MAP: Record<string, string> = { "0": "Monday", "1": "Tuesday", "2": "W
 export default function TimetablePage() {
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
+    const user = getStoredUser();
+    if (user?.institute?.plan !== "institute_pro") {
+      setIsLocked(true);
+      return;
+    }
     api.get("/api/timetable/").then(r => {
       const d = r.data; setSlots(Array.isArray(d) ? d : d.results || []); setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  if (isLocked) {
+    return (
+      <PageShell>
+        <Topbar title="Timetable" />
+        <div className="pb fi" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 80 }}>
+          <div style={{ background: "var(--tc)", color: "white", padding: "4px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>PRO FEATURE</div>
+          <h2 style={{ fontSize: 24, color: "var(--ink)", fontWeight: 700, marginBottom: 12 }}>Timetable Locked</h2>
+          <p style={{ color: "var(--ink2)", textAlign: "center", maxWidth: 400, lineHeight: 1.5 }}>
+            Timetable management is an Institute Pro feature. Please upgrade your package in Settings to access this capability.
+          </p>
+        </div>
+      </PageShell>
+    );
+  }
 
   const grouped = DAYS.reduce((acc, day, idx) => {
     acc[day] = slots.filter(s => s.day_of_week === String(idx));

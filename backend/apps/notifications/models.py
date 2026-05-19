@@ -18,3 +18,19 @@ class NotificationLog(models.Model):
     class Meta:
         db_table = 'notification_logs'
         ordering = ['-sent_at']
+
+class Broadcast(models.Model):
+    STATUS_CHOICES = [('scheduled', 'Scheduled'), ('sending', 'Sending'), ('completed', 'Completed'), ('cancelled', 'Cancelled')]
+    
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='broadcasts')
+    title = models.CharField(max_length=200, blank=True)
+    message = models.TextField()
+    channel = models.CharField(max_length=20, choices=NotificationLog.CHANNEL_CHOICES, default='whatsapp')
+    target_audience = models.CharField(max_length=100) # e.g. 'all', 'batch_x', 'due_fees'
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
+    scheduled_at = models.DateTimeField(null=True, blank=True) # Null means immediate
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'broadcasts'
+        ordering = ['-created_at']

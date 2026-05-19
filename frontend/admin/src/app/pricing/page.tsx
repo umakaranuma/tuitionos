@@ -2,24 +2,28 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { Toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 
 type Settings = {
-  monthly_fee_basic: number;
-  monthly_fee_premium: number;
+  monthly_fee_solo: number;
+  monthly_fee_institute: number;
+  monthly_fee_institute_pro: number;
   trial_days: number;
   suspension_grace_days: number;
 };
 
 export default function PricingPage() {
   const [settings, setSettings] = useState<Settings>({
-    monthly_fee_basic: 0,
-    monthly_fee_premium: 0,
+    monthly_fee_solo: 0,
+    monthly_fee_institute: 0,
+    monthly_fee_institute_pro: 0,
     trial_days: 0,
     suspension_grace_days: 0,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     api.get("/api/admin/settings").then(r => {
@@ -32,9 +36,9 @@ export default function PricingPage() {
     setSaving(true);
     try {
       await api.put("/api/admin/settings", settings);
-      alert("Settings saved successfully");
+      setAlertModal({ open: true, message: "Settings saved successfully", type: "success" });
     } catch (err) {
-      alert("Failed to save settings");
+      setAlertModal({ open: true, message: "Failed to save settings", type: "error" });
     } finally {
       setSaving(false);
     }
@@ -53,32 +57,47 @@ export default function PricingPage() {
             <div>
               <div className="sec-hdr"><span className="sec-title">Subscription tiers</span></div>
               <div className="card" style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Basic Plan</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Solo Plan</div>
                 <div className="form-gap">
                   <div>
                     <label className="flbl">Monthly fee (LKR)</label>
                     <input 
                       type="number" 
-                      value={settings.monthly_fee_basic} 
-                      onChange={e => setSettings({...settings, monthly_fee_basic: Number(e.target.value)})} 
+                      value={settings.monthly_fee_solo} 
+                      onChange={e => setSettings({...settings, monthly_fee_solo: Number(e.target.value)})} 
                     />
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>Includes up to 100 students and 3 teacher accounts. Basic support.</div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For single teachers. Includes up to 75 students and 1 subject.</div>
+                </div>
+              </div>
+
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Institute Plan</div>
+                <div className="form-gap">
+                  <div>
+                    <label className="flbl">Monthly fee (LKR)</label>
+                    <input 
+                      type="number" 
+                      value={settings.monthly_fee_institute} 
+                      onChange={e => setSettings({...settings, monthly_fee_institute: Number(e.target.value)})} 
+                    />
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For growing institutes. Includes up to 200 students.</div>
                 </div>
               </div>
 
               <div className="card">
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Premium Plan</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Institute Pro Plan</div>
                 <div className="form-gap">
                   <div>
                     <label className="flbl">Monthly fee (LKR)</label>
                     <input 
                       type="number" 
-                      value={settings.monthly_fee_premium} 
-                      onChange={e => setSettings({...settings, monthly_fee_premium: Number(e.target.value)})} 
+                      value={settings.monthly_fee_institute_pro} 
+                      onChange={e => setSettings({...settings, monthly_fee_institute_pro: Number(e.target.value)})} 
                     />
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>Unlimited students and teachers. White-labeling, custom domain, priority support.</div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>Unlimited students and teachers. Notifications, timetabling, priority support.</div>
                 </div>
               </div>
             </div>
@@ -109,6 +128,13 @@ export default function PricingPage() {
           </div>
         )}
       </div>
+
+      <Toast 
+        open={!!alertModal?.open} 
+        message={alertModal?.message || ""} 
+        type={alertModal?.type || "success"} 
+        onClose={() => setAlertModal(null)} 
+      />
     </PageShell>
   );
 }

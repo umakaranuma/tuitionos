@@ -48,6 +48,18 @@ class BatchViewSet(InstituteBaseViewSet):
     queryset = Batch.objects.prefetch_related('batch_subjects__subject', 'batch_subjects__teacher').all()
     serializer_class = BatchSerializer
 
+    def create(self, request, *args, **kwargs):
+        from apps.core.plan_config import check_limit_access
+        current_count = Batch.objects.filter(institute=request.institute).count()
+        if not check_limit_access(request.institute, 'batches', current_count):
+            from rest_framework.response import Response
+            from rest_framework import status
+            return Response(
+                {"error": "Batch limit reached. Please upgrade your package to add more batches."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+
 
 class ExamViewSet(InstituteBaseViewSet):
     queryset = Exam.objects.select_related('batch').prefetch_related('schedule').all()

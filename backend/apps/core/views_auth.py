@@ -62,6 +62,7 @@ class LoginView(APIView):
         institute_id = None
         institute_name = None
         role = None
+        institute_data = None
         
         if not is_fynux_admin:
             try:
@@ -69,6 +70,13 @@ class LoginView(APIView):
                 institute_id = profile.institute.id
                 institute_name = profile.institute.name
                 role = profile.role
+                institute_data = {
+                    "id": profile.institute.id,
+                    "name": profile.institute.name,
+                    "subdomain": profile.institute.subdomain,
+                    "plan": profile.institute.plan,
+                    "status": profile.institute.status,
+                }
             except Exception:
                 pass
                 
@@ -81,6 +89,7 @@ class LoginView(APIView):
                 "is_fynux_admin": is_fynux_admin,
                 "institute_id": institute_id,
                 "institute_name": institute_name,
+                "institute": institute_data,
                 "role": role,
             }
         })
@@ -147,6 +156,33 @@ class MeView(APIView):
                 pass
 
         return Response(data)
+
+class ChangePlanView(APIView):
+    """Allows an institute admin to change their active plan."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        new_plan = request.data.get("plan")
+        
+        if not new_plan or new_plan not in ['solo', 'institute', 'institute_pro']:
+            return Response({"error": "Invalid plan specified"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            profile = user.institute_profile
+            if profile.role != 'admin':
+                return Response({"error": "Only admins can change the plan"}, status=status.HTTP_403_FORBIDDEN)
+                
+            inst = profile.institute
+            inst.plan = new_plan
+            inst.save()
+            
+            return Response({
+                "message": f"Successfully changed plan to {new_plan}",
+                "plan": new_plan
+            })
+        except Exception as e:
+            return Response({"error": "Institute not found"}, status=status.HTTP_404_NOT_FOUND)
 
 class RequestPasswordResetView(APIView):
     permission_classes = []

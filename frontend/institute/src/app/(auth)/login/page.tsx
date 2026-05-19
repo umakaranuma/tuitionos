@@ -8,13 +8,16 @@ export default function LoginPage() {
   const [step, setStep] = useState<"login" | "change-password" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   // Change password state
   const [newPw, setNewPw] = useState("");
+  const [showNewPw, setShowNewPw] = useState(false);
   const [confirmPw, setConfirmPw] = useState("");
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState("");
@@ -177,18 +180,23 @@ export default function LoginPage() {
                       Forgot password?
                     </button>
                   </div>
-                  <input
-                    type="password" placeholder="Enter your password" value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleLogin()}
-                    style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#1c1917",
-                      background: "#faf8f4", border: "1.5px solid #e8e3db", borderRadius: 8,
-                      padding: "10px 13px", outline: "none", width: "100%", transition: "border-color 120ms",
-                    }}
-                    onFocus={e => e.currentTarget.style.borderColor = "#2d7a5a"}
-                    onBlur={e => e.currentTarget.style.borderColor = "#e8e3db"}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPassword ? "text" : "password"} placeholder="Enter your password" value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleLogin()}
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#1c1917",
+                        background: "#faf8f4", border: "1.5px solid #e8e3db", borderRadius: 8,
+                        padding: "10px 40px 10px 13px", outline: "none", width: "100%", transition: "border-color 120ms",
+                      }}
+                      onFocus={e => e.currentTarget.style.borderColor = "#2d7a5a"}
+                      onBlur={e => e.currentTarget.style.borderColor = "#e8e3db"}
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#78716c", display: "flex", padding: 4 }}>
+                      {showPassword ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Remember me */}
@@ -236,15 +244,20 @@ export default function LoginPage() {
                   <label style={{ fontSize: 11.5, fontWeight: 600, color: "#44403c", marginBottom: 4, display: "block" }}>
                     New password <span style={{ color: "#b83030" }}>*</span>
                   </label>
-                  <input
-                    type="password" placeholder="Minimum 8 characters" value={newPw}
-                    onChange={e => setNewPw(e.target.value)} autoFocus
-                    style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#1c1917",
-                      background: "#faf8f4", border: "1.5px solid #e8e3db", borderRadius: 8,
-                      padding: "10px 13px", outline: "none", width: "100%",
-                    }}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showNewPw ? "text" : "password"} placeholder="Minimum 8 characters" value={newPw}
+                      onChange={e => setNewPw(e.target.value)} autoFocus
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#1c1917",
+                        background: "#faf8f4", border: "1.5px solid #e8e3db", borderRadius: 8,
+                        padding: "10px 40px 10px 13px", outline: "none", width: "100%",
+                      }}
+                    />
+                    <button type="button" onClick={() => setShowNewPw(!showNewPw)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#78716c", display: "flex", padding: 4 }}>
+                      {showNewPw ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                    </button>
+                  </div>
                   {/* Strength indicator */}
                   {newPw && (
                     <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
@@ -263,16 +276,21 @@ export default function LoginPage() {
                   <label style={{ fontSize: 11.5, fontWeight: 600, color: "#44403c", marginBottom: 4, display: "block" }}>
                     Confirm new password <span style={{ color: "#b83030" }}>*</span>
                   </label>
-                  <input
-                    type="password" placeholder="Re-enter your new password" value={confirmPw}
-                    onChange={e => setConfirmPw(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleChangePassword()}
-                    style={{
-                      fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#1c1917",
-                      background: "#faf8f4", border: "1.5px solid #e8e3db", borderRadius: 8,
-                      padding: "10px 13px", outline: "none", width: "100%",
-                    }}
-                  />
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showConfirmPw ? "text" : "password"} placeholder="Re-enter your new password" value={confirmPw}
+                      onChange={e => setConfirmPw(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleChangePassword()}
+                      style={{
+                        fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, color: "#1c1917",
+                        background: "#faf8f4", border: "1.5px solid #e8e3db", borderRadius: 8,
+                        padding: "10px 40px 10px 13px", outline: "none", width: "100%",
+                      }}
+                    />
+                    <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#78716c", display: "flex", padding: 4 }}>
+                      {showConfirmPw ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+                    </button>
+                  </div>
                   {confirmPw && newPw && confirmPw !== newPw && (
                     <div style={{ fontSize: 11, color: "#b83030", marginTop: 4 }}>Passwords do not match</div>
                   )}

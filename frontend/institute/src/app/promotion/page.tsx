@@ -3,19 +3,41 @@ import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 
 type Pmap = { id: number; source_batch: number; source_batch_name: string; target_batch: number; target_batch_name: string; academic_year: number; is_confirmed: boolean };
 
 export default function PromotionPage() {
   const [maps, setMaps] = useState<Pmap[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   const load = () => {
+    const user = getStoredUser();
+    if (user?.institute?.plan !== "institute_pro") {
+      setIsLocked(true);
+      return;
+    }
     api.get("/api/promotion/").then(r => {
       const d = r.data; setMaps(Array.isArray(d) ? d : d.results || []); setLoading(false);
     }).catch(() => setLoading(false));
   };
   useEffect(load, []);
+
+  if (isLocked) {
+    return (
+      <PageShell>
+        <Topbar title="Year-end Promotion" />
+        <div className="pb fi" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 80 }}>
+          <div style={{ background: "var(--tc)", color: "white", padding: "4px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>PRO FEATURE</div>
+          <h2 style={{ fontSize: 24, color: "var(--ink)", fontWeight: 700, marginBottom: 12 }}>Promotions Locked</h2>
+          <p style={{ color: "var(--ink2)", textAlign: "center", maxWidth: 400, lineHeight: 1.5 }}>
+            Automated student batch migrations are an Institute Pro feature. Please upgrade your package in Settings to access this capability.
+          </p>
+        </div>
+      </PageShell>
+    );
+  }
 
   const execute = async (id: number) => {
     await api.post(`/api/promotion/${id}/execute`);

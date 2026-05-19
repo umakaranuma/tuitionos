@@ -1,9 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import NotificationLogViewSet
+from .views import NotificationLogViewSet, BroadcastViewSet
 
 router = DefaultRouter(trailing_slash=False)
-router.register(r'', NotificationLogViewSet, basename='notification')
+router.register(r'logs', NotificationLogViewSet, basename='notification-log')
+router.register(r'broadcasts', BroadcastViewSet, basename='broadcast')
 
 urlpatterns = [
     path('', include(router.urls)),

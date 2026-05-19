@@ -1,10 +1,12 @@
 from apps.core.views import InstituteBaseViewSet
+from apps.core.permissions import RequiresTimetableFeature
 from .models import TimetableSlot
 from .serializers import TimetableSlotSerializer
 
 
 class TimetableSlotViewSet(InstituteBaseViewSet):
     serializer_class = TimetableSlotSerializer
+    permission_classes = InstituteBaseViewSet.permission_classes + [RequiresTimetableFeature]
 
     def get_queryset(self):
         return TimetableSlot.objects.filter(

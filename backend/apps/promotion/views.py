@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from apps.core.permissions import InstituteOnly
+from apps.core.permissions import InstituteOnly, RequiresPromotionFeature
 from .models import BatchPromotionMap
 from .serializers import BatchPromotionMapSerializer
 from apps.students.models import StudentBatchEnrollment
@@ -11,7 +11,7 @@ from django.utils import timezone
 
 class BatchPromotionMapViewSet(viewsets.ModelViewSet):
     serializer_class = BatchPromotionMapSerializer
-    permission_classes = [IsAuthenticated, InstituteOnly]
+    permission_classes = [IsAuthenticated, InstituteOnly, RequiresPromotionFeature]
 
     def get_queryset(self):
         return BatchPromotionMap.objects.filter(

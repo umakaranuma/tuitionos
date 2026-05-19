@@ -1,6 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+import { getStoredUser } from "@/lib/auth";
+import { PLAN_DEFINITIONS, PLAN_LIMITS } from "@/lib/planConfig";
+import { Modal } from "@/components/ui/Modal";
 
 interface NavItem {
   label: string;
@@ -96,21 +100,35 @@ const sections: { title: string; items: NavItem[] }[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [user, setUser] = useState<any>(null);
+  const [lockedFeatureModal, setLockedFeatureModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: "" });
+
+  useEffect(() => {
+    const handleStorageChange = () => setUser(getStoredUser());
+    handleStorageChange();
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  const planKey = user?.institute?.plan || "institute";
+  const planDef = PLAN_DEFINITIONS[planKey];
+  const maxStudents = PLAN_LIMITS.find(l => l.id === "students") as any;
+  const isRestricted = (item: NavItem) => item.premium && planKey !== "institute_pro";
 
   return (
     <aside className="sb">
       <div className="sb-logo">
         <div className="sb-logo-badge">INSTITUTE</div>
-        <div className="sb-logo-name">St. Patrick&apos;s<br />Institute</div>
-        <div className="sb-logo-url">stpatricks.tuitionos.lk</div>
+        <div className="sb-logo-name">{user?.institute?.name || "Institute"}</div>
+        <div className="sb-logo-url">{user?.institute?.subdomain ? `${user.institute.subdomain}.tuitionos.lk` : "—"}</div>
       </div>
 
       <Link href="/settings" className="sb-plan" style={{ textDecoration: "none", display: "block", cursor: "pointer", transition: "all 120ms" }}>
         <div className="sb-plan-t" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          Premium plan
+          {planDef?.label || "Institute"}
           <span style={{ fontSize: 8, opacity: .5 }}>MANAGE →</span>
         </div>
-        Jaffna · Unlimited students
+        {user?.institute?.subdomain || "Local"} · {maxStudents ? maxStudents[planKey] : "Unknown"} students
       </Link>
 
       {sections.map((section) => (
@@ -118,12 +136,23 @@ export function Sidebar() {
           <div className="sb-sec">{section.title}</div>
           {section.items.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const locked = isRestricted(item);
             return (
-              <Link key={item.href} href={item.href} className={`sb-item ${isActive ? "on" : ""}`}>
+              <Link 
+                key={item.href} 
+                href={locked ? "#" : item.href} 
+                className={`sb-item ${isActive ? "on" : ""} ${locked ? "locked" : ""}`}
+                onClick={(e) => {
+                  if (locked) {
+                    e.preventDefault();
+                    setLockedFeatureModal({ open: true, feature: item.label });
+                  }
+                }}
+              >
                 {item.icon}
-                <span style={{ flex: 1 }}>{item.label}</span>
+                <span style={{ flex: 1, opacity: locked ? 0.6 : 1 }}>{item.label}</span>
                 {item.badge && <span className="sb-badge">{item.badge}</span>}
-                {item.premium && !item.badge && <span className="sb-prem-lock">PRO</span>}
+                {locked && !item.badge && <span className="sb-prem-lock" style={{ background: "var(--ln)", color: "var(--ink2)" }}>PRO</span>}
               </Link>
             );
           })}
@@ -131,10 +160,10 @@ export function Sidebar() {
       ))}
 
       <div className="sb-foot">
-        <div className="sb-ava">SK</div>
+        <div className="sb-ava">{user ? user.name?.split(" ").map((w: string) => w[0]).join("").substring(0, 2).toUpperCase() : "AD"}</div>
         <div style={{ flex: 1 }}>
-          <div className="sb-user">Sundar Kumar</div>
-          <div className="sb-role">Institute Admin</div>
+          <div className="sb-user">{user?.name || "Admin"}</div>
+          <div className="sb-role">{user?.role === "admin" ? "Institute Admin" : "Staff"}</div>
         </div>
         <button
           onClick={() => { if (typeof window !== "undefined") window.location.href = "/login"; }}
@@ -153,6 +182,26 @@ export function Sidebar() {
           </svg>
         </button>
       </div>
+
+      <Modal
+        open={lockedFeatureModal.open}
+        onClose={() => setLockedFeatureModal({ open: false, feature: "" })}
+        title="PRO Feature Locked"
+        footer={
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button className="btn btn-s" onClick={() => setLockedFeatureModal({ open: false, feature: "" })}>Close</button>
+            <Link href="/settings" className="btn btn-p" onClick={() => setLockedFeatureModal({ open: false, feature: "" })}>
+              Upgrade Package
+            </Link>
+          </div>
+        }
+      >
+        <div style={{ padding: "12px 0", lineHeight: 1.5, color: "var(--ink2)" }}>
+          The <strong>{lockedFeatureModal.feature}</strong> capability is exclusively available on the <strong>Institute Pro</strong> package.
+          <br /><br />
+          To access advanced automation and tools, please upgrade your package in your institute settings.
+        </div>
+      </Modal>
     </aside>
   );
 }

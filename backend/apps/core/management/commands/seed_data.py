@@ -32,7 +32,7 @@ class Command(BaseCommand):
 
         # ── Platform Settings ──
         PlatformSettings.objects.get_or_create(pk=1, defaults={
-            'monthly_fee_basic': 3000, 'monthly_fee_premium': 6000,
+            'monthly_fee_solo': 1500, 'monthly_fee_institute': 3000, 'monthly_fee_institute_pro': 6000,
             'trial_days': 14, 'suspension_grace_days': 7,
         })
 
@@ -56,7 +56,7 @@ class Command(BaseCommand):
                 'owner_name': 'Sundar Kumar',
                 'owner_email': 'sundar@stpatricks.lk',
                 'owner_mobile': '+94 77 123 4567',
-                'plan': 'premium',
+                'plan': 'institute_pro',
                 'status': 'active',
             }
         )
@@ -285,13 +285,13 @@ class Command(BaseCommand):
 
         # ── Other Institutes (for admin portal) ──
         other_insts = [
-            ('Alpha Lanka', 'alphalanka', 'Colombo', 'basic', 'trial'),
-            ('Bright Minds', 'brightminds', 'Kandy', 'basic', 'active'),
-            ('Nova Science', 'novascience', 'Gampaha', 'premium', 'active'),
-            ('Edu Leaders', 'eduleaders', 'Vavuniya', 'basic', 'active'),
-            ('Vision Academy', 'visionacad', 'Colombo', 'premium', 'active'),
-            ('Mathura Edu', 'mathuraedu', 'Jaffna', 'basic', 'active'),
-            ('Sunrise Tutors', 'sunrisetutors', 'Kandy', 'basic', 'active'),
+            ('Alpha Lanka', 'alphalanka', 'Colombo', 'institute', 'trial'),
+            ('Bright Minds', 'brightminds', 'Kandy', 'institute', 'active'),
+            ('Nova Science', 'novascience', 'Gampaha', 'institute_pro', 'active'),
+            ('Edu Leaders', 'eduleaders', 'Vavuniya', 'institute', 'active'),
+            ('Vision Academy', 'visionacad', 'Colombo', 'institute_pro', 'active'),
+            ('Mathura Edu', 'mathuraedu', 'Jaffna', 'institute', 'active'),
+            ('Sunrise Tutors', 'sunrisetutors', 'Kandy', 'solo', 'active'),
         ]
         for name, sub, dist, plan, status in other_insts:
             oi, _ = Institute.objects.get_or_create(
@@ -307,7 +307,7 @@ class Command(BaseCommand):
 
         # ── Platform Invoices ──
         for oi_inst in Institute.objects.all():
-            fee = 6000 if oi_inst.plan == 'premium' else 3000
+            fee = 6000 if oi_inst.plan == 'institute_pro' else (1500 if oi_inst.plan == 'solo' else 3000)
             for m in range(1, 5):
                 inv_month = date(2026, m, 1)
                 is_paid = m < 4 or oi_inst.subdomain == 'stpatricks'
