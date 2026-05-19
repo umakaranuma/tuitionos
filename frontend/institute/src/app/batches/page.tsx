@@ -5,6 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { api } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 
 type BatchSubject = { id?: number; subject: number; subject_name?: string; teacher: number | null; teacher_name?: string | null };
 type Batch = { id: number; name: string; label: string; subjects: BatchSubject[]; academic_year: number; monthly_fee: string; color: string; color_light: string; student_count: number; is_active: boolean };
@@ -19,8 +20,12 @@ export default function BatchesPage() {
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Batch | null>(null);
   const [form, setForm] = useState({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [] as { subject: string; teacher: string }[] });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [user, setUser] = useState<any>(null);
 
   const load = () => {
+    setUser(getStoredUser());
     api.get("/api/academics/batches").then(r => {
       setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
       setLoading(false);
@@ -56,7 +61,7 @@ export default function BatchesPage() {
   const openAdd = () => { 
     fetchSubjects();
     setForm({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [{ subject: "", teacher: "" }] }); 
-    setEditTarget(null); setModal("add"); 
+    setEditTarget(null); setImageFile(null); setModal("add"); 
   };
   const openEdit = (b: Batch) => { 
     fetchSubjects();
@@ -65,18 +70,32 @@ export default function BatchesPage() {
       name: b.name, label: b.label, academic_year: String(b.academic_year), monthly_fee: String(b.monthly_fee),
       subjects: b.subjects.map(s => ({ subject: String(s.subject), teacher: s.teacher ? String(s.teacher) : "" }))
     }); 
-    setEditTarget(b); setModal("edit"); 
+    setEditTarget(b); setImageFile(null); setModal("edit"); 
   };
   const close = () => setModal(null);
 
   const save = async () => {
-    if (!form.name.trim()) return;
-    const payload = { 
-      ...form, 
-      academic_year: Number(form.academic_year), 
-      monthly_fee: Number(form.monthly_fee),
-      subjects: form.subjects.filter(s => s.subject).map(s => ({ subject: Number(s.subject), teacher: s.teacher ? Number(s.teacher) : null }))
-    };
+    const newErrors: Record<string, string> = {};
+    if (!form.name.trim()) newErrors.name = "Required";
+    if (!form.monthly_fee) newErrors.monthly_fee = "Required";
+    if (!form.academic_year) newErrors.academic_year = "Required";
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+
+    const subjectsPayload = form.subjects.filter(s => s.subject).map(s => ({ subject: Number(s.subject), teacher: s.teacher ? Number(s.teacher) : null }));
+    
+    const payload = new FormData();
+    payload.append("name", form.name);
+    payload.append("label", form.label);
+    payload.append("academic_year", form.academic_year);
+    payload.append("monthly_fee", form.monthly_fee);
+    payload.append("subjects", JSON.stringify(subjectsPayload));
+    if (imageFile) payload.append("image", imageFile);
+
     if (modal === "add") { await api.post("/api/academics/batches", payload); }
     else if (editTarget) { await api.patch(`/api/academics/batches/${editTarget.id}`, payload); }
     close(); load();
@@ -117,11 +136,28 @@ export default function BatchesPage() {
         )}
       </div>
 
-      <Modal open={modal !== null} onClose={close} title={modal === "add" ? "Add batch" : `Edit — ${editTarget?.name}`}
-        footer={<><button className="btn btn-s btn-sm" onClick={close}>Cancel</button><button className="btn btn-p btn-sm" onClick={save}>{modal === "add" ? "Create" : "Save"}</button></>}>
+      <Modal open={modal !== null} onClose={() => { close(); setErrors({}); }} title={modal === "add" ? "Add batch" : `Edit — ${editTarget?.name}`}
+        footer={<><button className="btn btn-s btn-sm" onClick={() => { close(); setErrors({}); }}>Cancel</button><button className="btn btn-p btn-sm" onClick={save}>{modal === "add" ? "Create Batch" : "Save Changes"}</button></>}>
         <div className="form-gap">
-          <div><label className="flbl freq">Batch name</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus placeholder="e.g. Grade 7 — Batch A" /></div>
+          <div className="fg">
+            <label className="flbl freq">Batch Name</label>
+            <input className={errors.name ? "input-error" : ""} value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(e => ({ ...e, name: "" })); }} autoFocus placeholder="e.g. Grade 7 — Batch A" />
+            {errors.name && <div className="f-error">{errors.name}</div>}
+          </div>
           
+          <div className="field-row">
+            <div className="fg">
+              <label className="flbl freq">Monthly fee (LKR)</label>
+              <input type="number" className={errors.monthly_fee ? "input-error" : ""} value={form.monthly_fee} onChange={e => { setForm(f => ({ ...f, monthly_fee: e.target.value })); setErrors(e => ({ ...e, monthly_fee: "" })); }} />
+              {errors.monthly_fee && <div className="f-error">{errors.monthly_fee}</div>}
+            </div>
+            <div className="fg">
+              <label className="flbl freq">Academic year</label>
+              <input type="number" className={errors.academic_year ? "input-error" : ""} value={form.academic_year} onChange={e => { setForm(f => ({ ...f, academic_year: e.target.value })); setErrors(e => ({ ...e, academic_year: "" })); }} />
+              {errors.academic_year && <div className="f-error">{errors.academic_year}</div>}
+            </div>
+          </div>
+
           <div>
             <label className="flbl">Subjects & Teachers</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "var(--bg-d)", padding: 12, borderRadius: 8 }}>
@@ -172,9 +208,28 @@ export default function BatchesPage() {
             </div>
           </div>
 
-          <div className="field-row">
-            <div className="fg"><label className="flbl">Monthly fee (LKR)</label><input type="number" value={form.monthly_fee} onChange={e => setForm(f => ({ ...f, monthly_fee: e.target.value }))} /></div>
-            <div className="fg"><label className="flbl">Academic year</label><input type="number" value={form.academic_year} onChange={e => setForm(f => ({ ...f, academic_year: e.target.value }))} /></div>
+          <div className="fg fg-full">
+            <label className="flbl">Cover Image</label>
+            {user?.institute?.plan === "institute_pro" ? (
+              <div style={{ 
+                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px", 
+                textAlign: "center", background: "var(--cr)", cursor: "pointer", 
+                transition: "all 0.2s" 
+              }}>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={e => setImageFile(e.target.files?.[0] || null)} 
+                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }} 
+                />
+                {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
+              </div>
+            ) : (
+              <div style={{ padding: 16, background: "var(--w)", border: "1px solid var(--ln)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ background: "var(--tc)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>PRO</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>Upgrade to Institute Pro to upload custom cover images.</div>
+              </div>
+            )}
           </div>
         </div>
       </Modal>

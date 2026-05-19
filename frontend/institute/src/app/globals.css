@@ -363,6 +363,8 @@ hr.dv { border: none; border-top: 1px solid var(--ln); margin: 14px 0; }
 .flbl { font-size: 11.5px; font-weight: 600; color: var(--ink2); margin-bottom: 4px; display: block; }
 .freq::after { content: ' *'; color: var(--rb); }
 .fhint { font-size: 10.5px; color: var(--ink3); margin-top: 3px; }
+.f-error { font-size: 11px; color: var(--rb); margin-top: 4px; font-weight: 500; }
+.input-error { border-color: var(--rb) !important; box-shadow: 0 0 0 3px rgba(220,38,38,0.1) !important; }
 
 /* ── EMOJI PICKER ── */
 .emoji-wrap { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }

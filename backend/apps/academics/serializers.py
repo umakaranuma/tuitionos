@@ -55,6 +55,11 @@ class BatchSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         teacher_config_data = validated_data.pop('teacher_config', None)
         subjects_data = self.initial_data.get('subjects', [])
+        if isinstance(subjects_data, str):
+            import json
+            try: subjects_data = json.loads(subjects_data)
+            except: subjects_data = []
+
         validated_data['institute'] = self.context['request'].institute
         batch = super().create(validated_data)
         
@@ -74,6 +79,11 @@ class BatchSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         teacher_config_data = validated_data.pop('teacher_config', None)
         subjects_data = self.initial_data.get('subjects')
+        if isinstance(subjects_data, str):
+            import json
+            try: subjects_data = json.loads(subjects_data)
+            except: subjects_data = None
+
         batch = super().update(instance, validated_data)
         
         if teacher_config_data:

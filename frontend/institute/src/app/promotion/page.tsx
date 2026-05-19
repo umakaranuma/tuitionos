@@ -5,6 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
 import { Modal } from "@/components/ui/Modal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Toast } from "@/components/ui/Toast";
 
 type Pmap = { id: number; source_batch: number; source_batch_name: string; target_batch: number; target_batch_name: string; academic_year: number; is_confirmed: boolean };
@@ -15,6 +16,7 @@ export default function PromotionPage() {
   const [isLocked, setIsLocked] = useState(false);
   const [batches, setBatches] = useState<any[]>([]);
   const [promoModal, setPromoModal] = useState<any>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [alertModal, setAlertModal] = useState<{open: boolean, message: string, type: "success"|"error"}|null>(null);
 
   const load = () => {
@@ -25,7 +27,7 @@ export default function PromotionPage() {
     }
     Promise.all([
       api.get("/api/promotion/"),
-      api.get("/api/academics/batches/")
+      api.get("/api/academics/batches")
     ]).then(([resP, resB]) => {
       setMaps(Array.isArray(resP.data) ? resP.data : resP.data.results || []);
       setBatches(Array.isArray(resB.data) ? resB.data : resB.data.results || []);
@@ -35,12 +37,36 @@ export default function PromotionPage() {
   
   useEffect(load, []);
 
+  const searchBatches = async (q: string) => {
+    try {
+      const r = await api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`);
+      setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch (e) {}
+  };
+
   const savePromo = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation
+    const newErrors: Record<string, string> = {};
+    if (!promoModal.source_batch) newErrors.source_batch = "Required";
+    if (!promoModal.target_batch) newErrors.target_batch = "Required";
+    if (!promoModal.academic_year) newErrors.academic_year = "Required";
+    if (promoModal.source_batch && promoModal.target_batch && promoModal.source_batch === promoModal.target_batch) {
+      newErrors.target_batch = "Target batch must be different";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+
     try {
       await api.post("/api/promotion/", promoModal);
       setAlertModal({ open: true, message: "Promotion map added successfully.", type: "success" });
       setPromoModal(null);
+      setErrors({});
       load();
     } catch (err) {
       setAlertModal({ open: true, message: "Failed to add promotion map.", type: "error" });
@@ -124,11 +150,11 @@ export default function PromotionPage() {
 
       <Modal
         open={!!promoModal}
-        onClose={() => setPromoModal(null)}
+        onClose={() => { setPromoModal(null); setErrors({}); }}
         title="Add Promotion Map"
         footer={
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button className="btn btn-s" onClick={() => setPromoModal(null)}>Cancel</button>
+            <button className="btn btn-s" onClick={() => { setPromoModal(null); setErrors({}); }}>Cancel</button>
             <button className="btn btn-p" onClick={savePromo}>Save Map</button>
           </div>
         }
@@ -136,21 +162,34 @@ export default function PromotionPage() {
         <form className="form-gap" onSubmit={savePromo}>
           <div className="fg">
             <label className="flbl freq">Source Batch</label>
-            <select value={promoModal?.source_batch || ""} onChange={e => setPromoModal({ ...promoModal, source_batch: e.target.value })} required>
-              <option value="">Select Source Batch</option>
-              {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <div className={errors.source_batch ? "input-error" : ""}>
+              <SearchableSelect 
+                value={promoModal?.source_batch ? String(promoModal.source_batch) : ""} 
+                onChange={val => { setPromoModal({ ...promoModal, source_batch: val }); setErrors({ ...errors, source_batch: "" }); }}
+                placeholder="Select Source Batch..."
+                onSearch={searchBatches}
+                options={batches.map(b => ({ value: String(b.id), label: b.name }))}
+              />
+            </div>
+            {errors.source_batch && <div className="f-error">{errors.source_batch}</div>}
           </div>
           <div className="fg">
             <label className="flbl freq">Target Batch</label>
-            <select value={promoModal?.target_batch || ""} onChange={e => setPromoModal({ ...promoModal, target_batch: e.target.value })} required>
-              <option value="">Select Target Batch</option>
-              {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <div className={errors.target_batch ? "input-error" : ""}>
+              <SearchableSelect 
+                value={promoModal?.target_batch ? String(promoModal.target_batch) : ""} 
+                onChange={val => { setPromoModal({ ...promoModal, target_batch: val }); setErrors({ ...errors, target_batch: "" }); }}
+                placeholder="Select Target Batch..."
+                onSearch={searchBatches}
+                options={batches.map(b => ({ value: String(b.id), label: b.name }))}
+              />
+            </div>
+            {errors.target_batch && <div className="f-error">{errors.target_batch}</div>}
           </div>
           <div className="fg">
             <label className="flbl freq">Academic Year</label>
-            <input type="number" value={promoModal?.academic_year || ""} onChange={e => setPromoModal({ ...promoModal, academic_year: e.target.value })} required />
+            <input type="number" className={errors.academic_year ? "input-error" : ""} value={promoModal?.academic_year || ""} onChange={e => { setPromoModal({ ...promoModal, academic_year: e.target.value }); setErrors({ ...errors, academic_year: "" }); }} />
+            {errors.academic_year && <div className="f-error">{errors.academic_year}</div>}
           </div>
         </form>
       </Modal>

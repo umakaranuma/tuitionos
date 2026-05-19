@@ -6,6 +6,7 @@ class Subject(models.Model):
     name = models.CharField(max_length=200)
     batch = models.CharField(max_length=50)
     icon = models.CharField(max_length=10, default='∑')
+    image = models.ImageField(upload_to='subjects/', null=True, blank=True)
     color_bg = models.CharField(max_length=30, blank=True)
     color_fg = models.CharField(max_length=30, blank=True)
     is_active = models.BooleanField(default=True)
@@ -20,6 +21,7 @@ class Teacher(models.Model):
     mobile = models.CharField(max_length=20)
     email = models.EmailField(blank=True)
     subject = models.CharField(max_length=200, blank=True)
+    image = models.ImageField(upload_to='teachers/', null=True, blank=True)
     monthly_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -35,6 +37,7 @@ class Batch(models.Model):
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2)
     color = models.CharField(max_length=30, blank=True)
     color_light = models.CharField(max_length=30, blank=True)
+    image = models.ImageField(upload_to='batches/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:

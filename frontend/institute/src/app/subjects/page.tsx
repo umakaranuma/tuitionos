@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
+import { getStoredUser } from "@/lib/auth";
 
 const BG_OPTS = [
   { label: "Teal", bg: "var(--sp-l)", fg: "var(--sp)" },
@@ -21,24 +22,50 @@ export default function SubjectsPage() {
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Subject | null>(null);
   const [form, setForm] = useState({ name: "", batch: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [user, setUser] = useState<any>(null);
 
   const load = () => {
+    setUser(getStoredUser());
     api.get("/api/academics/subjects").then(r => {
       const d = r.data; setSubjects(Array.isArray(d) ? d : d.results || []); setLoading(false);
     }).catch(() => setLoading(false));
   };
   useEffect(load, []);
 
-  const openAdd = () => { setForm({ name: "", batch: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" }); setEditTarget(null); setModal("add"); };
-  const openEdit = (s: Subject) => { setForm({ name: s.name, batch: s.batch, icon: s.icon, color_bg: s.color_bg || "var(--sp-l)", color_fg: s.color_fg || "var(--sp)" }); setEditTarget(s); setModal("edit"); };
+  const openAdd = () => { 
+    setForm({ name: "", batch: "All", icon: "Mx", color_bg: "var(--sp-l)", color_fg: "var(--sp)" }); 
+    setEditTarget(null); setImageFile(null); setModal("add"); 
+  };
+  const openEdit = (s: Subject) => { 
+    setForm({ name: s.name, batch: s.batch, icon: s.icon, color_bg: s.color_bg || "var(--sp-l)", color_fg: s.color_fg || "var(--sp)" }); 
+    setEditTarget(s); setImageFile(null); setModal("edit"); 
+  };
   const close = () => setModal(null);
 
   const save = async () => {
-    if (!form.name.trim()) return;
+    const newErrors: Record<string, string> = {};
+    if (!form.name.trim()) newErrors.name = "Required";
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+
+    const payload = new FormData();
+    payload.append("name", form.name);
+    payload.append("batch", form.batch);
+    payload.append("icon", form.icon);
+    payload.append("color_bg", form.color_bg);
+    payload.append("color_fg", form.color_fg);
+    if (imageFile) payload.append("image", imageFile);
+
     if (modal === "add") {
-      await api.post("/api/academics/subjects", form);
+      await api.post("/api/academics/subjects", payload);
     } else if (editTarget) {
-      await api.patch(`/api/academics/subjects/${editTarget.id}`, form);
+      await api.patch(`/api/academics/subjects/${editTarget.id}`, payload);
     }
     close(); load();
   };
@@ -81,19 +108,59 @@ export default function SubjectsPage() {
         )}
       </div>
 
-      <Modal open={modal !== null} onClose={close} title={modal === "add" ? "Add subject" : `Edit — ${editTarget?.name}`}
-        footer={<><button className="btn btn-s btn-sm" onClick={close}>Cancel</button><button className="btn btn-p btn-sm" onClick={save} disabled={!form.name.trim()}>{modal === "add" ? "Create" : "Save"}</button></>}>
+      <Modal open={modal !== null} onClose={() => { close(); setErrors({}); }} title={modal === "add" ? "Add subject" : `Edit — ${editTarget?.name}`}
+        footer={<><button className="btn btn-s btn-sm" onClick={() => { close(); setErrors({}); }}>Cancel</button><button className="btn btn-p btn-sm" onClick={save}>{modal === "add" ? "Create Subject" : "Save Changes"}</button></>}>
         <div className="form-gap">
-          <div><label className="flbl freq">Subject name</label><input placeholder="e.g. Combined Mathematics" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus /></div>
-          <div><label className="flbl">Batch</label><input placeholder="e.g. All, O/L, A/L" value={form.batch} onChange={e => setForm(f => ({ ...f, batch: e.target.value }))} /></div>
-          <div>
-            <label className="flbl">Colour theme</label>
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-              {BG_OPTS.map(o => (
-                <button key={o.label} type="button" onClick={() => setForm(f => ({ ...f, color_bg: o.bg, color_fg: o.fg }))}
-                  style={{ width: 28, height: 28, borderRadius: 8, background: o.bg, border: `2.5px solid ${form.color_bg === o.bg ? o.fg : "transparent"}`, cursor: "pointer" }} title={o.label} />
-              ))}
+          <div className="field-row">
+            <div className="fg" style={{ flex: 2 }}>
+              <label className="flbl freq">Subject Name</label>
+              <input className={errors.name ? "input-error" : ""} placeholder="e.g. Combined Mathematics" value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(e => ({ ...e, name: "" })); }} autoFocus />
+              {errors.name && <div className="f-error">{errors.name}</div>}
             </div>
+            <div className="fg" style={{ flex: 1 }}>
+              <label className="flbl">Target Batch</label>
+              <input placeholder="e.g. All, O/L, A/L" value={form.batch} onChange={e => setForm(f => ({ ...f, batch: e.target.value }))} />
+            </div>
+          </div>
+          
+          <div className="field-row">
+            <div className="fg">
+              <label className="flbl">Subject Icon</label>
+              <input placeholder="e.g. 🧪 or Math" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} maxLength={10} />
+            </div>
+            <div className="fg">
+              <label className="flbl">Colour Theme</label>
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                {BG_OPTS.map(o => (
+                  <button key={o.label} type="button" onClick={() => setForm(f => ({ ...f, color_bg: o.bg, color_fg: o.fg }))}
+                    style={{ width: 28, height: 28, borderRadius: 8, background: o.bg, border: `2.5px solid ${form.color_bg === o.bg ? o.fg : "transparent"}`, cursor: "pointer" }} title={o.label} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="fg fg-full">
+            <label className="flbl">Cover Image</label>
+            {user?.institute?.plan === "institute_pro" ? (
+              <div style={{ 
+                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px", 
+                textAlign: "center", background: "var(--cr)", cursor: "pointer", 
+                transition: "all 0.2s" 
+              }}>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={e => setImageFile(e.target.files?.[0] || null)} 
+                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }} 
+                />
+                {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
+              </div>
+            ) : (
+              <div style={{ padding: 16, background: "var(--w)", border: "1px solid var(--ln)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ background: "var(--tc)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>PRO</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>Upgrade to Institute Pro to upload custom cover images.</div>
+              </div>
+            )}
           </div>
         </div>
       </Modal>
