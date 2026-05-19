@@ -4,6 +4,8 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
+import { Modal } from "@/components/ui/Modal";
+import { Toast } from "@/components/ui/Toast";
 
 type Pmap = { id: number; source_batch: number; source_batch_name: string; target_batch: number; target_batch_name: string; academic_year: number; is_confirmed: boolean };
 
@@ -11,6 +13,9 @@ export default function PromotionPage() {
   const [maps, setMaps] = useState<Pmap[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLocked, setIsLocked] = useState(false);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [promoModal, setPromoModal] = useState<any>(null);
+  const [alertModal, setAlertModal] = useState<{open: boolean, message: string, type: "success"|"error"}|null>(null);
 
   const load = () => {
     const user = getStoredUser();
@@ -18,11 +23,39 @@ export default function PromotionPage() {
       setIsLocked(true);
       return;
     }
-    api.get("/api/promotion/").then(r => {
-      const d = r.data; setMaps(Array.isArray(d) ? d : d.results || []); setLoading(false);
+    Promise.all([
+      api.get("/api/promotion/"),
+      api.get("/api/academics/batches/")
+    ]).then(([resP, resB]) => {
+      setMaps(Array.isArray(resP.data) ? resP.data : resP.data.results || []);
+      setBatches(Array.isArray(resB.data) ? resB.data : resB.data.results || []);
+      setLoading(false);
     }).catch(() => setLoading(false));
   };
+  
   useEffect(load, []);
+
+  const savePromo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post("/api/promotion/", promoModal);
+      setAlertModal({ open: true, message: "Promotion map added successfully.", type: "success" });
+      setPromoModal(null);
+      load();
+    } catch (err) {
+      setAlertModal({ open: true, message: "Failed to add promotion map.", type: "error" });
+    }
+  };
+
+  const deletePromo = async (id: number) => {
+    try {
+      await api.delete(`/api/promotion/${id}/`);
+      setAlertModal({ open: true, message: "Promotion map deleted successfully.", type: "success" });
+      load();
+    } catch (err) {
+      setAlertModal({ open: true, message: "Failed to delete promotion map.", type: "error" });
+    }
+  };
 
   if (isLocked) {
     return (
@@ -46,7 +79,13 @@ export default function PromotionPage() {
 
   return (
     <PageShell>
-      <Topbar title="Year-end Promotion" subtitle="Promote students to next batch" />
+      <Topbar 
+        title="Year-end Promotion" 
+        subtitle="Promote students to next batch"
+        right={
+          <button className="btn btn-p" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear() })}>+ Add Promotion Map</button>
+        }
+      />
       <div className="pb fi">
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           maps.length > 0 ? (
@@ -61,11 +100,16 @@ export default function PromotionPage() {
                       Academic year {m.academic_year} · {m.is_confirmed ? "Executed" : "Pending"}
                     </div>
                   </div>
-                  {m.is_confirmed ? (
-                    <span className="bdg b-paid">Done</span>
-                  ) : (
-                    <button className="btn btn-ok btn-sm" onClick={() => execute(m.id)}>Execute</button>
-                  )}
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    {m.is_confirmed ? (
+                      <span className="bdg b-paid">Done</span>
+                    ) : (
+                      <>
+                        <button className="btn btn-ok btn-sm" onClick={() => execute(m.id)}>Execute</button>
+                        <button onClick={() => deletePromo(m.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--rb)", fontSize: 12, fontWeight: 600 }}>Delete</button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -77,6 +121,46 @@ export default function PromotionPage() {
           )
         )}
       </div>
+
+      <Modal
+        open={!!promoModal}
+        onClose={() => setPromoModal(null)}
+        title="Add Promotion Map"
+        footer={
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button className="btn btn-s" onClick={() => setPromoModal(null)}>Cancel</button>
+            <button className="btn btn-p" onClick={savePromo}>Save Map</button>
+          </div>
+        }
+      >
+        <form className="form-gap" onSubmit={savePromo}>
+          <div className="fg">
+            <label className="flbl freq">Source Batch</label>
+            <select value={promoModal?.source_batch || ""} onChange={e => setPromoModal({ ...promoModal, source_batch: e.target.value })} required>
+              <option value="">Select Source Batch</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label className="flbl freq">Target Batch</label>
+            <select value={promoModal?.target_batch || ""} onChange={e => setPromoModal({ ...promoModal, target_batch: e.target.value })} required>
+              <option value="">Select Target Batch</option>
+              {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="fg">
+            <label className="flbl freq">Academic Year</label>
+            <input type="number" value={promoModal?.academic_year || ""} onChange={e => setPromoModal({ ...promoModal, academic_year: e.target.value })} required />
+          </div>
+        </form>
+      </Modal>
+
+      <Toast 
+        open={!!alertModal?.open} 
+        message={alertModal?.message || ""} 
+        type={alertModal?.type || "success"} 
+        onClose={() => setAlertModal(null)} 
+      />
     </PageShell>
   );
 }
