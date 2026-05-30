@@ -387,3 +387,143 @@ hr.dv { border: none; border-top: 1px solid var(--ln); margin: 14px 0; }
 .check-item.checked { border-color: var(--tc); background: var(--tc-l); color: var(--tc-d); font-weight: 600; }
 .check-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--tc); cursor: pointer; flex-shrink: 0; }
 
+/* ── SEGMENTED CONTROL ── */
+.seg-ctrl {
+  display: inline-flex; background: var(--cr-d); border: 1px solid var(--ln);
+  border-radius: 10px; padding: 3px; gap: 2px;
+}
+.seg-btn {
+  padding: 8px 18px; border-radius: 8px; border: none; background: transparent;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  color: var(--ink3); cursor: pointer; transition: all 160ms ease;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.seg-btn:hover { color: var(--ink2); background: rgba(255,255,255,.5); }
+.seg-btn.active {
+  background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 1px rgba(0,0,0,.04);
+}
+
+/* ── PROMOTION TWO-COLUMN LAYOUT ── */
+.promo-layout { display: flex; gap: 20px; min-height: calc(100vh - 180px); }
+.promo-sidebar {
+  width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px;
+}
+.promo-sidebar-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: 10px; border: 1.5px solid transparent; cursor: pointer;
+  transition: all 140ms; font-size: 13px; font-weight: 500; color: var(--ink2);
+}
+.promo-sidebar-item:hover { background: var(--cr-d); border-color: var(--ln); }
+.promo-sidebar-item.active {
+  background: #fff; border-color: var(--tc); color: var(--ink);
+  font-weight: 600; box-shadow: 0 1px 4px rgba(79,70,229,.1);
+}
+.promo-sidebar-pills { display: flex; gap: 4px; margin-left: auto; }
+.promo-sidebar-pill {
+  font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 99px;
+  line-height: 1.6;
+}
+.promo-workspace { flex: 1; min-width: 0; }
+
+/* ── STUDENT ACTION CARD ── */
+.stu-action-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: #fff; border: 1.5px solid var(--ln); border-radius: 10px;
+  margin-bottom: 8px; transition: all 160ms;
+}
+.stu-action-card.act-promote { border-color: #b8ddd0; background: #f0faf5; }
+.stu-action-card.act-retain { border-color: #b8d0fa; background: #f0f4ff; }
+.stu-action-card.act-remove { border-color: #f5c5c5; background: #fef5f5; opacity: .85; }
+.stu-action-seg {
+  display: flex; gap: 0; border-radius: 8px; overflow: hidden;
+  border: 1.5px solid var(--ln); margin-left: auto; flex-shrink: 0;
+}
+.stu-action-btn {
+  padding: 6px 12px; border: none; background: transparent; font-size: 11px;
+  font-weight: 600; cursor: pointer; transition: all 120ms; color: var(--ink3);
+  display: flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.stu-action-btn:not(:last-child) { border-right: 1px solid var(--ln); }
+.stu-action-btn.sel-promote { background: var(--tc-l); color: var(--tc-d); }
+.stu-action-btn.sel-retain { background: var(--sp-l); color: var(--sp); }
+.stu-action-btn.sel-remove { background: var(--rb-l); color: var(--rb); }
+
+/* ── EXAM CARD ── */
+.exam-card {
+  background: #fff; border: 1px solid var(--ln); border-radius: var(--r-xl);
+  padding: 0; overflow: hidden; box-shadow: var(--sh); transition: all 150ms;
+  position: relative;
+}
+.exam-card:hover { box-shadow: var(--sh-md); transform: translateY(-1px); }
+.exam-card-stripe {
+  height: 4px; width: 100%;
+}
+.exam-card-body { padding: 18px 20px; }
+.exam-card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.exam-card-title { font-size: 15px; font-weight: 700; color: var(--ink); }
+.exam-card-meta { font-size: 11px; color: var(--ink3); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.exam-card-subjects { display: flex; flex-direction: column; gap: 6px; }
+.exam-subj-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 10px;
+  background: var(--cr); border-radius: 6px; font-size: 12px;
+}
+.exam-subj-name { font-weight: 600; color: var(--ink); flex: 1; }
+.exam-subj-date { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink3); }
+.exam-subj-time { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink3); }
+
+/* ── STATUS BADGES ── */
+.b-upcoming { background: var(--sp-l); color: var(--sp); }
+.b-ongoing { background: var(--ac-l); color: var(--ac); }
+.b-completed { background: var(--tc-l); color: var(--tc-d); }
+
+/* ── MAPPING STRIP ── */
+.mapping-strip {
+  display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px;
+  background: #fff; border: 1px solid var(--ln); border-radius: var(--r-xl);
+  box-shadow: var(--sh); margin-bottom: 20px; align-items: center;
+}
+.mapping-pill {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border-radius: 10px; border: 1.5px solid var(--ln); background: var(--cr);
+  font-size: 12.5px; font-weight: 600; color: var(--ink); transition: all 140ms;
+}
+.mapping-pill:hover { border-color: var(--tc); }
+.mapping-pill-arrow {
+  width: 20px; height: 20px; border-radius: 50%; background: var(--tc-l);
+  color: var(--tc-d); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+.mapping-pill-source { font-weight: 700; color: var(--ink); }
+.mapping-pill-target { font-weight: 600; color: var(--tc-d); }
+
+/* ── STEP INDICATOR ── */
+.step-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; color: var(--ink3);
+  letter-spacing: .1em; text-transform: uppercase; margin-bottom: 10px;
+}
+.step-num {
+  width: 20px; height: 20px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 10px;
+  font-weight: 800; flex-shrink: 0;
+}
+.step-num.active { background: var(--tc); color: #fff; }
+.step-num.done { background: var(--tc-d); color: #fff; }
+.step-num.pending { background: var(--ln); color: var(--ink3); }
+
+/* ── LEAVE SLOT ── */
+.tt-slot.leave {
+  background: repeating-linear-gradient(135deg, var(--cr-d), var(--cr-d) 4px, #fff 4px, #fff 8px);
+  border-style: dashed; border-color: var(--ln);
+}
+.tt-leave-label { font-size: 10.5px; font-weight: 600; color: var(--ink3); }
+
+/* ── COLOR SWATCH PICKER ── */
+.color-swatches { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 6px; border: 2px solid transparent;
+  cursor: pointer; transition: all 120ms;
+}
+.color-swatch:hover { transform: scale(1.1); }
+.color-swatch.sel { border-color: var(--ink); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); }
+
