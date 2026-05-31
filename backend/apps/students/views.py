@@ -15,29 +15,26 @@ class StudentViewSet(viewsets.ModelViewSet):
         qs = Student.objects.filter(institute=self.request.institute)
         
         academic_year = getattr(self.request, 'academic_year', 2026)
-        batch_status = self.request.query_params.get('batch_status', 'active')
         
         from apps.academics.models import Batch
         from .models import StudentBatchEnrollment
         
         # 1. Students with an enrollment in the requested academic year
-        enrollments = StudentBatchEnrollment.objects.filter(academic_year=academic_year)
-        if batch_status != 'all':
-            is_active_req = (batch_status == 'active')
-            enrollments = enrollments.filter(batch__is_active=is_active_req)
-        enrolled_this_year = list(enrollments.values_list('student_id', flat=True))
+        enrolled_this_year = list(StudentBatchEnrollment.objects.filter(
+            academic_year=academic_year
+        ).values_list('student_id', flat=True))
         
         # 2. Legacy students (who have NO enrollments at all)
         enrolled_any_year = list(StudentBatchEnrollment.objects.values_list('student_id', flat=True))
         legacy_qs = qs.exclude(id__in=enrolled_any_year)
-        if batch_status != 'all':
-            is_active_req = (batch_status == 'active')
-            valid_batch_names = Batch.objects.filter(
-                institute=self.request.institute,
-                academic_year=academic_year,
-                is_active=is_active_req
-            ).values_list('name', flat=True)
-            legacy_qs = legacy_qs.filter(batch__in=valid_batch_names)
+        
+        # We only want legacy students whose batch name matches a batch in the CURRENT academic year.
+        valid_batch_names = Batch.objects.filter(
+            institute=self.request.institute,
+            academic_year=academic_year
+        ).values_list('name', flat=True)
+        legacy_qs = legacy_qs.filter(batch__in=valid_batch_names)
+        
         legacy_ids = list(legacy_qs.values_list('id', flat=True))
         
         # Combine both valid lists
