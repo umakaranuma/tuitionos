@@ -187,7 +187,9 @@ export default function PromotionPage() {
                     onClick={() => { setSelectedMapId(m.id); setSearchQuery(""); }}
                   >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? "var(--ink)" : "var(--ink2)" }}>{m.source_batch_name}</div>
+                      <div style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? "var(--ink)" : "var(--ink2)" }}>
+                        {m.source_batch_name} <span style={{ color: "var(--ink3)", margin: "0 4px" }}>➔</span> {m.batch_name || "Passout"}
+                      </div>
                       <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>{stats.total} students</div>
                     </div>
                     <div className="promo-sidebar-pills">

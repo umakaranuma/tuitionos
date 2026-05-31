@@ -20,10 +20,11 @@ class BatchPromotionMapSerializer(serializers.ModelSerializer):
         
     def get_source_batch_name(self, obj):
         from apps.students.models import StudentBatchEnrollment
-        enrollment = StudentBatchEnrollment.objects.filter(batch_code=obj.batch_code).order_by('-academic_year').first()
+        from_year = obj.academic_year - 1
+        enrollment = StudentBatchEnrollment.objects.filter(batch_code=obj.batch_code, academic_year=from_year).first()
         if enrollment:
-            return f"{enrollment.batch.name} (Code: {obj.batch_code})"
-        return obj.batch_code
+            return enrollment.batch.name
+        return "Unknown Batch"
         
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
