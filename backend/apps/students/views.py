@@ -68,6 +68,12 @@ class StudentViewSet(viewsets.ModelViewSet):
         if search:
             qs = qs.filter(name__icontains=search)
             
+        student_status = self.request.query_params.get('student_status')
+        if student_status == 'active':
+            qs = qs.filter(is_active=True)
+        elif student_status == 'inactive':
+            qs = qs.filter(is_active=False)
+            
         return qs.order_by('name')
 
     def create(self, request, *args, **kwargs):
