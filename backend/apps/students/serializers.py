@@ -24,6 +24,10 @@ class StudentSerializer(serializers.ModelSerializer):
             data['batch'] = enrolled_batch_name
         else:
             data['batch'] = instance.batch_code
+            
+        if hasattr(instance, 'is_active_for_year'):
+            data['is_active'] = instance.is_active_for_year
+            
         return data
 
     def create(self, validated_data):

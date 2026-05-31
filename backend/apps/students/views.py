@@ -26,10 +26,10 @@ class StudentViewSet(viewsets.ModelViewSet):
             if batch_obj:
                 academic_year = batch_obj.academic_year
         
-        # 1. Students actively enrolled in this year
+        # 1. Students actively enrolled in this year (including promoted/archived)
         enrolled_qs = StudentBatchEnrollment.objects.filter(
             academic_year=academic_year,
-            status='active',
+            status__in=['active', 'archived'],
             student__institute=self.request.institute
         )
         if batch_id:
@@ -53,15 +53,18 @@ class StudentViewSet(viewsets.ModelViewSet):
         valid_student_ids = set(enrolled_ids + legacy_ids)
         qs = qs.filter(id__in=valid_student_ids)
             
-        from django.db.models import OuterRef, Subquery
+        from django.db.models import OuterRef, Subquery, Case, When, Value, BooleanField
         current_enrollment_batch = StudentBatchEnrollment.objects.filter(
-            student=OuterRef('pk'),
-            academic_year=academic_year,
-            status='active'
-        ).order_by('-enrolled_at').values('batch__name')[:1]
+            student=OuterRef('pk')
+        ).order_by('-academic_year', '-enrolled_at').values('batch__name')[:1]
         
         qs = qs.annotate(
-            enrolled_batch_name=Subquery(current_enrollment_batch)
+            enrolled_batch_name=Subquery(current_enrollment_batch),
+            is_active_for_year=Case(
+                When(id__in=enrolled_ids, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )
         )
             
         search = self.request.query_params.get('search')
@@ -70,9 +73,9 @@ class StudentViewSet(viewsets.ModelViewSet):
             
         student_status = self.request.query_params.get('student_status')
         if student_status == 'active':
-            qs = qs.filter(is_active=True)
+            qs = qs.filter(id__in=enrolled_ids)
         elif student_status == 'inactive':
-            qs = qs.filter(is_active=False)
+            qs = qs.exclude(id__in=enrolled_ids)
             
         batch_code_param = self.request.query_params.get('batch_code')
         if batch_code_param:

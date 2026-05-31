@@ -93,7 +93,7 @@ export default function StudentsPage() {
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           <div className="tw">
             <table>
-              <thead><tr><th>Student</th><th>Batch</th><th>Parent</th><th>Mobile</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Student</th><th>Batch</th><th>Parent</th><th>Mobile</th><th>Actions</th></tr></thead>
               <tbody>
                 {filtered.map((s, idx) => {
                   const [bg, fg] = P[idx % P.length];
@@ -103,12 +103,11 @@ export default function StudentsPage() {
                       <td style={{ color: "var(--ink3)" }}>{s.batch}</td>
                       <td>{s.parent_name || "—"}</td>
                       <td className="mono">{s.parent_mobile}{s.has_whatsapp && " (WA)"}</td>
-                      <td>{s.is_free ? <span className="bdg b-trial">Free</span> : s.is_active ? <span className="bdg b-paid">Active</span> : <span className="bdg b-over">Inactive</span>}</td>
                       <td><Link href={`/students/${s.id}`}><button className="btn btn-xs btn-s">View</button></Link></td>
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No students found</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No students found</td></tr>}
               </tbody>
             </table>
             <Pagination 
