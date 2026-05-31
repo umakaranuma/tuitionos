@@ -57,4 +57,6 @@ class StudentBatchEnrollmentViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(student_id=student)
         if batch:
             qs = qs.filter(batch_id=batch)
+        
+        qs = qs.filter(academic_year=self.request.academic_year)
         return qs

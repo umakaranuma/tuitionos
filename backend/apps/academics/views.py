@@ -48,6 +48,15 @@ class BatchViewSet(InstituteBaseViewSet):
     queryset = Batch.objects.prefetch_related('batch_subjects__subject', 'batch_subjects__teacher').all()
     serializer_class = BatchSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        academic_year = self.request.query_params.get('academic_year')
+        if academic_year == 'all':
+            return qs
+        elif academic_year and academic_year.isdigit():
+            return qs.filter(academic_year=academic_year)
+        return qs.filter(academic_year=self.request.academic_year)
+
     def create(self, request, *args, **kwargs):
         from apps.core.plan_config import check_limit_access
         current_count = Batch.objects.filter(institute=request.institute).count()
@@ -64,6 +73,10 @@ class BatchViewSet(InstituteBaseViewSet):
 class ExamViewSet(InstituteBaseViewSet):
     queryset = Exam.objects.select_related('batch').prefetch_related('schedule').all()
     serializer_class = ExamSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.filter(year=self.request.academic_year)
 
     @action(detail=True, methods=['get', 'post'])
     def marks(self, request, pk=None):

@@ -15,7 +15,8 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return BatchPromotionMap.objects.filter(
-            source_batch__institute=self.request.institute
+            source_batch__institute=self.request.institute,
+            academic_year=self.request.academic_year
         ).select_related('source_batch', 'target_batch')
 
     @action(detail=True, methods=['post'])
@@ -25,6 +26,7 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
         if promo_map.is_confirmed:
             return Response({"error": "Promotion already executed"}, status=status.HTTP_400_BAD_REQUEST)
 
+        actions = request.data.get('actions', {})
         enrollments = StudentBatchEnrollment.objects.filter(
             batch=promo_map.source_batch,
             academic_year=promo_map.academic_year,
@@ -32,16 +34,31 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
         )
         count = 0
         for enrollment in enrollments:
+            student_id_str = str(enrollment.student_id)
+            action = actions.get(student_id_str, 'promote')
+
             enrollment.status = 'archived'
             enrollment.promoted_at = timezone.now()
             enrollment.save()
 
-            StudentBatchEnrollment.objects.create(
-                student=enrollment.student,
-                batch=promo_map.target_batch,
-                academic_year=promo_map.target_batch.academic_year,
-                status='active',
-            )
+            if action == 'promote':
+                StudentBatchEnrollment.objects.create(
+                    student=enrollment.student,
+                    batch=promo_map.target_batch,
+                    academic_year=promo_map.target_batch.academic_year,
+                    status='active',
+                )
+            elif action == 'retain':
+                StudentBatchEnrollment.objects.create(
+                    student=enrollment.student,
+                    batch=promo_map.source_batch,
+                    academic_year=promo_map.target_batch.academic_year,
+                    status='active',
+                )
+            elif action == 'remove':
+                # The student passes out or is removed, so we do not create a new enrollment
+                pass
+
             count += 1
 
         promo_map.is_confirmed = True

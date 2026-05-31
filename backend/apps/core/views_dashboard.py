@@ -20,8 +20,12 @@ class InstituteDashboardView(APIView):
         from apps.fees.models import FeePayment
         from apps.attendance.models import Attendance
 
-        total_students = Student.objects.filter(institute=institute, is_active=True).count()
-        active_batches = Batch.objects.filter(institute=institute, is_active=True).count()
+        total_students = StudentBatchEnrollment.objects.filter(
+            student__institute=institute, 
+            academic_year=request.academic_year, 
+            status='active'
+        ).values('student').distinct().count()
+        active_batches = Batch.objects.filter(institute=institute, is_active=True, academic_year=request.academic_year).count()
 
         # Fee stats for current month
         fees_this_month = FeePayment.objects.filter(

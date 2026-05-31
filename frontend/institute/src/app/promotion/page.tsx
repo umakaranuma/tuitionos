@@ -45,7 +45,7 @@ export default function PromotionPage() {
     if (user?.institute?.plan !== "institute_pro") { setIsLocked(true); return; }
     Promise.all([
       api.get("/api/promotion/").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
-      api.get("/api/academics/batches").then(r => Array.isArray(r.data) ? r.data : r.data.results || [])
+      api.get("/api/academics/batches?academic_year=all").then(r => Array.isArray(r.data) ? r.data : r.data.results || [])
     ]).then(([m, b]) => {
       setMaps(m);
       setBatches(b);
@@ -70,7 +70,7 @@ export default function PromotionPage() {
   useEffect(load, []);
 
   const searchBatches = async (q: string) => {
-    try { const r = await api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`); setBatches(Array.isArray(r.data) ? r.data : r.data.results || []); } catch (e) {}
+    try { const r = await api.get(`/api/academics/batches?academic_year=all&search=${encodeURIComponent(q)}`); setBatches(Array.isArray(r.data) ? r.data : r.data.results || []); } catch (e) {}
   };
 
   const savePromo = async (e: React.FormEvent) => {
@@ -104,7 +104,16 @@ export default function PromotionPage() {
   const executePromo = async (id: number) => {
     setExecuting(id);
     try {
-      await api.post(`/api/promotion/${id}/execute`);
+      const map = maps.find(m => m.id === id);
+      const actionsForMap: Record<string, string> = {};
+      if (map) {
+        const students = studentsByBatch[map.source_batch] || [];
+        students.forEach(s => {
+          actionsForMap[s.id.toString()] = getAction(id, s.id);
+        });
+      }
+
+      await api.post(`/api/promotion/${id}/execute`, { actions: actionsForMap });
       setAlertModal({ open: true, message: "Promotion executed. Students migrated.", type: "success" });
       load();
     } catch (err) {

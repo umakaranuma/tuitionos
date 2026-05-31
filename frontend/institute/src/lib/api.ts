@@ -15,6 +15,9 @@ api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("token");
     if (token) config.headers.Authorization = `Token ${token}`;
+    
+    const academicYear = localStorage.getItem("academic_year") || new Date().getFullYear();
+    config.headers["X-Academic-Year"] = academicYear;
   }
   return config;
 });

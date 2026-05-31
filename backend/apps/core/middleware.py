@@ -14,6 +14,13 @@ class TenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest):
+        academic_year_header = request.headers.get('X-Academic-Year')
+        if academic_year_header and academic_year_header.isdigit():
+            request.academic_year = int(academic_year_header)
+        else:
+            from django.utils import timezone
+            request.academic_year = timezone.now().year
+
         host = request.get_host().split(':')[0]
         subdomain = host.split('.')[0]
 
