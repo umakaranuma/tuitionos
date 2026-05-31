@@ -27,38 +27,35 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
         academic_year = data.get('academic_year')
         
         if source_batch_id and not batch_code:
-            from apps.students.models import StudentBatchEnrollment
+            from apps.students.models import StudentBatchEnrollment, Student
             from_year = int(academic_year) - 1
-            enrollment = StudentBatchEnrollment.objects.filter(
+            
+            source_enrollments = StudentBatchEnrollment.objects.filter(
                 student__institute=request.institute,
                 batch_id=source_batch_id, 
                 academic_year=from_year,
                 status='active'
-            ).first()
-            if enrollment and enrollment.batch_code != 'DEFAULT':
-                batch_code = enrollment.batch_code
-                data['batch_code'] = batch_code
+            )
+            
+            existing_valid = source_enrollments.exclude(batch_code='DEFAULT').first()
+            if existing_valid:
+                batch_code = existing_valid.batch_code
             else:
                 import uuid
                 batch_code = f"COHORT-{uuid.uuid4().hex[:8].upper()}"
-                data['batch_code'] = batch_code
-                
-                # If there were students with 'DEFAULT' batch code, update them to this new cohort code
-                if enrollment:
-                    StudentBatchEnrollment.objects.filter(
-                        student__institute=request.institute,
-                        batch_id=source_batch_id,
-                        academic_year=from_year,
-                        batch_code='DEFAULT'
-                    ).update(batch_code=batch_code)
-                    
-                    from apps.students.models import Student
-                    Student.objects.filter(
-                        institute=request.institute,
-                        enrollments__batch_id=source_batch_id,
-                        enrollments__academic_year=from_year,
-                        batch_code='DEFAULT'
-                    ).update(batch_code=batch_code)
+            
+            data['batch_code'] = batch_code
+            
+            # Unify all active students in this batch to use the determined batch_code
+            source_enrollments.exclude(batch_code=batch_code).update(batch_code=batch_code)
+            
+            Student.objects.filter(
+                institute=request.institute,
+                enrollments__batch_id=source_batch_id,
+                enrollments__academic_year=from_year,
+                enrollments__status='active'
+            ).exclude(batch_code=batch_code).update(batch_code=batch_code)
+
         if batch_code and academic_year:
             existing = BatchPromotionMap.objects.filter(
                 institute=request.institute,
@@ -80,16 +77,14 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
             # Instant Execution
             from apps.students.models import Student
             
-            from_year = academic_year - 1
+            from_year = int(academic_year) - 1
             
             enrollments = StudentBatchEnrollment.objects.filter(
                 student__institute=request.institute,
+                batch_id=source_batch_id,
                 academic_year=from_year,
-                batch_code=batch_code,
                 status='active',
             )
-            
-            new_enrollments = []
             
             for e in enrollments:
                 e.status = 'archived'
@@ -137,3 +132,36 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
                 
         return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        promo_map = self.get_object()
+        from_year = promo_map.academic_year - 1
+        
+        from apps.students.models import StudentBatchEnrollment, Student
+        
+        # 1. Delete active enrollments in the target year
+        if not promo_map.is_passout:
+            StudentBatchEnrollment.objects.filter(
+                student__institute=request.institute,
+                batch_id=promo_map.batch_id,
+                academic_year=promo_map.academic_year,
+                batch_code=promo_map.batch_code,
+                status='active'
+            ).delete()
+        else:
+            # Reactivate students if they were passout
+            Student.objects.filter(
+                institute=request.institute,
+                batch_code=promo_map.batch_code,
+                is_active=False
+            ).update(is_active=True)
+            
+        # 2. Un-archive enrollments in the source year
+        StudentBatchEnrollment.objects.filter(
+            student__institute=request.institute,
+            academic_year=from_year,
+            batch_code=promo_map.batch_code,
+            status='archived'
+        ).update(status='active', promoted_at=None)
+        
+        return super().destroy(request, *args, **kwargs)
