@@ -95,6 +95,8 @@ class StudentViewSet(viewsets.ModelViewSet):
             batch_code = student.batch_code
             academic_year = getattr(request, 'academic_year', 2026)
             
+            batch_id = request.data.get('batch')
+            
             if batch_code and batch_code != 'DEFAULT':
                 # Try to find a mapped batch
                 mapping = BatchPromotionMap.objects.filter(
@@ -102,18 +104,19 @@ class StudentViewSet(viewsets.ModelViewSet):
                     batch_code=batch_code,
                     academic_year=academic_year
                 ).first()
-                
-                batch_id = mapping.batch_id if mapping else request.data.get('batch') # fallback to passed batch id
-                if batch_id:
-                    StudentBatchEnrollment.objects.get_or_create(
-                        student=student,
-                        batch_id=batch_id,
-                        academic_year=academic_year,
-                        defaults={
-                            'status': 'active',
-                            'batch_code': batch_code
-                        }
-                    )
+                if mapping:
+                    batch_id = mapping.batch_id
+                    
+            if batch_id:
+                StudentBatchEnrollment.objects.get_or_create(
+                    student=student,
+                    batch_id=batch_id,
+                    academic_year=academic_year,
+                    defaults={
+                        'status': 'active',
+                        'batch_code': batch_code
+                    }
+                )
         return response
 
     @action(detail=True, methods=['post'])

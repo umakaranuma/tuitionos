@@ -35,12 +35,30 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
                 academic_year=from_year,
                 status='active'
             ).first()
-            if enrollment:
+            if enrollment and enrollment.batch_code != 'DEFAULT':
                 batch_code = enrollment.batch_code
                 data['batch_code'] = batch_code
             else:
-                return Response({"non_field_errors": [f"No active students found in this source batch for year {from_year} to determine cohort code."]}, status=status.HTTP_400_BAD_REQUEST)
+                import uuid
+                batch_code = f"COHORT-{uuid.uuid4().hex[:8].upper()}"
+                data['batch_code'] = batch_code
                 
+                # If there were students with 'DEFAULT' batch code, update them to this new cohort code
+                if enrollment:
+                    StudentBatchEnrollment.objects.filter(
+                        student__institute=request.institute,
+                        batch_id=source_batch_id,
+                        academic_year=from_year,
+                        batch_code='DEFAULT'
+                    ).update(batch_code=batch_code)
+                    
+                    from apps.students.models import Student
+                    Student.objects.filter(
+                        institute=request.institute,
+                        enrollments__batch_id=source_batch_id,
+                        enrollments__academic_year=from_year,
+                        batch_code='DEFAULT'
+                    ).update(batch_code=batch_code)
         if batch_code and academic_year:
             existing = BatchPromotionMap.objects.filter(
                 institute=request.institute,
