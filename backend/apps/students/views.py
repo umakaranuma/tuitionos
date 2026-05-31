@@ -55,8 +55,9 @@ class StudentViewSet(viewsets.ModelViewSet):
             
         from django.db.models import OuterRef, Subquery, Case, When, Value, BooleanField
         current_enrollment_batch = StudentBatchEnrollment.objects.filter(
-            student=OuterRef('pk')
-        ).order_by('-academic_year', '-enrolled_at').values('batch__name')[:1]
+            student=OuterRef('pk'),
+            academic_year=academic_year
+        ).order_by('-enrolled_at').values('batch__name')[:1]
         
         qs = qs.annotate(
             enrolled_batch_name=Subquery(current_enrollment_batch),
