@@ -2,8 +2,8 @@ from rest_framework import serializers
 from .models import BatchPromotionMap
 
 class BatchPromotionMapSerializer(serializers.ModelSerializer):
-    source_batch_name = serializers.CharField(source='source_batch.name', read_only=True)
-    target_batch_name = serializers.CharField(source='target_batch.name', read_only=True)
+    source_batch_name = serializers.SerializerMethodField()
+    target_batch_name = serializers.SerializerMethodField()
 
     class Meta:
         model = BatchPromotionMap
@@ -12,3 +12,9 @@ class BatchPromotionMapSerializer(serializers.ModelSerializer):
             'target_batch', 'target_batch_name',
             'academic_year', 'is_confirmed', 'created_at',
         ]
+
+    def get_source_batch_name(self, obj):
+        return f"{obj.source_batch.name} ({obj.source_batch.academic_year})"
+
+    def get_target_batch_name(self, obj):
+        return f"{obj.target_batch.name} ({obj.target_batch.academic_year})"

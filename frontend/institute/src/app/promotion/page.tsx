@@ -521,7 +521,7 @@ export default function PromotionPage() {
                 onChange={val => { setPromoModal({ ...promoModal, source_batch: val }); setErrors({ ...errors, source_batch: "" }); }}
                 placeholder="Select source batch..."
                 onSearch={searchBatches}
-                options={batches.map(b => ({ value: String(b.id), label: b.name }))}
+                options={batches.map(b => ({ value: String(b.id), label: `${b.name} (${b.academic_year})` }))}
               />
             </div>
             {errors.source_batch && <div className="f-error">{errors.source_batch}</div>}
@@ -534,7 +534,7 @@ export default function PromotionPage() {
                 onChange={val => { setPromoModal({ ...promoModal, target_batch: val }); setErrors({ ...errors, target_batch: "" }); }}
                 placeholder="Select target batch..."
                 onSearch={searchBatches}
-                options={batches.map(b => ({ value: String(b.id), label: b.name }))}
+                options={batches.map(b => ({ value: String(b.id), label: `${b.name} (${b.academic_year})` }))}
               />
             </div>
             {errors.target_batch && <div className="f-error">{errors.target_batch}</div>}

@@ -39,7 +39,7 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
             StudentBatchEnrollment.objects.create(
                 student=enrollment.student,
                 batch=promo_map.target_batch,
-                academic_year=promo_map.academic_year + 1,
+                academic_year=promo_map.target_batch.academic_year,
                 status='active',
             )
             count += 1
