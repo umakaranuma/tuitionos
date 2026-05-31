@@ -54,9 +54,20 @@ class StudentViewSet(viewsets.ModelViewSet):
         valid_student_ids = set(enrolled_this_year + legacy_ids)
         qs = qs.filter(id__in=valid_student_ids)
             
+        from django.db.models import OuterRef, Subquery
+        current_enrollment_batch = StudentBatchEnrollment.objects.filter(
+            student=OuterRef('pk'),
+            academic_year=academic_year
+        ).order_by('-enrolled_at').values('batch__name')[:1]
+        
+        qs = qs.annotate(
+            enrolled_batch_name=Subquery(current_enrollment_batch)
+        )
+            
         search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(name__icontains=search)
+            
         return qs.order_by('name')
 
     def create(self, request, *args, **kwargs):

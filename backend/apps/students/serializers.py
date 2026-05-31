@@ -16,6 +16,14 @@ class StudentSerializer(serializers.ModelSerializer):
         parts = obj.name.split()
         return ''.join([p[0].upper() for p in parts[:2]]) if parts else ''
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Use the annotated batch name if available, otherwise fallback to the legacy string batch
+        enrolled_batch_name = getattr(instance, 'enrolled_batch_name', None)
+        if enrolled_batch_name:
+            data['batch'] = enrolled_batch_name
+        return data
+
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
         return super().create(validated_data)
