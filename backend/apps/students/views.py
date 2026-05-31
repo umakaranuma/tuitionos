@@ -108,6 +108,15 @@ class StudentViewSet(viewsets.ModelViewSet):
                     batch_id = mapping.batch_id
                     
             if batch_id:
+                # The frontend might pass the batch name (e.g. "Grade 7") instead of the integer ID
+                try:
+                    batch_id = int(batch_id)
+                except ValueError:
+                    from apps.academics.models import Batch
+                    batch_obj = Batch.objects.filter(name=batch_id, institute=request.institute).first()
+                    batch_id = batch_obj.id if batch_obj else None
+                    
+            if batch_id:
                 StudentBatchEnrollment.objects.get_or_create(
                     student=student,
                     batch_id=batch_id,
@@ -124,6 +133,16 @@ class StudentViewSet(viewsets.ModelViewSet):
         student = self.get_object()
         batch_id = request.data.get('batch')
         academic_year = request.data.get('academic_year', 2026)
+        
+        if batch_id:
+            try:
+                batch_id = int(batch_id)
+            except ValueError:
+                from apps.academics.models import Batch
+                batch_obj = Batch.objects.filter(name=batch_id, institute=request.institute).first()
+                if not batch_obj:
+                    return Response({"error": "Batch not found"}, status=status.HTTP_400_BAD_REQUEST)
+                batch_id = batch_obj.id
 
         enrollment, created = StudentBatchEnrollment.objects.get_or_create(
             student=student, batch_id=batch_id, academic_year=academic_year,
