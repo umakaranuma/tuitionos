@@ -100,15 +100,15 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
                     Student.objects.filter(id=e.student_id).update(is_active=False)
                     continue
                     
-                new_enrollments.append(StudentBatchEnrollment(
+                StudentBatchEnrollment.objects.update_or_create(
                     student_id=e.student_id,
                     batch_id=promo_map.batch_id,
-                    batch_code=e.batch_code,
                     academic_year=academic_year,
-                    status='active'
-                ))
-                
-            StudentBatchEnrollment.objects.bulk_create(new_enrollments)
+                    defaults={
+                        'batch_code': e.batch_code,
+                        'status': 'active'
+                    }
+                )
             
             # Legacy Sweep
             legacy_students = Student.objects.filter(
@@ -117,23 +117,21 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
                 is_active=True
             ).exclude(id__in=enrollments.values_list('student_id', flat=True))
             
-            legacy_enrollments = []
             for student in legacy_students:
                 if promo_map.is_passout:
                     student.is_active = False
                     student.save()
                     continue
                     
-                legacy_enrollments.append(StudentBatchEnrollment(
+                StudentBatchEnrollment.objects.update_or_create(
                     student=student,
                     batch_id=promo_map.batch_id,
-                    batch_code=student.batch_code,
                     academic_year=academic_year,
-                    status='active'
-                ))
-            
-            if legacy_enrollments:
-                StudentBatchEnrollment.objects.bulk_create(legacy_enrollments)
+                    defaults={
+                        'batch_code': student.batch_code,
+                        'status': 'active'
+                    }
+                )
             
             serializer = self.get_serializer(promo_map)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
