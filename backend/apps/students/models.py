@@ -6,7 +6,7 @@ class Student(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='students')
     name = models.CharField(max_length=200)
     parent_name = models.CharField(max_length=200, blank=True)
-    parent_mobile = models.CharField(max_length=20)
+    parent_mobile = models.CharField(max_length=20, blank=True)
     has_whatsapp = models.BooleanField(default=True)
     batch = models.CharField(max_length=50)
     is_free = models.BooleanField(default=False)

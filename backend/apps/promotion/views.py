@@ -19,6 +19,30 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
             academic_year=self.request.academic_year
         ).select_related('source_batch', 'target_batch')
 
+    def create(self, request, *args, **kwargs):
+        source_batch = request.data.get('source_batch')
+        academic_year = request.data.get('academic_year')
+        
+        if source_batch and academic_year:
+            existing = BatchPromotionMap.objects.filter(
+                source_batch=source_batch, 
+                academic_year=academic_year
+            ).first()
+            
+            if existing:
+                if existing.is_confirmed:
+                    return Response(
+                        {"non_field_errors": ["A confirmed promotion mapping already exists for this batch and academic year."]},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                serializer = self.get_serializer(existing, data=request.data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                self.perform_update(serializer)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+                
+        return super().create(request, *args, **kwargs)
+
     @action(detail=True, methods=['post'])
     def execute(self, request, pk=None):
         """Execute a promotion: move all active students from source_batch to target_batch."""
@@ -42,17 +66,19 @@ class BatchPromotionMapViewSet(viewsets.ModelViewSet):
             enrollment.save()
 
             if action == 'promote':
-                StudentBatchEnrollment.objects.create(
-                    student=enrollment.student,
-                    batch=promo_map.target_batch,
-                    academic_year=promo_map.target_batch.academic_year,
-                    status='active',
-                )
+                if promo_map.target_batch is not None:
+                    StudentBatchEnrollment.objects.create(
+                        student=enrollment.student,
+                        batch=promo_map.target_batch,
+                        academic_year=promo_map.target_batch.academic_year,
+                        status='active',
+                    )
             elif action == 'retain':
+                next_academic_year = promo_map.target_batch.academic_year if promo_map.target_batch else (promo_map.academic_year + 1)
                 StudentBatchEnrollment.objects.create(
                     student=enrollment.student,
                     batch=promo_map.source_batch,
-                    academic_year=promo_map.target_batch.academic_year,
+                    academic_year=next_academic_year,
                     status='active',
                 )
             elif action == 'remove':

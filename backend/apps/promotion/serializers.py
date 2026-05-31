@@ -17,4 +17,6 @@ class BatchPromotionMapSerializer(serializers.ModelSerializer):
         return f"{obj.source_batch.name} ({obj.source_batch.academic_year})"
 
     def get_target_batch_name(self, obj):
+        if obj.target_batch is None:
+            return "🎓 Passout / Alumni"
         return f"{obj.target_batch.name} ({obj.target_batch.academic_year})"

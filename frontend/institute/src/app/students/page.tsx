@@ -54,9 +54,22 @@ export default function StudentsPage() {
   const filtered = students;
 
   const save = async () => {
-    if (!form.name.trim()) return;
-    await api.post("/api/students/students", form);
-    setModal(null); load();
+    if (!form.name.trim()) {
+      alert("Student name is required");
+      return;
+    }
+    if (!form.batch.trim()) {
+      alert("Batch is required");
+      return;
+    }
+    try {
+      await api.post("/api/students/students", form);
+      setModal(null); 
+      load();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data ? JSON.stringify(err.response.data) : "Failed to create student");
+    }
   };
 
   return (

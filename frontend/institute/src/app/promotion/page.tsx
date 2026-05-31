@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Toast } from "@/components/ui/Toast";
 
-type Pmap = { id: number; source_batch: number; source_batch_name: string; target_batch: number; target_batch_name: string; academic_year: number; is_confirmed: boolean };
+type Pmap = { id: number; source_batch: number; source_batch_name: string; target_batch: number | null; target_batch_name: string; academic_year: number; is_confirmed: boolean };
 type Student = { id: number; name: string; attPct?: number; feeStatus?: string };
 type Action = "promote" | "retain" | "remove";
 
@@ -77,13 +77,16 @@ export default function PromotionPage() {
     e.preventDefault();
     const ne: Record<string, string> = {};
     if (!promoModal.source_batch) ne.source_batch = "Required";
-    if (!promoModal.target_batch) ne.target_batch = "Required";
+    if (!promoModal.is_passout && !promoModal.target_batch) ne.target_batch = "Required";
     if (!promoModal.academic_year) ne.academic_year = "Required";
-    if (promoModal.source_batch && promoModal.target_batch && promoModal.source_batch === promoModal.target_batch) ne.target_batch = "Must be different";
+    if (!promoModal.is_passout && promoModal.source_batch && promoModal.target_batch && promoModal.source_batch === promoModal.target_batch) ne.target_batch = "Must be different";
     if (Object.keys(ne).length > 0) { setErrors(ne); return; }
     setErrors({});
     try {
-      await api.post("/api/promotion/", promoModal);
+      const payload = { ...promoModal };
+      if (payload.is_passout) payload.target_batch = null;
+      delete payload.is_passout;
+      await api.post("/api/promotion/", payload);
       setAlertModal({ open: true, message: "Promotion map added.", type: "success" });
       setPromoModal(null); setErrors({}); load();
     } catch (err) {
@@ -126,7 +129,12 @@ export default function PromotionPage() {
 
   // ── Student action helpers ──
   const actionKey = (mapId: number, studentId: number) => `${mapId}::${studentId}`;
-  const getAction = (mapId: number, sid: number): Action => studentActions[actionKey(mapId, sid)] ?? "promote";
+  const getAction = (mapId: number, sid: number): Action => {
+    const key = actionKey(mapId, sid);
+    if (studentActions[key]) return studentActions[key];
+    const map = pendingMaps.find(m => m.id === mapId) || executedMaps.find(m => m.id === mapId);
+    return (map && !map.target_batch) ? "remove" : "promote";
+  };
   const setAction = (mapId: number, sid: number, a: Action) => {
     setStudentActions(prev => ({ ...prev, [actionKey(mapId, sid)]: a }));
   };
@@ -195,7 +203,7 @@ export default function PromotionPage() {
         title="Year-end Promotion Engine" 
         subtitle="Automated batch migration & parent notifications"
         right={
-          <button className="btn btn-p" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear() })}>+ New Mapping</button>
+          <button className="btn btn-p" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear(), is_passout: false })}>+ New Mapping</button>
         }
       />
       
@@ -217,7 +225,7 @@ export default function PromotionPage() {
               <div style={{ fontSize: 32, marginBottom: 12 }}>🗺️</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>No pending promotion maps</div>
               <div style={{ fontSize: 13, color: "var(--ink3)", marginBottom: 16 }}>Create mapping strips to define how students progress to the next year.</div>
-              <button className="btn btn-s" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear() })}>Create mapping</button>
+              <button className="btn btn-s" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear(), is_passout: false })}>Create mapping</button>
             </div>
 
             {executedMaps.length > 0 && (
@@ -257,7 +265,7 @@ export default function PromotionPage() {
                   <button onClick={(e) => { e.stopPropagation(); deletePromo(m.id); }} style={{ background: "none", border: "none", color: "var(--ink3)", fontSize: 12, cursor: "pointer", marginLeft: 4, opacity: .5 }} title="Remove mapping">×</button>
                 </div>
               ))}
-              <button className="btn btn-s btn-xs" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear() })}>+ Add</button>
+              <button className="btn btn-s btn-xs" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear(), is_passout: false })}>+ Add</button>
             </div>
 
             {/* ═══════════ TWO-COLUMN LAYOUT ═══════════ */}
@@ -335,7 +343,9 @@ export default function PromotionPage() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button className="btn btn-ok btn-xs" onClick={() => bulkAction("promote")}>Promote All</button>
+                        {selectedMap.target_batch && (
+                          <button className="btn btn-ok btn-xs" onClick={() => bulkAction("promote")}>Promote All</button>
+                        )}
                         <button className="btn btn-s btn-xs" style={{ borderColor: "var(--sp-l)", color: "var(--sp)" }} onClick={() => bulkAction("retain")}>Retain All</button>
                         <button className="btn btn-d btn-xs" onClick={() => bulkAction("remove")}>Remove All</button>
                       </div>
@@ -386,7 +396,9 @@ export default function PromotionPage() {
 
                               {/* Action segmented control */}
                               <div className="stu-action-seg">
-                                <button className={`stu-action-btn ${action === "promote" ? "sel-promote" : ""}`} onClick={() => setAction(selectedMap.id, s.id, "promote")}>Promote ↑</button>
+                                {selectedMap.target_batch && (
+                                  <button className={`stu-action-btn ${action === "promote" ? "sel-promote" : ""}`} onClick={() => setAction(selectedMap.id, s.id, "promote")}>Promote ↑</button>
+                                )}
                                 <button className={`stu-action-btn ${action === "retain" ? "sel-retain" : ""}`} onClick={() => setAction(selectedMap.id, s.id, "retain")}>Retain ↻</button>
                                 <button className={`stu-action-btn ${action === "remove" ? "sel-remove" : ""}`} onClick={() => setAction(selectedMap.id, s.id, "remove")}>Remove ✕</button>
                               </div>
@@ -535,19 +547,28 @@ export default function PromotionPage() {
             </div>
             {errors.source_batch && <div className="f-error">{errors.source_batch}</div>}
           </div>
-          <div className="fg">
-            <label className="flbl freq">Target Batch (Next Year)</label>
-            <div className={errors.target_batch ? "input-error" : ""}>
-              <SearchableSelect 
-                value={promoModal?.target_batch ? String(promoModal.target_batch) : ""} 
-                onChange={val => { setPromoModal({ ...promoModal, target_batch: val }); setErrors({ ...errors, target_batch: "" }); }}
-                placeholder="Select target batch..."
-                onSearch={searchBatches}
-                options={batches.map(b => ({ value: String(b.id), label: `${b.name} (${b.academic_year})` }))}
-              />
-            </div>
-            {errors.target_batch && <div className="f-error">{errors.target_batch}</div>}
+          <div className="fg" style={{ marginTop: 8, marginBottom: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink2)", fontWeight: 500, cursor: "pointer" }}>
+              <input type="checkbox" checked={promoModal?.is_passout || false} onChange={e => setPromoModal({ ...promoModal, is_passout: e.target.checked, target_batch: "" })} style={{ accentColor: "#6b3ea8", width: 16, height: 16 }} />
+              Mark this entire batch as Passout / Graduating
+            </label>
           </div>
+          
+          {!promoModal?.is_passout && (
+            <div className="fg">
+              <label className="flbl freq">Target Batch (Next Year)</label>
+              <div className={errors.target_batch ? "input-error" : ""}>
+                <SearchableSelect 
+                  value={promoModal?.target_batch ? String(promoModal.target_batch) : ""} 
+                  onChange={val => { setPromoModal({ ...promoModal, target_batch: val }); setErrors({ ...errors, target_batch: "" }); }}
+                  placeholder="Select target batch..."
+                  onSearch={searchBatches}
+                  options={batches.map(b => ({ value: String(b.id), label: `${b.name} (${b.academic_year})` }))}
+                />
+              </div>
+              {errors.target_batch && <div className="f-error">{errors.target_batch}</div>}
+            </div>
+          )}
           <div className="fg">
             <label className="flbl freq">Target Academic Year</label>
             <input type="number" className={errors.academic_year ? "input-error" : ""} value={promoModal?.academic_year || ""} onChange={e => { setPromoModal({ ...promoModal, academic_year: e.target.value }); setErrors({ ...errors, academic_year: "" }); }} />
