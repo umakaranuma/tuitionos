@@ -19,20 +19,33 @@ class StudentViewSet(viewsets.ModelViewSet):
         from apps.academics.models import Batch
         from .models import StudentBatchEnrollment
         
+        batch_id = self.request.query_params.get('batch')
+        
+        if batch_id:
+            batch_obj = Batch.objects.filter(id=batch_id).first()
+            if batch_obj:
+                academic_year = batch_obj.academic_year
+        
         # 1. Students with an enrollment in the requested academic year
-        enrolled_this_year = list(StudentBatchEnrollment.objects.filter(
+        enrolled_qs = StudentBatchEnrollment.objects.filter(academic_year=academic_year)
+        if batch_id:
+            enrolled_qs = enrolled_qs.filter(batch_id=batch_id)
+            
+        enrolled_this_year = list(enrolled_qs.values_list('student_id', flat=True))
+        
+        # 2. Legacy students (who have NO enrollments in this academic year)
+        enrolled_this_year_all = list(StudentBatchEnrollment.objects.filter(
             academic_year=academic_year
         ).values_list('student_id', flat=True))
         
-        # 2. Legacy students (who have NO enrollments at all)
-        enrolled_any_year = list(StudentBatchEnrollment.objects.values_list('student_id', flat=True))
-        legacy_qs = qs.exclude(id__in=enrolled_any_year)
+        legacy_qs = qs.exclude(id__in=enrolled_this_year_all)
         
         # We only want legacy students whose batch name matches a batch in the CURRENT academic year.
-        valid_batch_names = Batch.objects.filter(
-            institute=self.request.institute,
-            academic_year=academic_year
-        ).values_list('name', flat=True)
+        batches_qs = Batch.objects.filter(institute=self.request.institute, academic_year=academic_year)
+        if batch_id:
+            batches_qs = batches_qs.filter(id=batch_id)
+            
+        valid_batch_names = batches_qs.values_list('name', flat=True)
         legacy_qs = legacy_qs.filter(batch__in=valid_batch_names)
         
         legacy_ids = list(legacy_qs.values_list('id', flat=True))
