@@ -8,7 +8,7 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = [
             'id', 'name', 'initials', 'parent_name', 'parent_mobile',
-            'has_whatsapp', 'batch', 'is_free', 'is_active',
+            'has_whatsapp', 'batch_code', 'is_free', 'is_active',
             'join_date', 'created_at',
         ]
 
@@ -22,6 +22,8 @@ class StudentSerializer(serializers.ModelSerializer):
         enrolled_batch_name = getattr(instance, 'enrolled_batch_name', None)
         if enrolled_batch_name:
             data['batch'] = enrolled_batch_name
+        else:
+            data['batch'] = instance.batch_code
         return data
 
     def create(self, validated_data):
@@ -35,6 +37,6 @@ class StudentBatchEnrollmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentBatchEnrollment
         fields = [
-            'id', 'student', 'student_name', 'batch', 'batch_name',
+            'id', 'student', 'student_name', 'batch', 'batch_name', 'batch_code',
             'status', 'academic_year', 'promoted_at', 'enrolled_at',
         ]

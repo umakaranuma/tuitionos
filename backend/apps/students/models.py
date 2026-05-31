@@ -8,7 +8,7 @@ class Student(models.Model):
     parent_name = models.CharField(max_length=200, blank=True)
     parent_mobile = models.CharField(max_length=20, blank=True)
     has_whatsapp = models.BooleanField(default=True)
-    batch = models.CharField(max_length=50)
+    batch_code = models.CharField(max_length=100, default='DEFAULT')
     is_free = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     join_date = models.DateField(null=True, blank=True)
@@ -21,6 +21,7 @@ class StudentBatchEnrollment(models.Model):
     STATUS_CHOICES = [('active', 'Active'), ('archived', 'Archived'), ('deactivated', 'Deactivated')]
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='enrollments')
     batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='enrollments')
+    batch_code = models.CharField(max_length=100, default='DEFAULT')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     academic_year = models.PositiveIntegerField()
     promoted_at = models.DateTimeField(null=True, blank=True)

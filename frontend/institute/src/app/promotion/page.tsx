@@ -8,7 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Toast } from "@/components/ui/Toast";
 
-type Pmap = { id: number; source_batch: number; source_batch_name: string; target_batch: number | null; target_batch_name: string; academic_year: number; is_confirmed: boolean };
+type Pmap = { id: number; batch_code: string; source_batch_name: string; batch: number | null; batch_name: string; academic_year: number; is_passout: boolean };
 type Student = { id: number; name: string; attPct?: number; feeStatus?: string };
 
 const AVA_COLORS = [
@@ -42,7 +42,7 @@ export default function PromotionPage() {
       
       // Fetch students for all mappings to display them in the UI
       m.forEach((map: Pmap) => {
-        api.get(`/api/students/students?batch=${map.source_batch}`).then(r => {
+        api.get(`/api/students/students?batch_code=${map.batch_code}`).then(r => {
           const st = (Array.isArray(r.data) ? r.data : r.data.results || []).map((s: any, i: number) => ({
             ...s,
             attPct: s.attPct ?? Math.floor(Math.random() * 20) + 80,
@@ -65,15 +65,13 @@ export default function PromotionPage() {
     e.preventDefault();
     const ne: Record<string, string> = {};
     if (!promoModal.source_batch) ne.source_batch = "Required";
-    if (!promoModal.is_passout && !promoModal.target_batch) ne.target_batch = "Required";
+    if (!promoModal.is_passout && !promoModal.batch) ne.batch = "Required";
     if (!promoModal.academic_year) ne.academic_year = "Required";
-    if (!promoModal.is_passout && promoModal.source_batch && promoModal.target_batch && promoModal.source_batch === promoModal.target_batch) ne.target_batch = "Must be different";
     if (Object.keys(ne).length > 0) { setErrors(ne); return; }
     setErrors({});
     try {
       const payload = { ...promoModal };
-      if (payload.is_passout) payload.target_batch = null;
-      delete payload.is_passout;
+      if (payload.is_passout) payload.batch = null;
       const res = await api.post("/api/promotion/", payload);
       setAlertModal({ open: true, message: "Promotion map executed automatically.", type: "success" });
       setPromoModal(null); setErrors({}); 
@@ -136,7 +134,7 @@ export default function PromotionPage() {
         title="Year-end Promotion Engine" 
         subtitle="Automated batch migration & parent notifications"
         right={
-          <button className="btn btn-p" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear() + 1, is_passout: false })}>+ Create mapping</button>
+          <button className="btn btn-p" onClick={() => setPromoModal({ source_batch: "", batch: "", academic_year: new Date().getFullYear() + 1, is_passout: false })}>+ Create mapping</button>
         }
       />
       
@@ -156,7 +154,7 @@ export default function PromotionPage() {
               <div style={{ fontSize: 32, marginBottom: 12 }}>🗺️</div>
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>No configured promotion maps</div>
               <div style={{ fontSize: 13, color: "var(--ink3)", marginBottom: 16 }}>Create mapping strips to define how students progress to the next year. It happens instantly!</div>
-              <button className="btn btn-s" onClick={() => setPromoModal({ source_batch: "", target_batch: "", academic_year: new Date().getFullYear() + 1, is_passout: false })}>Create mapping</button>
+              <button className="btn btn-s" onClick={() => setPromoModal({ source_batch: "", batch: "", academic_year: new Date().getFullYear() + 1, is_passout: false })}>Create mapping</button>
             </div>
           </div>
         ) : (
@@ -218,7 +216,7 @@ export default function PromotionPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{selectedMap.source_batch_name}</div>
                       <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>
-                        → {selectedMap.target_batch_name || "Passout"} · Academic Year {selectedMap.academic_year}
+                        → {selectedMap.batch_name || "Passout"} · Academic Year {selectedMap.academic_year}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
@@ -269,8 +267,8 @@ export default function PromotionPage() {
                             </div>
 
                             {/* Status label instead of segmented control */}
-                            <div style={{ fontSize: 12, fontWeight: 700, color: selectedMap.target_batch ? "var(--tc-d)" : "var(--rb)", background: selectedMap.target_batch ? "var(--tc-l)" : "var(--rb-l)", padding: "4px 10px", borderRadius: 8 }}>
-                              {selectedMap.target_batch ? "Migrated ↑" : "Graduated / Passout ✕"}
+                            <div style={{ fontSize: 12, fontWeight: 700, color: selectedMap.batch ? "var(--tc-d)" : "var(--rb)", background: selectedMap.batch ? "var(--tc-l)" : "var(--rb-l)", padding: "4px 10px", borderRadius: 8 }}>
+                              {selectedMap.batch ? "Migrated ↑" : "Graduated / Passout ✕"}
                             </div>
                           </div>
                         );
@@ -298,7 +296,7 @@ export default function PromotionPage() {
       >
         <form className="form-gap" onSubmit={savePromo}>
           <div className="fg">
-            <label className="flbl freq">Source Batch (Current)</label>
+            <label className="flbl freq">Source Batch (Current Year)</label>
             <div className={errors.source_batch ? "input-error" : ""}>
               <SearchableSelect 
                 value={promoModal?.source_batch ? String(promoModal.source_batch) : ""} 
@@ -312,24 +310,24 @@ export default function PromotionPage() {
           </div>
           <div className="fg" style={{ marginTop: 8, marginBottom: 8 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink2)", fontWeight: 500, cursor: "pointer" }}>
-              <input type="checkbox" checked={promoModal?.is_passout || false} onChange={e => setPromoModal({ ...promoModal, is_passout: e.target.checked, target_batch: "" })} style={{ accentColor: "#6b3ea8", width: 16, height: 16 }} />
-              Mark this entire batch as Passout / Graduating
+              <input type="checkbox" checked={promoModal?.is_passout || false} onChange={e => setPromoModal({ ...promoModal, is_passout: e.target.checked, batch: "" })} style={{ accentColor: "#6b3ea8", width: 16, height: 16 }} />
+              Mark this entire cohort as Passout / Graduating
             </label>
           </div>
           
           {!promoModal?.is_passout && (
             <div className="fg">
               <label className="flbl freq">Target Batch (Next Year)</label>
-              <div className={errors.target_batch ? "input-error" : ""}>
+              <div className={errors.batch ? "input-error" : ""}>
                 <SearchableSelect 
-                  value={promoModal?.target_batch ? String(promoModal.target_batch) : ""} 
-                  onChange={val => { setPromoModal({ ...promoModal, target_batch: val }); setErrors({ ...errors, target_batch: "" }); }}
+                  value={promoModal?.batch ? String(promoModal.batch) : ""} 
+                  onChange={val => { setPromoModal({ ...promoModal, batch: val }); setErrors({ ...errors, batch: "" }); }}
                   placeholder="Select target batch..."
                   onSearch={searchBatches}
                   options={batches.map(b => ({ value: String(b.id), label: `${b.name} (${b.academic_year})` }))}
                 />
               </div>
-              {errors.target_batch && <div className="f-error">{errors.target_batch}</div>}
+              {errors.batch && <div className="f-error">{errors.batch}</div>}
             </div>
           )}
           <div className="fg">

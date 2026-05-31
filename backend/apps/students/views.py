@@ -17,7 +17,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         academic_year = getattr(self.request, 'academic_year', 2026)
         
         from apps.academics.models import Batch
-        from .models import StudentBatchEnrollment
+        from apps.promotion.models import BatchPromotionMap
         
         batch_id = self.request.query_params.get('batch')
         
@@ -26,38 +26,38 @@ class StudentViewSet(viewsets.ModelViewSet):
             if batch_obj:
                 academic_year = batch_obj.academic_year
         
-        # 1. Students with an enrollment in the requested academic year
-        enrolled_qs = StudentBatchEnrollment.objects.filter(academic_year=academic_year)
+        # 1. Students actively enrolled in this year
+        enrolled_qs = StudentBatchEnrollment.objects.filter(
+            academic_year=academic_year,
+            status='active',
+            student__institute=self.request.institute
+        )
         if batch_id:
             enrolled_qs = enrolled_qs.filter(batch_id=batch_id)
             
-        enrolled_this_year = list(enrolled_qs.values_list('student_id', flat=True))
+        enrolled_ids = list(enrolled_qs.values_list('student_id', flat=True))
         
-        # 2. Legacy students (who have NO enrollments in this academic year)
-        enrolled_this_year_all = list(StudentBatchEnrollment.objects.filter(
-            academic_year=academic_year
-        ).values_list('student_id', flat=True))
-        
-        legacy_qs = qs.exclude(id__in=enrolled_this_year_all)
-        
-        # We only want legacy students whose batch name matches a batch in the CURRENT academic year.
-        batches_qs = Batch.objects.filter(institute=self.request.institute, academic_year=academic_year)
+        # 2. Legacy / unenrolled students who just have a batch_code
+        legacy_qs = qs.exclude(id__in=enrolled_ids)
         if batch_id:
-            batches_qs = batches_qs.filter(id=batch_id)
+            mapped_codes = BatchPromotionMap.objects.filter(
+                institute=self.request.institute,
+                academic_year=academic_year,
+                batch_id=batch_id
+            ).values_list('batch_code', flat=True)
+            legacy_qs = legacy_qs.filter(batch_code__in=mapped_codes)
             
-        valid_batch_names = batches_qs.values_list('name', flat=True)
-        legacy_qs = legacy_qs.filter(batch__in=valid_batch_names)
-        
         legacy_ids = list(legacy_qs.values_list('id', flat=True))
         
         # Combine both valid lists
-        valid_student_ids = set(enrolled_this_year + legacy_ids)
+        valid_student_ids = set(enrolled_ids + legacy_ids)
         qs = qs.filter(id__in=valid_student_ids)
             
         from django.db.models import OuterRef, Subquery
         current_enrollment_batch = StudentBatchEnrollment.objects.filter(
             student=OuterRef('pk'),
-            academic_year=academic_year
+            academic_year=academic_year,
+            status='active'
         ).order_by('-enrolled_at').values('batch__name')[:1]
         
         qs = qs.annotate(
@@ -74,6 +74,10 @@ class StudentViewSet(viewsets.ModelViewSet):
         elif student_status == 'inactive':
             qs = qs.filter(is_active=False)
             
+        batch_code_param = self.request.query_params.get('batch_code')
+        if batch_code_param:
+            qs = qs.filter(batch_code=batch_code_param)
+            
         return qs.order_by('name')
 
     def create(self, request, *args, **kwargs):
@@ -86,18 +90,29 @@ class StudentViewSet(viewsets.ModelViewSet):
             )
         response = super().create(request, *args, **kwargs)
         if response.status_code == status.HTTP_201_CREATED:
-            from apps.academics.models import Batch
-            batch_name = request.data.get('batch')
+            from apps.promotion.models import BatchPromotionMap
+            student = Student.objects.get(id=response.data['id'])
+            batch_code = student.batch_code
             academic_year = getattr(request, 'academic_year', 2026)
-            if batch_name:
-                batch = Batch.objects.filter(institute=request.institute, name=batch_name).first()
-                if batch:
-                    student = Student.objects.get(id=response.data['id'])
+            
+            if batch_code and batch_code != 'DEFAULT':
+                # Try to find a mapped batch
+                mapping = BatchPromotionMap.objects.filter(
+                    institute=request.institute,
+                    batch_code=batch_code,
+                    academic_year=academic_year
+                ).first()
+                
+                batch_id = mapping.batch_id if mapping else request.data.get('batch') # fallback to passed batch id
+                if batch_id:
                     StudentBatchEnrollment.objects.get_or_create(
                         student=student,
-                        batch=batch,
+                        batch_id=batch_id,
                         academic_year=academic_year,
-                        defaults={'status': 'active'}
+                        defaults={
+                            'status': 'active',
+                            'batch_code': batch_code
+                        }
                     )
         return response
 
@@ -109,7 +124,7 @@ class StudentViewSet(viewsets.ModelViewSet):
 
         enrollment, created = StudentBatchEnrollment.objects.get_or_create(
             student=student, batch_id=batch_id, academic_year=academic_year,
-            defaults={'status': 'active'}
+            defaults={'status': 'active', 'batch_code': student.batch_code}
         )
         if not created:
             return Response({"error": "Already enrolled"}, status=status.HTTP_400_BAD_REQUEST)
