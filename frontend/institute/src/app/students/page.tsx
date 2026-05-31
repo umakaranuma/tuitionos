@@ -20,6 +20,7 @@ export default function StudentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [batchStatus, setBatchStatus] = useState("active");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
@@ -34,7 +35,7 @@ export default function StudentsPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      api.get(`/api/students/students?page=${page}&limit=${limit}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`).then(r => { 
+      api.get(`/api/students/students?page=${page}&limit=${limit}&batch_status=${batchStatus}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`).then(r => { 
         const d = r.data; 
         if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
         return Array.isArray(d) ? d : d.results || []; 
@@ -42,7 +43,7 @@ export default function StudentsPage() {
       api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; })
     ]).then(([s, b]) => { setStudents(s); setBatches(b); setLoading(false); }).catch(() => setLoading(false));
   };
-  useEffect(load, [page, limit, debouncedSearch]);
+  useEffect(load, [page, limit, debouncedSearch, batchStatus]);
 
   const searchBatches = (q: string) => {
     api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`).then(r => {
@@ -76,6 +77,15 @@ export default function StudentsPage() {
     <PageShell>
       <Topbar title="Students" subtitle={`${students.length} students`}
         right={<>
+          <select 
+            style={{ width: 160, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--bdr)", background: "var(--bg)", color: "var(--ink)", outline: "none" }}
+            value={batchStatus} 
+            onChange={e => { setBatchStatus(e.target.value); setPage(1); }}
+          >
+            <option value="active">Active Batches</option>
+            <option value="passout">Passout Batches</option>
+            <option value="all">All Batches</option>
+          </select>
           <input placeholder="Search..." style={{ width: 180 }} value={search} onChange={e => setSearch(e.target.value)} />
           <button className="btn btn-p btn-sm" onClick={() => { setForm({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true }); setModal("add"); }}>+ Add student</button>
         </>} />
