@@ -34,6 +34,9 @@ export default function InstituteDetailPage() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [payInvId, setPayInvId] = useState<number | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
+  
+  const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false);
+  const [manualInvoice, setManualInvoice] = useState({ month: "", amount: "", due_date: "" });
 
   useEffect(() => {
     Promise.all([
@@ -80,6 +83,29 @@ export default function InstituteDetailPage() {
       setPayInvId(null);
     } catch (e) {
       alert("Error marking invoice as paid");
+    }
+  };
+
+  const handleCreateInvoice = async () => {
+    if (!manualInvoice.month || !manualInvoice.amount || !manualInvoice.due_date) {
+      alert("Please fill all fields");
+      return;
+    }
+    try {
+      await api.post(`/api/admin/billing/invoices`, {
+        institute: id,
+        month: `${manualInvoice.month}-01`,
+        amount: manualInvoice.amount,
+        due_date: manualInvoice.due_date,
+        status: "pending"
+      });
+      // Refresh institute details
+      const res = await api.get(`/api/admin/institutes/${id}`);
+      setInst(res.data);
+      setShowAddInvoiceModal(false);
+      setManualInvoice({ month: "", amount: "", due_date: "" });
+    } catch (e) {
+      alert("Error creating manual invoice");
     }
   };
 
@@ -136,6 +162,41 @@ export default function InstituteDetailPage() {
           </div>
         )}
 
+        {/* Current Month Billing Status Alert */}
+        {status !== "pending" && status !== "trial" && (
+          <div style={{
+            background: inst.current_month_billing_status === 'paid' ? '#d4ede3' : (inst.current_month_billing_status === 'overdue' ? '#fceaea' : '#fef3d7'),
+            border: `1px solid ${inst.current_month_billing_status === 'paid' ? '#bce0d0' : (inst.current_month_billing_status === 'overdue' ? '#f5c5c5' : '#fde68a')}`,
+            borderRadius: 10,
+            padding: "12px 16px", marginBottom: 14, fontSize: 13,
+            color: inst.current_month_billing_status === 'paid' ? '#1a5040' : (inst.current_month_billing_status === 'overdue' ? '#b83030' : '#92400e'),
+            display: "flex", alignItems: "center", justifyContent: "space-between"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 500 }}>
+              {inst.current_month_billing_status === 'paid' && <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.3 4L6 11.3 2.7 8"/></svg>}
+              {inst.current_month_billing_status === 'overdue' && <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="8" r="7"/><path d="M8 5v4M8 11h.01"/></svg>}
+              {inst.current_month_billing_status === 'pending' && <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="8" cy="8" r="7"/><path d="M8 4v4l3 3"/></svg>}
+              {inst.current_month_billing_status === 'not_generated' && <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v10M3 8h10"/></svg>}
+              
+              <span>
+                {inst.current_month_billing_status === 'paid' && "Current month payment has been successfully recorded."}
+                {inst.current_month_billing_status === 'overdue' && "Current month payment is OVERDUE! Consider suspending access."}
+                {inst.current_month_billing_status === 'pending' && "Current month payment is pending. Monitor for manual slip."}
+                {inst.current_month_billing_status === 'not_generated' && "No invoice generated for the current month yet."}
+              </span>
+            </div>
+            {(inst.current_month_billing_status === 'overdue' || inst.current_month_billing_status === 'pending') && status === 'active' && (
+              <button 
+                className="btn btn-xs" 
+                style={{ background: "#fff", border: "1px solid currentColor", color: "inherit", fontWeight: 600 }}
+                onClick={() => { setSelectedStatus("suspended"); setShowStatusModal(true); }}
+              >
+                Suspend Access
+              </button>
+            )}
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
           <div className="card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -182,7 +243,10 @@ export default function InstituteDetailPage() {
           </div>
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 10 }}>Invoice history</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase" }}>Invoice history</div>
+          <button className="btn btn-s btn-xs" onClick={() => setShowAddInvoiceModal(true)}>+ Add Manual Invoice</button>
+        </div>
         {inst.recent_invoices?.length > 0 ? (
           <div className="tw">
             <table>
@@ -290,6 +354,42 @@ export default function InstituteDetailPage() {
           </div>
           <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
             Marking this as paid will automatically record a Platform Fee expense in the institute's Accounts ledger.
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showAddInvoiceModal} onClose={() => setShowAddInvoiceModal(false)} title="Create Manual Invoice" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowAddInvoiceModal(false)}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={handleCreateInvoice}>Create Invoice</button>
+        </>
+      }>
+        <div className="form-gap">
+          <div>
+            <label className="flbl">Billing Month</label>
+            <input 
+              type="month" 
+              value={manualInvoice.month} 
+              onChange={e => setManualInvoice({ ...manualInvoice, month: e.target.value })} 
+              autoFocus 
+            />
+          </div>
+          <div>
+            <label className="flbl">Amount (LKR)</label>
+            <input 
+              type="number" 
+              value={manualInvoice.amount} 
+              onChange={e => setManualInvoice({ ...manualInvoice, amount: e.target.value })} 
+              placeholder="e.g. 1500" 
+            />
+          </div>
+          <div>
+            <label className="flbl">Due Date</label>
+            <input 
+              type="date" 
+              value={manualInvoice.due_date} 
+              onChange={e => setManualInvoice({ ...manualInvoice, due_date: e.target.value })} 
+            />
           </div>
         </div>
       </Modal>

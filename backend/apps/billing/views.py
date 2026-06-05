@@ -11,6 +11,42 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     serializer_class = InvoiceSerializer
     permission_classes = [] # Allow all for now, restrict in production
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        month = self.request.query_params.get('month')
+        if month and month != "All Time":
+            qs = qs.filter(month=month)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        from django.db.models import Sum
+        total_mrr = queryset.aggregate(t=Sum('amount'))['t'] or 0
+        collected = queryset.filter(status='paid').aggregate(t=Sum('amount'))['t'] or 0
+        outstanding = float(total_mrr) - float(collected)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['stats'] = {
+                'total_mrr': float(total_mrr),
+                'collected': float(collected),
+                'outstanding': outstanding
+            }
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'stats': {
+                'total_mrr': float(total_mrr),
+                'collected': float(collected),
+                'outstanding': outstanding
+            }
+        })
+
     def perform_update(self, serializer):
         from django.utils import timezone
         old_status = self.get_object().status

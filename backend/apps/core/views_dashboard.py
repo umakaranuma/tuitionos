@@ -131,6 +131,12 @@ class AdminInstituteDetailView(APIView):
         batch_count = Batch.objects.filter(institute=inst, is_active=True).count()
         invoices = Invoice.objects.filter(institute=inst).order_by('-month')[:6]
 
+        from django.utils import timezone
+        today = timezone.now().date()
+        current_month = today.replace(day=1)
+        current_invoice = Invoice.objects.filter(institute=inst, month=current_month).first()
+        current_month_billing_status = current_invoice.status if current_invoice else "not_generated"
+
         return Response({
             'id': inst.id,
             'name': inst.name,
@@ -145,6 +151,7 @@ class AdminInstituteDetailView(APIView):
             'created_at': inst.created_at,
             'student_count': student_count,
             'batch_count': batch_count,
+            'current_month_billing_status': current_month_billing_status,
             'recent_invoices': [{
                 'id': inv.id,
                 'amount': float(inv.amount),
