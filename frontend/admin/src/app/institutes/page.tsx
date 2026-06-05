@@ -12,14 +12,23 @@ type Inst = {
   owner_mobile: string; is_active: boolean; created_at: string;
 };
 
-const planBadge = (p: string) =>
-  p === "premium" ? <span className="bdg b-prem">Premium</span> : <span className="bdg b-basic">Basic</span>;
+const planBadge = (p: string) => {
+  const map: Record<string, JSX.Element> = {
+    institute_pro: <span className="bdg b-prem">Pro</span>,
+    institute: <span className="bdg b-basic">Institute</span>,
+    solo: <span className="bdg" style={{ background: "#f1f5f9", color: "#475569" }}>Solo</span>
+  };
+  return map[p] || <span className="bdg b-basic">{p}</span>;
+};
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = {
     active: <span className="bdg b-paid">Active</span>,
     trial: <span className="bdg b-trial">Trial</span>,
+    pending: <span className="bdg b-due">Pending</span>,
+    paused: <span className="bdg" style={{ background: "#fef3c7", color: "#b45309" }}>Paused</span>,
     suspended: <span className="bdg b-over">Suspended</span>,
+    deactivated: <span className="bdg" style={{ background: "#f1f5f9", color: "#475569" }}>Deactivated</span>,
   };
   return map[s] || <span>{s}</span>;
 };
@@ -29,7 +38,7 @@ const initials = (n: string) =>
 
 const P: [string, string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"]];
 
-type Filter = "all" | "premium" | "basic" | "overdue";
+type Filter = "all" | "active" | "pending" | "suspended";
 
 export default function InstitutesPage() {
   const router = useRouter();
@@ -39,7 +48,7 @@ export default function InstitutesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/api/institutes").then((r) => {
+    api.get("/api/institutes/").then((r) => {
       const d = r.data;
       setAllInsts(Array.isArray(d) ? d : d.results || []);
       setLoading(false);
@@ -50,28 +59,28 @@ export default function InstitutesPage() {
     const matchSearch = i.name.toLowerCase().includes(search.toLowerCase()) ||
       (i.owner_name || "").toLowerCase().includes(search.toLowerCase());
     if (!matchSearch) return false;
-    if (filter === "premium") return i.plan === "premium";
-    if (filter === "basic") return i.plan === "basic";
-    if (filter === "overdue") return i.status === "suspended";
+    if (filter === "active") return i.status === "active";
+    if (filter === "pending") return i.status === "pending";
+    if (filter === "suspended") return i.status === "suspended" || i.status === "paused" || i.status === "deactivated";
     return true;
   });
 
-  const premiumCount = allInsts.filter(i => i.plan === "premium").length;
-  const basicCount = allInsts.filter(i => i.plan === "basic").length;
-  const trialCount = allInsts.filter(i => i.status === "trial").length;
+  const activeCount = allInsts.filter(i => i.status === "active").length;
+  const pendingCount = allInsts.filter(i => i.status === "pending").length;
+  const inactiveCount = allInsts.filter(i => ["suspended", "paused", "deactivated"].includes(i.status)).length;
 
   const tabs: { key: Filter; label: string }[] = [
     { key: "all", label: `All (${allInsts.length})` },
-    { key: "premium", label: `Premium (${premiumCount})` },
-    { key: "basic", label: `Basic (${basicCount})` },
-    { key: "overdue", label: `Trial (${trialCount})` },
+    { key: "active", label: `Active (${activeCount})` },
+    { key: "pending", label: `Pending (${pendingCount})` },
+    { key: "suspended", label: `Inactive (${inactiveCount})` },
   ];
 
   return (
     <PageShell>
       <Topbar
         title="All institutes"
-        subtitle={`${allInsts.length} registered · ${trialCount} on trial`}
+        subtitle={`${allInsts.length} registered · ${pendingCount} pending payment`}
         right={
           <>
             <input

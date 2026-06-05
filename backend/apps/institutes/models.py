@@ -6,10 +6,20 @@ class Institute(models.Model):
     PLAN_INSTITUTE = 'institute'
     PLAN_INSTITUTE_PRO = 'institute_pro'
     PLAN_CHOICES = [(PLAN_SOLO, 'Solo'), (PLAN_INSTITUTE, 'Institute'), (PLAN_INSTITUTE_PRO, 'Institute Pro')]
+    STATUS_PENDING = 'pending'
     STATUS_TRIAL = 'trial'
     STATUS_ACTIVE = 'active'
+    STATUS_PAUSED = 'paused'
     STATUS_SUSPENDED = 'suspended'
-    STATUS_CHOICES = [(STATUS_TRIAL, 'Trial'), (STATUS_ACTIVE, 'Active'), (STATUS_SUSPENDED, 'Suspended')]
+    STATUS_DEACTIVATED = 'deactivated'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_TRIAL, 'Trial'), 
+        (STATUS_ACTIVE, 'Active'), 
+        (STATUS_PAUSED, 'Paused'),
+        (STATUS_SUSPENDED, 'Suspended'),
+        (STATUS_DEACTIVATED, 'Deactivated')
+    ]
 
     name = models.CharField(max_length=200)
     subdomain = models.SlugField(max_length=63, unique=True)
@@ -17,7 +27,7 @@ class Institute(models.Model):
     owner_email = models.EmailField()
     owner_mobile = models.CharField(max_length=20)
     plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default=PLAN_INSTITUTE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_TRIAL)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     is_active = models.BooleanField(default=True)
     trial_ends_at = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

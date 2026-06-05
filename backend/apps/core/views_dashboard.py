@@ -161,8 +161,74 @@ class AdminInstituteDetailView(APIView):
         except Institute.DoesNotExist:
             return Response({"error": "Institute not found"}, status=404)
 
+        old_status = inst.status
+
         for field in ['plan', 'status', 'is_active']:
             if field in request.data:
                 setattr(inst, field, request.data[field])
         inst.save()
+
+        if old_status == Institute.STATUS_PENDING and inst.status == Institute.STATUS_ACTIVE:
+            # Dispatch welcome email
+            admin_user = inst.users.filter(role='admin').first()
+            if admin_user:
+                user = admin_user.user
+                from django.contrib.auth.tokens import default_token_generator
+                from django.utils.http import urlsafe_base64_encode
+                from django.utils.encoding import force_bytes
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                
+                reset_url = f"http://localhost:3001/reset-password?uid={uid}&token={token}"
+                
+                send_mail(
+                    subject=f"Welcome to TuitionOS - {inst.name}",
+                    message=f"Hi {inst.owner_name},\n\nYour TuitionOS institute portal has been activated!\n\nTo get started, please set your password and log in by clicking the secure link below:\n\n{reset_url}\n\nWelcome aboard!\n- The TuitionOS Team",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[inst.owner_email],
+                    fail_silently=False,
+                )
+
         return Response({"message": "Institute updated successfully"})
+
+    def post(self, request, pk, action=None):
+        # We handle activate using post from frontend API if frontend uses post
+        from apps.institutes.models import Institute
+        if action == "activate":
+            try:
+                inst = Institute.objects.get(pk=pk)
+                if inst.status == Institute.STATUS_ACTIVE:
+                    return Response({"error": "Already active"}, status=400)
+                
+                inst.status = Institute.STATUS_ACTIVE
+                inst.is_active = True
+                inst.save()
+                
+                admin_user = inst.users.filter(role='admin').first()
+                if admin_user:
+                    user = admin_user.user
+                    from django.contrib.auth.tokens import default_token_generator
+                    from django.utils.http import urlsafe_base64_encode
+                    from django.utils.encoding import force_bytes
+                    from django.core.mail import send_mail
+                    from django.conf import settings
+                    
+                    uid = urlsafe_base64_encode(force_bytes(user.pk))
+                    token = default_token_generator.make_token(user)
+                    
+                    reset_url = f"http://localhost:3001/reset-password?uid={uid}&token={token}"
+                    
+                    send_mail(
+                        subject=f"Welcome to TuitionOS - {inst.name}",
+                        message=f"Hi {inst.owner_name},\n\nYour TuitionOS institute portal has been activated!\n\nTo get started, please set your password and log in by clicking the secure link below:\n\n{reset_url}\n\nWelcome aboard!\n- The TuitionOS Team",
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[inst.owner_email],
+                        fail_silently=False,
+                    )
+                return Response({"message": "Institute activated successfully"})
+            except Institute.DoesNotExist:
+                return Response({"error": "Institute not found"}, status=404)
+        return Response({"error": "Action not supported"}, status=400)

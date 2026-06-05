@@ -5,3 +5,10 @@ class InstituteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Institute
         fields = '__all__'
+
+from .models import PlatformSettings
+
+class PlatformSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlatformSettings
+        fields = '__all__'

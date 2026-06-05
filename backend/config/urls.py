@@ -11,12 +11,13 @@ urlpatterns = [
         path('billing/', include('apps.billing.urls')),
         path('settings', include('apps.core.urls_settings')),
         path('institutes/<int:pk>', AdminInstituteDetailView.as_view(), name='admin-institute-detail'),
+        path('institutes/<int:pk>/<str:action>', AdminInstituteDetailView.as_view(), name='admin-institute-action'),
     ])),
 
     # ── Institute endpoints (tenant-scoped) ──
     path('api/', include([
         path('dashboard', InstituteDashboardView.as_view(), name='institute-dashboard'),
-        path('institutes', include('apps.institutes.urls')),
+        path('institutes/', include('apps.institutes.urls')),
         path('academics/', include('apps.academics.urls')),
         path('students/', include('apps.students.urls')),
         path('attendance/', include('apps.attendance.urls')),

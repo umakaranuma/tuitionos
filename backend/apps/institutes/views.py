@@ -5,8 +5,13 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 from django.core.mail import send_mail
 from django.conf import settings
-from .models import Institute, InstituteUser
-from .serializers import InstituteSerializer
+from .models import Institute, InstituteUser, PlatformSettings
+from .serializers import InstituteSerializer, PlatformSettingsSerializer
+
+class PlatformSettingsViewSet(viewsets.ModelViewSet):
+    queryset = PlatformSettings.objects.all()
+    serializer_class = PlatformSettingsSerializer
+    permission_classes = [] # Restrict to Admin in production
 
 class InstituteViewSet(viewsets.ModelViewSet):
     queryset = Institute.objects.all()
@@ -40,7 +45,7 @@ class InstituteViewSet(viewsets.ModelViewSet):
         if User.objects.filter(email=owner_email).exists():
             return Response({"error": "User with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create Institute
+        # Create Institute (always pending initially)
         institute = Institute.objects.create(
             name=name,
             subdomain=subdomain,
@@ -48,7 +53,7 @@ class InstituteViewSet(viewsets.ModelViewSet):
             owner_email=owner_email,
             owner_mobile=owner_mobile,
             plan=plan,
-            status=Institute.STATUS_TRIAL if plan == 'trial' else Institute.STATUS_ACTIVE
+            status=Institute.STATUS_PENDING
         )
 
         # Create un-usable password User
@@ -68,10 +73,59 @@ class InstituteViewSet(viewsets.ModelViewSet):
             role='admin'
         )
 
+        # Optionally create an initial invoice for the current month
+        from django.utils import timezone
+        from apps.billing.models import Invoice
+        from apps.institutes.models import PlatformSettings
+        import datetime
+
+        settings_obj = PlatformSettings.objects.first()
+        if not settings_obj:
+            settings_obj = PlatformSettings.objects.create()
+
+        if plan == 'solo': amount = settings_obj.monthly_fee_solo
+        elif plan == 'institute': amount = settings_obj.monthly_fee_institute
+        elif plan == 'institute_pro': amount = settings_obj.monthly_fee_institute_pro
+        else: amount = 3000
+
+        Invoice.objects.create(
+            institute=institute,
+            amount=amount,
+            month=timezone.now().date().replace(day=1),
+            status=Invoice.STATUS_PENDING,
+            due_date=timezone.now().date() + datetime.timedelta(days=7)
+        )
+
+        serializer = self.get_serializer(institute)
+        return Response({
+            "message": "Institute created successfully (Pending Payment).",
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+    from rest_framework.decorators import action
+
+    @action(detail=True, methods=['post'], permission_classes=[])
+    def activate(self, request, pk=None):
+        institute = self.get_object()
+        if institute.status == Institute.STATUS_ACTIVE:
+            return Response({"error": "Already active"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        institute.status = Institute.STATUS_ACTIVE
+        institute.save()
+
+        # Get owner user
+        admin_user = institute.users.filter(role='admin').first()
+        if not admin_user:
+            return Response({"error": "No admin user found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = admin_user.user
+
         # Generate Password Reset Link
         from django.contrib.auth.tokens import default_token_generator
         from django.utils.http import urlsafe_base64_encode
         from django.utils.encoding import force_bytes
+        from django.core.mail import send_mail
+        from django.conf import settings
         
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
@@ -81,15 +135,14 @@ class InstituteViewSet(viewsets.ModelViewSet):
         # Send Welcome Email
         send_mail(
             subject=f"Welcome to TuitionOS - {institute.name}",
-            message=f"Hi {owner_name},\n\nYour TuitionOS institute portal has been created!\n\nTo get started, please set your password and log in by clicking the secure link below:\n\n{reset_url}\n\nWelcome aboard!\n- The TuitionOS Team",
+            message=f"Hi {institute.owner_name},\n\nYour TuitionOS institute portal has been activated!\n\nTo get started, please set your password and log in by clicking the secure link below:\n\n{reset_url}\n\nWelcome aboard!\n- The TuitionOS Team",
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[owner_email],
+            recipient_list=[institute.owner_email],
             fail_silently=False,
         )
 
-        serializer = self.get_serializer(institute)
         return Response({
-            "message": "Institute created successfully and welcome email sent.",
-            "data": serializer.data,
-            "reset_link_debug": reset_url # For debugging only
-        }, status=status.HTTP_201_CREATED)
+            "message": "Institute activated and welcome email sent.",
+            "status": "active"
+        })
+

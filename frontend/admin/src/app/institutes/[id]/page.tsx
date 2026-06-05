@@ -9,9 +9,12 @@ import { api } from "@/lib/api";
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
   active:    { bg: "#d4ede3", color: "#1a5040", label: "Active" },
   trial:     { bg: "#ede8fc", color: "#6b3ea8", label: "Trial" },
+  pending:   { bg: "#fef3d7", color: "#c07b1a", label: "Pending Payment" },
   due:       { bg: "#fef3d7", color: "#c07b1a", label: "Payment Due" },
   overdue:   { bg: "#fceaea", color: "#b83030", label: "Overdue" },
+  paused:    { bg: "#fef3c7", color: "#b45309", label: "Paused" },
   suspended: { bg: "#fceaea", color: "#b83030", label: "Suspended" },
+  deactivated:{ bg: "#f1f5f9", color: "#475569", label: "Deactivated" },
   cancelled: { bg: "#e5e5e5", color: "#78716c", label: "Cancelled" },
 };
 
@@ -22,29 +25,36 @@ export default function InstituteDetailPage() {
 
   const [inst, setInst] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showSuspend, setShowSuspend] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPlan, setShowPlan] = useState(false);
   const [plan, setPlan] = useState("");
   const [status, setStatus] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    api.get(`/api/admin/institutes/${id}`).then((r) => {
-      setInst(r.data);
-      setPlan(r.data.plan);
-      setStatus(r.data.status);
+    Promise.all([
+      api.get(`/api/admin/institutes/${id}`),
+      api.get(`/api/institutes/settings`)
+    ]).then(([rInst, rSet]) => {
+      setInst(rInst.data);
+      setPlan(rInst.data.plan);
+      setStatus(rInst.data.status);
+      const data = Array.isArray(rSet.data) ? rSet.data : rSet.data.results;
+      if (data && data.length > 0) setSettings(data[0]);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
 
-  const handleSuspend = async () => {
-    await api.patch(`/api/admin/institutes/${id}`, { status: "suspended", is_active: false });
-    setStatus("suspended");
-    setShowSuspend(false);
-  };
-
-  const handleReactivate = async () => {
-    await api.patch(`/api/admin/institutes/${id}`, { status: "active", is_active: true });
-    setStatus("active");
+  const handleStatusChange = async () => {
+    if (selectedStatus === "active" && status === "pending") {
+      await api.post(`/api/admin/institutes/${id}/activate`);
+    } else {
+      const is_active = selectedStatus === "active" || selectedStatus === "trial";
+      await api.patch(`/api/admin/institutes/${id}`, { status: selectedStatus, is_active });
+    }
+    setStatus(selectedStatus);
+    setShowStatusModal(false);
   };
 
   const handlePlanChange = async () => {
@@ -54,6 +64,15 @@ export default function InstituteDetailPage() {
 
   if (loading) return <PageShell><div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>Loading...</div></PageShell>;
   if (!inst) return <PageShell><div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>Institute not found</div></PageShell>;
+
+  const getPlanPrice = (p: string) => {
+    if (!settings) return "N/A";
+    if (p === "solo") return `LKR ${Number(settings.monthly_fee_solo).toLocaleString()}/mo`;
+    if (p === "institute") return `LKR ${Number(settings.monthly_fee_institute).toLocaleString()}/mo`;
+    if (p === "institute_pro") return `LKR ${Number(settings.monthly_fee_institute_pro).toLocaleString()}/mo`;
+    return "N/A";
+  };
+
 
   const st = STATUS_STYLES[status] || STATUS_STYLES.active;
 
@@ -66,10 +85,10 @@ export default function InstituteDetailPage() {
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-g btn-sm" onClick={() => router.back()}>← Back</button>
             <button className="btn btn-s btn-sm" onClick={() => setShowPlan(true)}>Change plan</button>
-            {status !== "suspended" ? (
-              <button className="btn btn-d btn-sm" onClick={() => setShowSuspend(true)}>Suspend</button>
+            {status === "pending" ? (
+              <button className="btn btn-ok btn-sm" onClick={() => { setSelectedStatus("active"); setShowStatusModal(true); }}>Activate</button>
             ) : (
-              <button className="btn btn-ok btn-sm" onClick={handleReactivate}>Reactivate</button>
+              <button className="btn btn-s btn-sm" onClick={() => { setSelectedStatus(status); setShowStatusModal(true); }}>Change Status</button>
             )}
           </div>
         }
@@ -83,6 +102,16 @@ export default function InstituteDetailPage() {
           }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="7" cy="7" r="6"/><path d="M7 4.5v3M7 9.5h.01"/></svg>
             This institute is suspended. Login is blocked, but all data is preserved.
+          </div>
+        )}
+        {status === "pending" && (
+          <div style={{
+            background: "#fef3d7", border: "1px solid #fde68a", borderRadius: 10,
+            padding: "10px 14px", marginBottom: 14, fontSize: 12, color: "#92400e",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="7" cy="7" r="6"/><path d="M7 7v2.5M7 4.5h.01"/></svg>
+            Awaiting initial payment. Click Activate once payment is confirmed.
           </div>
         )}
 
@@ -101,7 +130,7 @@ export default function InstituteDetailPage() {
                 { label: "Admin", val: inst.owner_name },
                 { label: "Email", val: inst.owner_email },
                 { label: "Mobile", val: inst.owner_mobile },
-                { label: "Plan", val: plan === "institute_pro" ? "Institute Pro (LKR 6,000/mo)" : (plan === "solo" ? "Solo (LKR 1,500/mo)" : "Institute (LKR 3,000/mo)") },
+                { label: "Plan", val: plan === "institute_pro" ? `Institute Pro (${getPlanPrice("institute_pro")})` : (plan === "solo" ? `Solo (${getPlanPrice("solo")})` : `Institute (${getPlanPrice("institute")})`) },
                 { label: "Created", val: new Date(inst.created_at).toLocaleDateString() },
                 { label: "Trial ends", val: inst.trial_ends_at || "N/A" },
               ].map(row => (
@@ -162,20 +191,28 @@ export default function InstituteDetailPage() {
         )}
       </div>
 
-      <Modal open={showSuspend} onClose={() => setShowSuspend(false)} title="Suspend institute" footer={
+      <Modal open={showStatusModal} onClose={() => setShowStatusModal(false)} title="Change account status" footer={
         <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowSuspend(false)}>Cancel</button>
-          <button className="btn btn-d btn-sm" onClick={handleSuspend}>Confirm suspend</button>
+          <button className="btn btn-s btn-sm" onClick={() => setShowStatusModal(false)}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={handleStatusChange}>Update status</button>
         </>
       }>
-        <div style={{ fontSize: 13, color: "var(--ink2)", lineHeight: 1.6 }}>
-          <p>Suspending <strong>{inst.name}</strong> will:</p>
-          <ul style={{ margin: "10px 0", paddingLeft: 18 }}>
-            <li>Block all admin and parent logins</li>
-            <li>Stop all scheduled notifications</li>
-            <li>Preserve all data (students, fees, attendance)</li>
-          </ul>
-          <p>The institute can be reactivated at any time.</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {([
+            { key: "active", label: "Active", desc: "Institute is fully active and accessible" },
+            { key: "paused", label: "Paused", desc: "Temporarily paused, billing stops, no login" },
+            { key: "suspended", label: "Suspended", desc: "Blocked due to non-payment or violations" },
+            { key: "deactivated", label: "Deactivated", desc: "Permanently deactivated but data retained" },
+          ] as const).map(s => (
+            <div key={s.key} onClick={() => setSelectedStatus(s.key)} style={{
+              border: `2px solid ${selectedStatus === s.key ? "var(--tc)" : "var(--ln)"}`,
+              background: selectedStatus === s.key ? "var(--cr)" : "#fff",
+              borderRadius: 12, padding: "12px 14px", cursor: "pointer"
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", marginBottom: 2 }}>{s.label}</div>
+              <div style={{ fontSize: 12, color: "var(--ink3)" }}>{s.desc}</div>
+            </div>
+          ))}
         </div>
       </Modal>
 
@@ -187,9 +224,9 @@ export default function InstituteDetailPage() {
       }>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {([
-            { key: "solo", label: "Solo", price: "LKR 1,500/mo", desc: "Max 75 students · 3 batches · Basic fee tracking", color: "#475569" },
-            { key: "institute", label: "Institute", price: "LKR 3,000/mo", desc: "Max 200 students · 10 batches · Attendance + fees", color: "#2a5fa8" },
-            { key: "institute_pro", label: "Institute Pro", price: "LKR 6,000/mo", desc: "Unlimited · Notifications · Timetable · Promotion", color: "#9b5e35" },
+            { key: "solo", label: "Solo", price: getPlanPrice("solo"), desc: "Max 75 students · 3 batches · Basic fee tracking", color: "#475569" },
+            { key: "institute", label: "Institute", price: getPlanPrice("institute"), desc: "Max 200 students · 10 batches · Attendance + fees", color: "#2a5fa8" },
+            { key: "institute_pro", label: "Institute Pro", price: getPlanPrice("institute_pro"), desc: "Unlimited · Notifications · Timetable · Promotion", color: "#9b5e35" },
           ] as const).map(p => (
             <div key={p.key} onClick={() => setPlan(p.key)} style={{
               border: `2px solid ${plan === p.key ? p.color : "var(--ln)"}`,
