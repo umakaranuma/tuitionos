@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 
 type Invoice = {
@@ -23,6 +24,9 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payInvId, setPayInvId] = useState<number | null>(null);
+  const [referenceNote, setReferenceNote] = useState("");
 
   const fetchInvoices = () => {
     setLoading(true);
@@ -50,10 +54,17 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleMarkPaid = async (id: number) => {
+  const handleMarkPaid = async () => {
+    if (!payInvId) return;
     try {
-      await api.patch(`/api/admin/billing/invoices/${id}`, { status: "paid" });
+      await api.patch(`/api/admin/billing/invoices/${payInvId}`, { 
+        status: "paid",
+        reference_note: referenceNote
+      });
       fetchInvoices();
+      setShowPayModal(false);
+      setReferenceNote("");
+      setPayInvId(null);
     } catch (e) {
       alert("Error marking paid");
     }
@@ -115,10 +126,15 @@ export default function InvoicesPage() {
                     <td className="mono">{Number(inv.amount).toLocaleString()}</td>
                     <td className="mono">{new Date(inv.month).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</td>
                     <td className="mono" style={{ color: "var(--ink3)" }}>{inv.due_date}</td>
-                    <td>{statusBadge(inv.status)}</td>
+                    <td>
+                      {statusBadge(inv.status)}
+                      {(inv as any).reference_note && (
+                        <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {(inv as any).reference_note}</div>
+                      )}
+                    </td>
                     <td>
                       <div style={{ display: "flex", gap: 4 }}>
-                        {inv.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => handleMarkPaid(inv.id)}>Mark paid</button>}
+                        {inv.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setShowPayModal(true); }}>Mark paid</button>}
                         <button className="btn btn-xs btn-s">PDF</button>
                       </div>
                     </td>
@@ -132,6 +148,28 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+
+      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Confirm Payment" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)}>Cancel</button>
+          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid}>Confirm & Mark Paid</button>
+        </>
+      }>
+        <div className="form-gap">
+          <div>
+            <label className="flbl">Payslip Reference / Note (Optional)</label>
+            <input 
+              value={referenceNote} 
+              onChange={e => setReferenceNote(e.target.value)} 
+              placeholder="e.g. WhatsApp Slip #123456" 
+              autoFocus 
+            />
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
+            Marking this as paid will automatically record a Platform Fee expense in the institute's Accounts ledger.
+          </div>
+        </div>
+      </Modal>
     </PageShell>
   );
 }

@@ -11,6 +11,30 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     serializer_class = InvoiceSerializer
     permission_classes = [] # Allow all for now, restrict in production
 
+    def perform_update(self, serializer):
+        from django.utils import timezone
+        old_status = self.get_object().status
+        instance = serializer.save()
+        
+        if old_status != Invoice.STATUS_PAID and instance.status == Invoice.STATUS_PAID:
+            instance.paid_at = timezone.now()
+            instance.save(update_fields=['paid_at'])
+            
+            # Create the transaction for the institute
+            label = f'Platform Subscription Fee - {instance.month.strftime("%B %Y")}'
+            if instance.reference_note:
+                label += f' (Ref: {instance.reference_note})'
+                
+            InstituteTransaction.objects.create(
+                institute=instance.institute,
+                month=instance.month.strftime("%B %Y"), # e.g. "June 2026"
+                transaction_type='expense',
+                category='platform_fee',
+                label=label,
+                amount=instance.amount,
+                date=timezone.now().date()
+            )
+
     from rest_framework.decorators import action
     from rest_framework.response import Response
     from django.utils import timezone
@@ -62,8 +86,34 @@ class InstituteTransactionViewSet(viewsets.ModelViewSet):
         qs = InstituteTransaction.objects.filter(institute=self.request.institute)
         month = self.request.query_params.get('month')
         tx_type = self.request.query_params.get('type')
-        if month:
+        if month and month != "All Time":
             qs = qs.filter(month=month)
         if tx_type:
             qs = qs.filter(transaction_type=tx_type)
         return qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        from django.db.models import Sum
+        income = queryset.filter(transaction_type='income').aggregate(t=Sum('amount'))['t'] or 0
+        expense = queryset.filter(transaction_type='expense').aggregate(t=Sum('amount'))['t'] or 0
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response = self.get_paginated_response(serializer.data)
+            response.data['stats'] = {
+                'total_income': float(income),
+                'total_expense': float(expense)
+            }
+            return response
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'results': serializer.data,
+            'stats': {
+                'total_income': float(income),
+                'total_expense': float(expense)
+            }
+        })

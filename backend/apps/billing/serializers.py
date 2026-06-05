@@ -8,7 +8,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
         model = Invoice
         fields = [
             'id', 'institute', 'institute_name', 'amount', 'month',
-            'status', 'paid_at', 'due_date', 'created_at',
+            'status', 'paid_at', 'due_date', 'reference_note', 'created_at',
         ]
 
 class InstituteTransactionSerializer(serializers.ModelSerializer):

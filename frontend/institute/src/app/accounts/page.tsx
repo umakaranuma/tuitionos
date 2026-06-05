@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 
 type Tx = { id: number; month: string; transaction_type: string; category: string; label: string; amount: string; date: string };
 
-const catLabels: Record<string, string> = { staff_salary: "Staff Salary", utility_bill: "Utility Bill", rent: "Rent", supplies: "Supplies", sponsorship: "Sponsorship", other: "Other" };
+const catLabels: Record<string, string> = { staff_salary: "Staff Salary", utility_bill: "Utility Bill", rent: "Rent", supplies: "Supplies", sponsorship: "Sponsorship", platform_fee: "Platform Fee", other: "Other" };
 
 export default function AccountsPage() {
   const [txns, setTxns] = useState<Tx[]>([]);
@@ -17,19 +17,22 @@ export default function AccountsPage() {
   const [modal, setModal] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
+  const [monthFilter, setMonthFilter] = useState("All Time");
+  const [stats, setStats] = useState({ income: 0, expense: 0 });
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [form, setForm] = useState({ month: "May 2026", transaction_type: "expense", category: "utility_bill", label: "", amount: "", date: new Date().toISOString().split("T")[0] });
 
   const load = () => {
     setLoading(true);
-    api.get(`/api/billing/transactions?page=${page}&limit=${limit}`).then(r => {
+    api.get(`/api/billing/transactions?page=${page}&limit=${limit}&month=${monthFilter}`).then(r => {
       const d = r.data; 
       if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
       setTxns(Array.isArray(d) ? d : d.results || []); 
+      if (d.stats) setStats({ income: d.stats.total_income, expense: d.stats.total_expense });
       setLoading(false);
     }).catch(() => setLoading(false));
   };
-  useEffect(load, [page, limit]);
+  useEffect(load, [page, limit, monthFilter]);
 
   const save = async () => {
     if (!form.label.trim() || !form.amount) return;
@@ -37,18 +40,33 @@ export default function AccountsPage() {
     setModal(false); load();
   };
 
-  const income = txns.filter(t => t.transaction_type === "income").reduce((s, t) => s + Number(t.amount), 0);
-  const expense = txns.filter(t => t.transaction_type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const income = stats.income;
+  const expense = stats.expense;
 
   return (
     <PageShell>
-      <Topbar title="Accounts" subtitle={`${txns.length} transactions`}
-        right={<button className="btn btn-p btn-sm" onClick={() => setModal(true)}>+ Add transaction</button>} />
+      <Topbar title="Accounts" subtitle={`${meta.total_count || txns.length} transactions`}
+        right={
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <select 
+              value={monthFilter} 
+              onChange={e => { setMonthFilter(e.target.value); setPage(1); }}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+            >
+              <option value="All Time">All Time</option>
+              {["January 2026", "February 2026", "March 2026", "April 2026", "May 2026", "June 2026", "July 2026", "August 2026"].map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <button className="btn btn-p btn-sm" onClick={() => setModal(true)}>+ Add transaction</button>
+          </div>
+        } 
+      />
       <div className="pb fi">
         <div className="g4" style={{ marginBottom: 18 }}>
-          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}><div className="kpi-lbl">Income</div><div className="kpi-val">{Math.round(income / 1000)}K</div><div className="kpi-tr up">total</div></div>
-          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}><div className="kpi-lbl">Expenses</div><div className="kpi-val">{Math.round(expense / 1000)}K</div><div className="kpi-tr dn">total</div></div>
-          <div className="kpi" style={{ "--kc": "var(--jd)" } as any}><div className="kpi-lbl">Net</div><div className="kpi-val">{Math.round((income - expense) / 1000)}K</div><div className="kpi-tr nt">{income >= expense ? "Positive" : "Negative"}</div></div>
+          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}><div className="kpi-lbl">Income</div><div className="kpi-val">LKR {income.toLocaleString()}</div><div className="kpi-tr up">total</div></div>
+          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}><div className="kpi-lbl">Expenses</div><div className="kpi-val">LKR {expense.toLocaleString()}</div><div className="kpi-tr dn">total</div></div>
+          <div className="kpi" style={{ "--kc": "var(--jd)" } as any}><div className="kpi-lbl">Net</div><div className="kpi-val">LKR {(income - expense).toLocaleString()}</div><div className="kpi-tr nt">{income >= expense ? "Positive" : "Negative"}</div></div>
         </div>
 
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (

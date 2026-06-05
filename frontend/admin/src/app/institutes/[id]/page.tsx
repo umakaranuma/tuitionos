@@ -31,6 +31,9 @@ export default function InstituteDetailPage() {
   const [status, setStatus] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [settings, setSettings] = useState<any>(null);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payInvId, setPayInvId] = useState<number | null>(null);
+  const [referenceNote, setReferenceNote] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -60,6 +63,24 @@ export default function InstituteDetailPage() {
   const handlePlanChange = async () => {
     await api.patch(`/api/admin/institutes/${id}`, { plan });
     setShowPlan(false);
+  };
+
+  const handleMarkPaid = async () => {
+    if (!payInvId) return;
+    try {
+      await api.patch(`/api/admin/billing/invoices/${payInvId}`, { 
+        status: "paid",
+        reference_note: referenceNote 
+      });
+      // Refresh institute details to get updated invoices
+      const res = await api.get(`/api/admin/institutes/${id}`);
+      setInst(res.data);
+      setShowPayModal(false);
+      setReferenceNote("");
+      setPayInvId(null);
+    } catch (e) {
+      alert("Error marking invoice as paid");
+    }
   };
 
   if (loading) return <PageShell><div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>Loading...</div></PageShell>;
@@ -165,7 +186,7 @@ export default function InstituteDetailPage() {
         {inst.recent_invoices?.length > 0 ? (
           <div className="tw">
             <table>
-              <thead><tr><th>Month</th><th>Amount (LKR)</th><th>Status</th><th>Due date</th></tr></thead>
+              <thead><tr><th>Month</th><th>Amount (LKR)</th><th>Status</th><th>Due date</th><th>Actions</th></tr></thead>
               <tbody>
                 {inst.recent_invoices.map((inv: any, i: number) => (
                   <tr key={i}>
@@ -179,8 +200,16 @@ export default function InstituteDetailPage() {
                       }}>
                         {inv.status === "paid" ? "Paid" : "Pending"}
                       </span>
+                      {inv.reference_note && (
+                        <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {inv.reference_note}</div>
+                      )}
                     </td>
                     <td className="mono" style={{ color: "var(--ink3)" }}>{inv.due_date}</td>
+                    <td>
+                      {inv.status !== "paid" && (
+                        <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setShowPayModal(true); }}>Mark Paid</button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -240,6 +269,28 @@ export default function InstituteDetailPage() {
               <div style={{ fontSize: 11.5, color: "var(--ink3)" }}>{p.desc}</div>
             </div>
           ))}
+        </div>
+      </Modal>
+
+      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Confirm Payment" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)}>Cancel</button>
+          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid}>Confirm & Mark Paid</button>
+        </>
+      }>
+        <div className="form-gap">
+          <div>
+            <label className="flbl">Payslip Reference / Note (Optional)</label>
+            <input 
+              value={referenceNote} 
+              onChange={e => setReferenceNote(e.target.value)} 
+              placeholder="e.g. WhatsApp Slip #123456" 
+              autoFocus 
+            />
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
+            Marking this as paid will automatically record a Platform Fee expense in the institute's Accounts ledger.
+          </div>
         </div>
       </Modal>
     </PageShell>

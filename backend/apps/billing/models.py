@@ -13,6 +13,7 @@ class Invoice(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     paid_at = models.DateTimeField(null=True, blank=True)
     due_date = models.DateField()
+    reference_note = models.CharField(max_length=200, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -29,6 +30,7 @@ class InstituteTransaction(models.Model):
         ('rent', 'Rent'),
         ('maintenance', 'Maintenance'),
         ('sponsorship', 'Sponsorship'),
+        ('platform_fee', 'Platform Fee'),
         ('other_income', 'Other Income'),
         ('other', 'Other'),
     ]
