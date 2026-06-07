@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import Institute
 
 class InstituteSerializer(serializers.ModelSerializer):
+    student_count = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Institute
         fields = '__all__'

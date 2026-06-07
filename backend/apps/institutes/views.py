@@ -18,6 +18,12 @@ class InstituteViewSet(viewsets.ModelViewSet):
     serializer_class = InstituteSerializer
     permission_classes = [] # Allow Fynux Admin in a real scenario, open for now
 
+    def get_queryset(self):
+        from django.db.models import Count, Q
+        return Institute.objects.annotate(
+            student_count=Count('students', filter=Q(students__is_active=True))
+        ).order_by('-created_at')
+
     def create(self, request, *args, **kwargs):
         data = request.data
         name = data.get("name")

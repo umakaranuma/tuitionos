@@ -87,6 +87,10 @@ class AdminDashboardView(APIView):
             total=Sum('amount')
         )['total'] or 0
 
+        revenue_premium = Invoice.objects.filter(status='paid', institute__plan='institute_pro').aggregate(total=Sum('amount'))['total'] or 0
+        revenue_basic = Invoice.objects.filter(status='paid', institute__plan='institute').aggregate(total=Sum('amount'))['total'] or 0
+        revenue_solo = Invoice.objects.filter(status='paid', institute__plan='solo').aggregate(total=Sum('amount'))['total'] or 0
+
         # Total students across platform
         total_students = Student.objects.filter(is_active=True).count()
 
@@ -108,6 +112,9 @@ class AdminDashboardView(APIView):
             'overdue_invoices': overdue_invoices,
             'pending_invoices': pending_invoices,
             'total_revenue': float(total_revenue),
+            'revenue_premium': float(revenue_premium),
+            'revenue_basic': float(revenue_basic),
+            'revenue_solo': float(revenue_solo),
             'total_students': total_students,
         })
 
