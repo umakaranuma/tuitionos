@@ -19,25 +19,13 @@ type MonthlyPayment = {
   has_invoice: boolean;
 };
 
-type Invoice = {
-  id: number;
-  institute: number;
-  institute_name: string;
-  amount: string;
-  month: string;
-  status: string;
-  paid_at: string | null;
-  reference_note?: string | null;
-};
-
 type Stats = {
-  total_expected?: number;
+  total_expected: number;
   collected: number;
   outstanding: number;
-  paid_count?: number;
-  pending_count?: number;
-  institute_count?: number;
-  total_mrr?: number;
+  paid_count: number;
+  pending_count: number;
+  institute_count: number;
 };
 
 const PLAN_LABELS: Record<string, string> = {
@@ -73,12 +61,14 @@ const statusBadge = (s: string) => {
 };
 
 export default function IncomePage() {
-  const [monthlyRows, setMonthlyRows] = useState<MonthlyPayment[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [rows, setRows] = useState<MonthlyPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState("all");
-  const [month, setMonth] = useState("all");
-  const [stats, setStats] = useState<Stats>({ collected: 0, outstanding: 0 });
+  const [year, setYear] = useState(String(now.getFullYear()));
+  const [month, setMonth] = useState(String(now.getMonth() + 1));
+  const [stats, setStats] = useState<Stats>({
+    total_expected: 0, collected: 0, outstanding: 0,
+    paid_count: 0, pending_count: 0, institute_count: 0,
+  });
   const [periodLabel, setPeriodLabel] = useState("");
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
@@ -86,86 +76,44 @@ export default function IncomePage() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
   const [activeRow, setActiveRow] = useState<MonthlyPayment | null>(null);
-  const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
   const [updating, setUpdating] = useState(false);
 
-  const isYearView = year !== "all";
-  const isYearlyView = isYearView && month === "all";
+  const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i);
+  const selectedMonthLabel = MONTHS.find(m => m.value === month)?.label || "";
 
   const load = () => {
     setLoading(true);
-    const url = isYearView
-      ? `/api/admin/billing/invoices/monthly_overview?year=${year}&month=${month}&page=${page}&limit=${limit}`
-      : `/api/admin/billing/invoices?page=${page}&limit=${limit}&year=${year}&month=${month}`;
-
-    api.get(url).then(r => {
-      const d = r.data;
-      if (isYearView) {
-        setMonthlyRows(d.results || []);
-        setInvoices([]);
+    api.get(`/api/admin/billing/invoices/monthly_overview?year=${year}&month=${month}&page=${page}&limit=${limit}`)
+      .then(r => {
+        const d = r.data;
+        setRows(d.results || []);
         if (d.period?.label) setPeriodLabel(d.period.label);
-        if (d.stats) {
-          setStats({
-            total_expected: d.stats.total_expected,
-            collected: d.stats.collected,
-            outstanding: d.stats.outstanding,
-            paid_count: d.stats.paid_count,
-            pending_count: d.stats.pending_count,
-            institute_count: d.stats.institute_count,
-          });
+        if (d.stats) setStats(d.stats);
+        if (d.total_count !== undefined) {
+          setMeta({ total_count: d.total_count, total_pages: d.total_pages });
         }
-      } else {
-        setInvoices(Array.isArray(d) ? d : d.results || []);
-        setMonthlyRows([]);
-        setPeriodLabel("");
-        if (d.stats) {
-          setStats({
-            total_mrr: d.stats.total_mrr,
-            collected: d.stats.collected,
-            outstanding: d.stats.outstanding,
-          });
-        }
-      }
-      if (d.total_count !== undefined) {
-        setMeta({ total_count: d.total_count, total_pages: d.total_pages });
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   };
 
-  useEffect(load, [page, limit, year, month, isYearView]);
-
-  const billingPeriodFromRow = (row: MonthlyPayment) => {
-    const d = new Date(row.month);
-    return {
-      year: d.getFullYear(),
-      month: d.getMonth() + 1,
-      label: d.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
-    };
-  };
+  useEffect(load, [page, limit, year, month]);
 
   const handleMarkPaid = async () => {
+    if (!activeRow) return;
     setUpdating(true);
     try {
-      if (isYearView && activeRow) {
-        if (activeRow.invoice_id) {
-          await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, {
-            status: "paid",
-            reference_note: referenceNote,
-          });
-        } else {
-          const period = billingPeriodFromRow(activeRow);
-          await api.post("/api/admin/billing/invoices/ensure_status", {
-            institute: activeRow.institute,
-            year: period.year,
-            month: period.month,
-            status: "paid",
-            reference_note: referenceNote,
-          });
-        }
-      } else if (activeInvoice) {
-        await api.patch(`/api/admin/billing/invoices/${activeInvoice.id}`, {
+      if (activeRow.invoice_id) {
+        await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, {
+          status: "paid",
+          reference_note: referenceNote,
+        });
+      } else {
+        await api.post("/api/admin/billing/invoices/ensure_status", {
+          institute: activeRow.institute,
+          year: Number(year),
+          month: Number(month),
           status: "paid",
           reference_note: referenceNote,
         });
@@ -173,7 +121,6 @@ export default function IncomePage() {
       setShowPayModal(false);
       setReferenceNote("");
       setActiveRow(null);
-      setActiveInvoice(null);
       load();
     } catch {
       alert("Error marking payment as paid");
@@ -183,17 +130,15 @@ export default function IncomePage() {
   };
 
   const handleMarkPending = async () => {
-    const invoiceId = isYearView ? activeRow?.invoice_id : activeInvoice?.id;
-    if (!invoiceId) return;
+    if (!activeRow?.invoice_id) return;
     setUpdating(true);
     try {
-      await api.patch(`/api/admin/billing/invoices/${invoiceId}`, {
+      await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, {
         status: "pending",
         reference_note: "",
       });
       setShowPendingModal(false);
       setActiveRow(null);
-      setActiveInvoice(null);
       load();
     } catch {
       alert("Error reverting payment to pending");
@@ -202,81 +147,29 @@ export default function IncomePage() {
     }
   };
 
-  const openPayModalMonthly = (row: MonthlyPayment) => {
-    setActiveRow(row);
-    setActiveInvoice(null);
-    setReferenceNote("");
-    setShowPayModal(true);
-  };
-
-  const openPendingModalMonthly = (row: MonthlyPayment) => {
-    setActiveRow(row);
-    setActiveInvoice(null);
-    setShowPendingModal(true);
-  };
-
-  const openPayModalInvoice = (inv: Invoice) => {
-    setActiveInvoice(inv);
-    setActiveRow(null);
-    setReferenceNote("");
-    setShowPayModal(true);
-  };
-
-  const openPendingModalInvoice = (inv: Invoice) => {
-    setActiveInvoice(inv);
-    setActiveRow(null);
-    setShowPendingModal(true);
-  };
-
-  const selectedMonthLabel = MONTHS.find(m => m.value === month)?.label || "";
-  const filterLabel = year === "all"
-    ? "All time"
-    : month === "all"
-      ? String(year)
-      : `${selectedMonthLabel} ${year}`;
-
-  const subtitle = isYearView && periodLabel
-    ? `${periodLabel} · ${stats.institute_count ?? 0} institutes · ${stats.paid_count ?? 0} paid · ${stats.pending_count ?? 0} unpaid`
-    : `${meta.total_count || invoices.length} invoices`;
-
-  const modalInstitute = activeRow?.institute_name || activeInvoice?.institute_name;
-  const modalAmount = activeRow?.amount || activeInvoice?.amount;
-  const modalMonth = activeRow
-    ? billingPeriodFromRow(activeRow).label
-    : activeInvoice
-      ? new Date(activeInvoice.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-      : "";
-
   return (
     <PageShell>
       <Topbar
         title="Income"
-        subtitle={subtitle}
+        subtitle={periodLabel
+          ? `${periodLabel} · ${stats.institute_count} institutes · ${stats.paid_count} paid · ${stats.pending_count} unpaid`
+          : "Monthly institute payments"}
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select
               value={year}
-              onChange={e => {
-                const nextYear = e.target.value;
-                setYear(nextYear);
-                if (nextYear === "all") setMonth("all");
-                setPage(1);
-              }}
+              onChange={e => { setYear(e.target.value); setPage(1); }}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
             >
-              <option value="all">All Years</option>
-              {[0, 1, 2, 3].map(offset => {
-                const y = now.getFullYear() + offset;
-                return <option key={y} value={String(y)}>{y}</option>;
-              })}
+              {yearOptions.map(y => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
             </select>
             <select
               value={month}
               onChange={e => { setMonth(e.target.value); setPage(1); }}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
-              disabled={year === "all"}
             >
-              <option value="all">All Months</option>
               {MONTHS.map(m => (
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
@@ -289,160 +182,90 @@ export default function IncomePage() {
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           <>
             <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 14, lineHeight: 1.5 }}>
-              {isYearView ? (
-                <>
-                  Showing institute payments for <strong>{filterLabel}</strong>.
-                  Past months include only institutes registered by then; current and upcoming months include all institutes.
-                </>
-              ) : (
-                <>
-                  Showing all invoice records for <strong>{filterLabel}</strong>.
-                  Select a year to view institute payment status by billing period.
-                </>
-              )}
+              Institute payments for <strong>{selectedMonthLabel} {year}</strong>.
+              Past months show institutes registered by then; current and upcoming months show all institutes.
             </div>
 
             <div className="g4" style={{ marginBottom: 18 }}>
               <div className="kpi" style={{ "--kc": "var(--tc)" } as React.CSSProperties}>
-                <div className="kpi-lbl">{isYearView ? `Expected (${filterLabel})` : "Total MRR"}</div>
-                <div className="kpi-val">
-                  LKR {(isYearView ? stats.total_expected ?? 0 : stats.total_mrr ?? 0).toLocaleString()}
-                </div>
-                <div className="kpi-tr nt">
-                  {isYearView ? `${stats.institute_count ?? 0} institutes` : "overall expected"}
-                </div>
+                <div className="kpi-lbl">Expected ({selectedMonthLabel})</div>
+                <div className="kpi-val">LKR {stats.total_expected.toLocaleString()}</div>
+                <div className="kpi-tr nt">{stats.institute_count} institutes</div>
               </div>
               <div className="kpi" style={{ "--kc": "var(--jd)" } as React.CSSProperties}>
                 <div className="kpi-lbl">Collected</div>
                 <div className="kpi-val">LKR {stats.collected.toLocaleString()}</div>
-                <div className="kpi-tr up">
-                  {isYearView ? `${stats.paid_count ?? 0} paid` : "revenue"}
-                </div>
+                <div className="kpi-tr up">{stats.paid_count} paid</div>
               </div>
               <div className="kpi" style={{ "--kc": "var(--rb)" } as React.CSSProperties}>
                 <div className="kpi-lbl">Outstanding</div>
                 <div className="kpi-val">LKR {stats.outstanding.toLocaleString()}</div>
-                <div className="kpi-tr dn">
-                  {isYearView ? `${stats.pending_count ?? 0} unpaid` : "pending collection"}
-                </div>
+                <div className="kpi-tr dn">{stats.pending_count} unpaid</div>
               </div>
             </div>
 
             <div className="tw">
-              {isYearView ? (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Institute</th>
-                      {isYearlyView && <th>Month</th>}
-                      <th>Plan</th>
-                      <th>Registered</th>
-                      <th>Amount (LKR)</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {monthlyRows.map(row => (
-                      <tr key={`${row.institute}-${row.month}`}>
-                        <td style={{ fontWeight: 600 }}>{row.institute_name}</td>
-                        {isYearlyView && (
-                          <td className="mono">
-                            {new Date(row.month).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                          </td>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Institute</th>
+                    <th>Plan</th>
+                    <th>Registered</th>
+                    <th>Amount (LKR)</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(row => (
+                    <tr key={row.institute}>
+                      <td style={{ fontWeight: 600 }}>{row.institute_name}</td>
+                      <td>
+                        <span className="bdg" style={{ fontSize: 10.5, background: "#f1f5f9", color: "#475569" }}>
+                          {PLAN_LABELS[row.plan] || row.plan}
+                        </span>
+                      </td>
+                      <td className="mono" style={{ color: "var(--ink3)" }}>
+                        {new Date(row.registered_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </td>
+                      <td className="mono">{Number(row.amount).toLocaleString()}</td>
+                      <td>
+                        {statusBadge(row.status)}
+                        {row.reference_note && (
+                          <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {row.reference_note}</div>
                         )}
-                        <td>
-                          <span className="bdg" style={{ fontSize: 10.5, background: "#f1f5f9", color: "#475569" }}>
-                            {PLAN_LABELS[row.plan] || row.plan}
-                          </span>
-                        </td>
-                        <td className="mono" style={{ color: "var(--ink3)" }}>
-                          {new Date(row.registered_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                        </td>
-                        <td className="mono">{Number(row.amount).toLocaleString()}</td>
-                        <td>
-                          {statusBadge(row.status)}
-                          {row.reference_note && (
-                            <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {row.reference_note}</div>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {row.status !== "paid" ? (
+                            <button className="btn btn-xs btn-ok" onClick={() => { setActiveRow(row); setReferenceNote(""); setShowPayModal(true); }}>
+                              Mark paid
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-xs btn-s"
+                              onClick={() => { setActiveRow(row); setShowPendingModal(true); }}
+                              disabled={!row.invoice_id}
+                            >
+                              Mark pending
+                            </button>
                           )}
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            {row.status !== "paid" ? (
-                              <button className="btn btn-xs btn-ok" onClick={() => openPayModalMonthly(row)}>Mark paid</button>
-                            ) : (
-                              <button
-                                className="btn btn-xs btn-s"
-                                onClick={() => openPendingModalMonthly(row)}
-                                disabled={!row.invoice_id}
-                              >
-                                Mark pending
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {monthlyRows.length === 0 && (
-                      <tr>
-                        <td colSpan={isYearlyView ? 7 : 6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
-                          No institute payments found for {filterLabel}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Invoice #</th>
-                      <th>Institute</th>
-                      <th>Month</th>
-                      <th>Amount (LKR)</th>
-                      <th>Status</th>
-                      <th>Actions</th>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.map(inv => (
-                      <tr key={inv.id}>
-                        <td className="mono">#{String(inv.id).padStart(4, "0")}</td>
-                        <td style={{ fontWeight: 600 }}>{inv.institute_name}</td>
-                        <td className="mono">
-                          {new Date(inv.month).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                        </td>
-                        <td className="mono">{Number(inv.amount).toLocaleString()}</td>
-                        <td>
-                          {statusBadge(inv.status)}
-                          {inv.reference_note && (
-                            <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {inv.reference_note}</div>
-                          )}
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 4 }}>
-                            {inv.status !== "paid" ? (
-                              <button className="btn btn-xs btn-ok" onClick={() => openPayModalInvoice(inv)}>Mark paid</button>
-                            ) : (
-                              <button className="btn btn-xs btn-s" onClick={() => openPendingModalInvoice(inv)}>Mark pending</button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {invoices.length === 0 && (
-                      <tr>
-                        <td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
-                          No invoices found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              )}
+                  ))}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
+                        No institutes for {selectedMonthLabel} {year}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--ln)", background: "#fff", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
                 <div style={{ fontSize: 12, color: "var(--ink3)" }}>
-                  Showing {(isYearView ? monthlyRows : invoices).length} of {meta.total_count} {isYearView ? "entries" : "invoices"}
+                  Showing {rows.length} of {meta.total_count} institutes
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
@@ -463,9 +286,9 @@ export default function IncomePage() {
         </>
       }>
         <div className="form-gap">
-          {modalInstitute && (
+          {activeRow && (
             <div style={{ fontSize: 13, color: "var(--ink2)", marginBottom: 4 }}>
-              <strong>{modalInstitute}</strong> — {modalMonth} — LKR {Number(modalAmount).toLocaleString()}
+              <strong>{activeRow.institute_name}</strong> — {selectedMonthLabel} {year} — LKR {Number(activeRow.amount).toLocaleString()}
             </div>
           )}
           <div>
@@ -478,7 +301,7 @@ export default function IncomePage() {
             />
           </div>
           <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
-            {isYearView && activeRow && !activeRow.has_invoice
+            {activeRow && !activeRow.has_invoice
               ? "No invoice exists yet for this month — one will be created automatically when you confirm."
               : "Marking this as paid will record a Platform Fee expense in the institute's Accounts ledger."}
           </div>
@@ -494,9 +317,9 @@ export default function IncomePage() {
         </>
       }>
         <div className="form-gap">
-          {modalInstitute && (
+          {activeRow && (
             <div style={{ fontSize: 13, color: "var(--ink2)", marginBottom: 4 }}>
-              <strong>{modalInstitute}</strong> — {modalMonth} — LKR {Number(modalAmount).toLocaleString()}
+              <strong>{activeRow.institute_name}</strong> — {selectedMonthLabel} {year} — LKR {Number(activeRow.amount).toLocaleString()}
             </div>
           )}
           <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
