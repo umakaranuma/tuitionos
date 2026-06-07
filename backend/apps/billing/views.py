@@ -13,9 +13,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        month = self.request.query_params.get('month')
-        if month and month != "All Time":
-            qs = qs.filter(month=month)
+        year_str = self.request.query_params.get('year', 'all')
+        month_str = self.request.query_params.get('month', 'all')
+        
+        if year_str != 'all':
+            try:
+                y = int(year_str)
+                qs = qs.filter(month__year=y)
+                if month_str != 'all':
+                    m = int(month_str)
+                    qs = qs.filter(month__month=m)
+            except ValueError:
+                pass
+            
         return qs
 
     def list(self, request, *args, **kwargs):
@@ -120,10 +130,20 @@ class InstituteTransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = InstituteTransaction.objects.filter(institute=self.request.institute)
-        month = self.request.query_params.get('month')
+        year_str = self.request.query_params.get('year', 'all')
+        month_str = self.request.query_params.get('month', 'all')
         tx_type = self.request.query_params.get('type')
-        if month and month != "All Time":
-            qs = qs.filter(month=month)
+        
+        if year_str != 'all':
+            try:
+                y = int(year_str)
+                qs = qs.filter(date__year=y)
+                if month_str != 'all':
+                    m = int(month_str)
+                    qs = qs.filter(date__month=m)
+            except ValueError:
+                pass
+            
         if tx_type:
             qs = qs.filter(transaction_type=tx_type)
         return qs

@@ -28,17 +28,19 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [insts, setInsts] = useState<Inst[]>([]);
   const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState<string>("all");
+  const [month, setMonth] = useState<string>("all");
 
   useEffect(() => {
     Promise.all([
-      api.get("/api/admin/dashboard").then(r => r.data).catch(() => null),
+      api.get(`/api/admin/dashboard?year=${year}&month=${month}`).then(r => r.data).catch(() => null),
       api.get("/api/institutes/").then(r => {
         const d = r.data; return Array.isArray(d) ? d : d.results || [];
       }).catch(() => []),
     ]).then(([s, i]) => {
       setStats(s); setInsts(i); setLoading(false);
     });
-  }, []);
+  }, [year, month]);
 
   const totalMRR = stats ? Math.round(stats.total_revenue / 1000) : 0;
   
@@ -50,10 +52,40 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle={`${currentMonthYear} · Platform overview`}
         right={
-          <>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <select 
+              value={year} 
+              onChange={e => setYear(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+            >
+              <option value="all">All Years</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+            <select 
+              value={month} 
+              onChange={e => setMonth(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+              disabled={year === "all"}
+            >
+              <option value="all">All Months</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
             <button className="btn btn-s btn-sm">Export report</button>
             <Link href="/institutes/add"><button className="btn btn-p btn-sm">+ Add institute</button></Link>
-          </>
+          </div>
         }
       />
       <div className="pb fi">

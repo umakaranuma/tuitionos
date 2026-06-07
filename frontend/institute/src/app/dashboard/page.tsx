@@ -14,10 +14,12 @@ type Stats = {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [year, setYear] = useState<string>(new Date().getFullYear().toString());
+  const [month, setMonth] = useState<string>((new Date().getMonth() + 1).toString());
 
   useEffect(() => {
-    api.get("/api/dashboard").then(r => setStats(r.data)).catch(console.error);
-  }, []);
+    api.get(`/api/dashboard?year=${year}&month=${month}`).then(r => setStats(r.data)).catch(console.error);
+  }, [year, month]);
 
   // ── CORE DATA COMPUTATION (Real API + Fallbacks) ── //
   const totalStudents = stats?.total_students ?? ALL_STUDENTS.length;
@@ -94,7 +96,41 @@ export default function DashboardPage() {
       <Topbar
         title="Dashboard"
         subtitle="Institute Operational Overview"
-        right={<button className="btn btn-s btn-sm">Download report</button>}
+        right={
+          <div style={{ display: "flex", gap: 8 }}>
+            <select 
+              value={year} 
+              onChange={e => setYear(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+            >
+              <option value="all">All Years</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+            <select 
+              value={month} 
+              onChange={e => setMonth(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+              disabled={year === "all"}
+            >
+              <option value="all">All Months</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
+            <button className="btn btn-s btn-sm">Download report</button>
+          </div>
+        }
       />
       <div style={{ background: "linear-gradient(90deg, #1a5040, #133a2e)", color: "#fff", padding: "10px 24px", fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

@@ -9,7 +9,8 @@ type Invoice = { id: number; institute: number; institute_name: string; amount: 
 export default function IncomePage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [monthFilter, setMonthFilter] = useState("All Time");
+  const [year, setYear] = useState<string>("all");
+  const [month, setMonth] = useState<string>("all");
   const [stats, setStats] = useState({ total_mrr: 0, collected: 0, outstanding: 0 });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
@@ -17,8 +18,7 @@ export default function IncomePage() {
 
   const load = () => {
     setLoading(true);
-    let url = `/api/admin/billing/invoices?page=${page}&limit=${limit}`;
-    if (monthFilter !== "All Time") url += `&month=${monthFilter}-01`; // format as YYYY-MM-DD
+    let url = `/api/admin/billing/invoices?page=${page}&limit=${limit}&year=${year}&month=${month}`;
     
     api.get(url).then(r => {
       const d = r.data;
@@ -29,7 +29,7 @@ export default function IncomePage() {
     }).catch(() => setLoading(false));
   };
 
-  useEffect(load, [page, limit, monthFilter]);
+  useEffect(load, [page, limit, year, month]);
 
   const { total_mrr, collected, outstanding } = stats;
 
@@ -41,14 +41,34 @@ export default function IncomePage() {
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select 
-              value={monthFilter} 
-              onChange={e => { setMonthFilter(e.target.value); setPage(1); }}
+              value={year} 
+              onChange={e => { setYear(e.target.value); setPage(1); }}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
             >
-              <option value="All Time">All Time</option>
-              {["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"].map(m => (
-                <option key={m} value={m}>{new Date(`${m}-01`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</option>
-              ))}
+              <option value="all">All Years</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+            <select 
+              value={month} 
+              onChange={e => { setMonth(e.target.value); setPage(1); }}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+              disabled={year === "all"}
+            >
+              <option value="all">All Months</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
             </select>
             <button className="btn btn-s btn-sm">Export CSV</button>
           </div>

@@ -27,25 +27,32 @@ class InstituteDashboardView(APIView):
         ).values('student').distinct().count()
         active_batches = Batch.objects.filter(institute=institute, is_active=True, academic_year=request.academic_year).count()
 
-        # Fee stats for current month
-        fees_this_month = FeePayment.objects.filter(
-            student__institute=institute,
-            month=current_month,
-        )
-        total_fees = fees_this_month.count()
-        paid_fees = fees_this_month.filter(status='paid').count()
-        pending_fees = fees_this_month.exclude(status='paid').count()
-        outstanding = fees_this_month.exclude(status='paid').aggregate(
-            total=Sum('amount')
-        )['total'] or 0
+        year_str = request.query_params.get('year', str(today.year))
+        month_str = request.query_params.get('month', str(today.month))
+        
+        fees_qs = FeePayment.objects.filter(student__institute=institute)
+        attendance_qs = Attendance.objects.filter(student__institute=institute)
 
-        # Attendance for today
-        today_attendance = Attendance.objects.filter(
-            student__institute=institute,
-            date=today,
-        )
-        present_today = today_attendance.filter(is_present=True).count()
-        absent_today = today_attendance.filter(is_present=False).count()
+        if year_str != 'all':
+            try:
+                y = int(year_str)
+                fees_qs = fees_qs.filter(month__year=y)
+                attendance_qs = attendance_qs.filter(date__year=y)
+                if month_str != 'all':
+                    m = int(month_str)
+                    fees_qs = fees_qs.filter(month__month=m)
+                    attendance_qs = attendance_qs.filter(date__month=m)
+            except ValueError:
+                pass
+            
+        total_fees = fees_qs.count()
+        paid_fees = fees_qs.filter(status='paid').count()
+        pending_fees = fees_qs.exclude(status='paid').count()
+        outstanding = fees_qs.exclude(status='paid').aggregate(total=Sum('amount'))['total'] or 0
+
+        # Attendance
+        present_today = attendance_qs.filter(is_present=True).count()
+        absent_today = attendance_qs.filter(is_present=False).count()
 
         return Response({
             'total_students': total_students,
@@ -83,13 +90,24 @@ class AdminDashboardView(APIView):
         # Invoices
         overdue_invoices = Invoice.objects.filter(status='overdue').count()
         pending_invoices = Invoice.objects.filter(status='pending').count()
-        total_revenue = Invoice.objects.filter(status='paid').aggregate(
-            total=Sum('amount')
-        )['total'] or 0
+        year_str = request.query_params.get('year', 'all')
+        month_str = request.query_params.get('month', 'all')
 
-        revenue_premium = Invoice.objects.filter(status='paid', institute__plan='institute_pro').aggregate(total=Sum('amount'))['total'] or 0
-        revenue_basic = Invoice.objects.filter(status='paid', institute__plan='institute').aggregate(total=Sum('amount'))['total'] or 0
-        revenue_solo = Invoice.objects.filter(status='paid', institute__plan='solo').aggregate(total=Sum('amount'))['total'] or 0
+        invoice_qs = Invoice.objects.filter(status='paid')
+        if year_str != 'all':
+            try:
+                y = int(year_str)
+                invoice_qs = invoice_qs.filter(month__year=y)
+                if month_str != 'all':
+                    m = int(month_str)
+                    invoice_qs = invoice_qs.filter(month__month=m)
+            except ValueError:
+                pass
+
+        total_revenue = invoice_qs.aggregate(total=Sum('amount'))['total'] or 0
+        revenue_premium = invoice_qs.filter(institute__plan='institute_pro').aggregate(total=Sum('amount'))['total'] or 0
+        revenue_basic = invoice_qs.filter(institute__plan='institute').aggregate(total=Sum('amount'))['total'] or 0
+        revenue_solo = invoice_qs.filter(institute__plan='solo').aggregate(total=Sum('amount'))['total'] or 0
 
         # Total students across platform
         total_students = Student.objects.filter(is_active=True).count()

@@ -17,14 +17,15 @@ export default function AccountsPage() {
   const [modal, setModal] = useState(false);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
-  const [monthFilter, setMonthFilter] = useState("All Time");
+  const [year, setYear] = useState<string>("all");
+  const [month, setMonth] = useState<string>("all");
   const [stats, setStats] = useState({ income: 0, expense: 0 });
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [form, setForm] = useState({ month: "May 2026", transaction_type: "expense", category: "utility_bill", label: "", amount: "", date: new Date().toISOString().split("T")[0] });
 
   const load = () => {
     setLoading(true);
-    api.get(`/api/billing/transactions?page=${page}&limit=${limit}&month=${monthFilter}`).then(r => {
+    api.get(`/api/billing/transactions?page=${page}&limit=${limit}&year=${year}&month=${month}`).then(r => {
       const d = r.data; 
       if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
       setTxns(Array.isArray(d) ? d : d.results || []); 
@@ -32,7 +33,7 @@ export default function AccountsPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   };
-  useEffect(load, [page, limit, monthFilter]);
+  useEffect(load, [page, limit, year, month]);
 
   const save = async () => {
     if (!form.label.trim() || !form.amount) return;
@@ -49,14 +50,34 @@ export default function AccountsPage() {
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <select 
-              value={monthFilter} 
-              onChange={e => { setMonthFilter(e.target.value); setPage(1); }}
+              value={year} 
+              onChange={e => { setYear(e.target.value); setPage(1); }}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
             >
-              <option value="All Time">All Time</option>
-              {["January 2026", "February 2026", "March 2026", "April 2026", "May 2026", "June 2026", "July 2026", "August 2026"].map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
+              <option value="all">All Years</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+            <select 
+              value={month} 
+              onChange={e => { setMonth(e.target.value); setPage(1); }}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+              disabled={year === "all"}
+            >
+              <option value="all">All Months</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
             </select>
             <button className="btn btn-p btn-sm" onClick={() => setModal(true)}>+ Add transaction</button>
           </div>

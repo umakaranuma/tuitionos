@@ -23,6 +23,8 @@ const statusBadge = (s: string) => {
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState<string>("all");
+  const [month, setMonth] = useState<string>("all");
   const [generating, setGenerating] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [payInvId, setPayInvId] = useState<number | null>(null);
@@ -30,7 +32,7 @@ export default function InvoicesPage() {
 
   const fetchInvoices = () => {
     setLoading(true);
-    api.get("/api/admin/billing/invoices").then(r => {
+    api.get(`/api/admin/billing/invoices?year=${year}&month=${month}`).then(r => {
       const d = r.data;
       setInvoices(Array.isArray(d) ? d : d.results || []);
       setLoading(false);
@@ -39,7 +41,7 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchInvoices();
-  }, []);
+  }, [year, month]);
 
   const handleGenerateMonthly = async () => {
     setGenerating(true);
@@ -83,6 +85,36 @@ export default function InvoicesPage() {
         subtitle={`${invoices.length} total · ${paidCount} paid · ${pendingCount} pending`}
         right={
           <div style={{ display: "flex", gap: 8 }}>
+            <select 
+              value={year} 
+              onChange={e => setYear(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+            >
+              <option value="all">All Years</option>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+            </select>
+            <select 
+              value={month} 
+              onChange={e => setMonth(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
+              disabled={year === "all"}
+            >
+              <option value="all">All Months</option>
+              <option value="1">January</option>
+              <option value="2">February</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="5">May</option>
+              <option value="6">June</option>
+              <option value="7">July</option>
+              <option value="8">August</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
+              <option value="11">November</option>
+              <option value="12">December</option>
+            </select>
             <button className="btn btn-p btn-sm" onClick={handleGenerateMonthly} disabled={generating}>
               {generating ? "Generating..." : "Generate Monthly Invoices"}
             </button>
