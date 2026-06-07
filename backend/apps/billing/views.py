@@ -135,6 +135,103 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             rows.extend(self._build_monthly_rows(year, month))
         return rows
 
+    def _institute_applicable_for_month(self, institute, year, month):
+        billing_month = datetime.date(year, month, 1)
+        today = timezone.now().date()
+        if billing_month >= today.replace(day=1):
+            return True
+        return institute.created_at <= self._billing_month_end(year, month)
+
+    def _build_institute_month_row(self, institute, year, month, settings_obj):
+        if not self._institute_applicable_for_month(institute, year, month):
+            return None
+
+        billing_month = datetime.date(year, month, 1)
+        invoice = Invoice.objects.filter(institute=institute, month=billing_month).first()
+        amount = invoice.amount if invoice else _plan_amount(institute, settings_obj)
+        raw_status = invoice.status if invoice else Invoice.STATUS_PENDING
+
+        return {
+            'institute': institute.id,
+            'institute_name': institute.name,
+            'plan': institute.plan,
+            'registered_at': institute.created_at.date().isoformat(),
+            'invoice_id': invoice.id if invoice else None,
+            'amount': str(amount),
+            'month': billing_month.isoformat(),
+            'status': self._resolve_payment_status(raw_status, billing_month),
+            'paid_at': invoice.paid_at.isoformat() if invoice and invoice.paid_at else None,
+            'reference_note': invoice.reference_note if invoice else None,
+            'due_date': invoice.due_date.isoformat() if invoice else (billing_month + datetime.timedelta(days=7)).isoformat(),
+            'has_invoice': invoice is not None,
+        }
+
+    def _build_institute_billing_rows(self, institute, year, month=None):
+        settings_obj = PlatformSettings.objects.first()
+        if not settings_obj:
+            settings_obj = PlatformSettings.objects.create()
+
+        months = [month] if month else list(range(1, 13))
+        rows = []
+        for m in months:
+            row = self._build_institute_month_row(institute, year, m, settings_obj)
+            if row:
+                rows.append(row)
+        return rows
+
+    @action(detail=False, methods=['get'], url_path='institute_billing')
+    def institute_billing(self, request):
+        institute_id = request.query_params.get('institute')
+        year_str = request.query_params.get('year')
+        month_str = request.query_params.get('month')
+        view_mode = request.query_params.get('view', 'monthly')
+
+        if not institute_id or not year_str:
+            return Response({'error': 'institute and year are required'}, status=400)
+
+        try:
+            institute = Institute.objects.get(pk=int(institute_id))
+            year = int(year_str)
+        except (ValueError, Institute.DoesNotExist):
+            return Response({'error': 'Invalid institute or year'}, status=400)
+
+        if view_mode == 'yearly':
+            rows = self._build_institute_billing_rows(institute, year)
+            period_label = str(year)
+            period_month = None
+        else:
+            try:
+                month = int(month_str)
+            except (TypeError, ValueError):
+                return Response({'error': 'month is required for monthly view'}, status=400)
+            rows = self._build_institute_billing_rows(institute, year, month)
+            period_label = billing_month_label(year, month)
+            period_month = month
+
+        total_expected = sum(float(row['amount']) for row in rows)
+        collected = sum(float(row['amount']) for row in rows if row['status'] == Invoice.STATUS_PAID)
+        outstanding = total_expected - collected
+        paid_count = sum(1 for row in rows if row['status'] == Invoice.STATUS_PAID)
+        pending_count = len(rows) - paid_count
+
+        return Response({
+            'results': rows,
+            'stats': {
+                'total_expected': total_expected,
+                'collected': collected,
+                'outstanding': outstanding,
+                'paid_count': paid_count,
+                'pending_count': pending_count,
+                'month_count': len(rows),
+            },
+            'period': {
+                'year': year,
+                'month': period_month,
+                'label': period_label,
+                'view': view_mode,
+            },
+        })
+
     @action(detail=False, methods=['get'], url_path='monthly_overview')
     def monthly_overview(self, request):
         year_str = request.query_params.get('year', 'all')

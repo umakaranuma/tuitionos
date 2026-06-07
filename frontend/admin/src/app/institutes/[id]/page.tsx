@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { Topbar } from "@/components/layout/Topbar";
 import { Modal } from "@/components/ui/Modal";
+import { InstituteBillingSection } from "@/components/institutes/InstituteBillingSection";
 import { api } from "@/lib/api";
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
@@ -31,15 +32,6 @@ export default function InstituteDetailPage() {
   const [status, setStatus] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [settings, setSettings] = useState<any>(null);
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [showPendingModal, setShowPendingModal] = useState(false);
-  const [payInvId, setPayInvId] = useState<number | null>(null);
-  const [referenceNote, setReferenceNote] = useState("");
-  const [updating, setUpdating] = useState(false);
-  
-  const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false);
-  const [manualInvoice, setManualInvoice] = useState({ month: "", amount: "", due_date: "" });
-
   useEffect(() => {
     Promise.all([
       api.get(`/api/admin/institutes/${id}`),
@@ -73,66 +65,6 @@ export default function InstituteDetailPage() {
   const refreshInstitute = async () => {
     const res = await api.get(`/api/admin/institutes/${id}`);
     setInst(res.data);
-  };
-
-  const handleMarkPaid = async () => {
-    if (!payInvId) return;
-    setUpdating(true);
-    try {
-      await api.patch(`/api/admin/billing/invoices/${payInvId}`, { 
-        status: "paid",
-        reference_note: referenceNote 
-      });
-      await refreshInstitute();
-      setShowPayModal(false);
-      setReferenceNote("");
-      setPayInvId(null);
-    } catch (e) {
-      alert("Error marking invoice as paid");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleMarkPending = async () => {
-    if (!payInvId) return;
-    setUpdating(true);
-    try {
-      await api.patch(`/api/admin/billing/invoices/${payInvId}`, {
-        status: "pending",
-        reference_note: "",
-      });
-      await refreshInstitute();
-      setShowPendingModal(false);
-      setPayInvId(null);
-    } catch (e) {
-      alert("Error reverting invoice to pending");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const handleCreateInvoice = async () => {
-    if (!manualInvoice.month || !manualInvoice.amount || !manualInvoice.due_date) {
-      alert("Please fill all fields");
-      return;
-    }
-    try {
-      await api.post(`/api/admin/billing/invoices`, {
-        institute: id,
-        month: `${manualInvoice.month}-01`,
-        amount: manualInvoice.amount,
-        due_date: manualInvoice.due_date,
-        status: "pending"
-      });
-      // Refresh institute details
-      const res = await api.get(`/api/admin/institutes/${id}`);
-      setInst(res.data);
-      setShowAddInvoiceModal(false);
-      setManualInvoice({ month: "", amount: "", due_date: "" });
-    } catch (e) {
-      alert("Error creating manual invoice");
-    }
   };
 
   if (loading) return <PageShell><div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>Loading...</div></PageShell>;
@@ -269,47 +201,7 @@ export default function InstituteDetailPage() {
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase" }}>Invoice history</div>
-          <button className="btn btn-s btn-xs" onClick={() => setShowAddInvoiceModal(true)}>+ Add Manual Invoice</button>
-        </div>
-        {inst.recent_invoices?.length > 0 ? (
-          <div className="tw">
-            <table>
-              <thead><tr><th>Month</th><th>Amount (LKR)</th><th>Status</th><th>Due date</th><th>Actions</th></tr></thead>
-              <tbody>
-                {inst.recent_invoices.map((inv: any, i: number) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight: 600 }}>{new Date(inv.month).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</td>
-                    <td className="mono">{inv.amount.toLocaleString()}</td>
-                    <td>
-                      <span style={{
-                        fontSize: 10.5, fontWeight: 600, padding: "2px 8px", borderRadius: 99,
-                        background: inv.status === "paid" ? "#d4ede3" : "#fef3d7",
-                        color: inv.status === "paid" ? "#1a5040" : "#c07b1a",
-                      }}>
-                        {inv.status === "paid" ? "Paid" : "Pending"}
-                      </span>
-                      {inv.reference_note && (
-                        <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {inv.reference_note}</div>
-                      )}
-                    </td>
-                    <td className="mono" style={{ color: "var(--ink3)" }}>{inv.due_date}</td>
-                    <td>
-                      {inv.status !== "paid" ? (
-                        <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setReferenceNote(""); setShowPayModal(true); }}>Mark Paid</button>
-                      ) : (
-                        <button className="btn btn-xs btn-s" onClick={() => { setPayInvId(inv.id); setShowPendingModal(true); }}>Mark Pending</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="card" style={{ textAlign: "center", color: "var(--ink3)", padding: "24px" }}>No invoices yet</div>
-        )}
+        <InstituteBillingSection instituteId={id} onBillingChange={refreshInstitute} />
       </div>
 
       <Modal open={showStatusModal} onClose={() => setShowStatusModal(false)} title="Change account status" footer={
@@ -364,78 +256,6 @@ export default function InstituteDetailPage() {
         </div>
       </Modal>
 
-      <Modal open={showPendingModal} onClose={() => setShowPendingModal(false)} title="Revert to Pending" footer={
-        <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowPendingModal(false)} disabled={updating}>Cancel</button>
-          <button className="btn btn-p btn-sm" onClick={handleMarkPending} disabled={updating}>
-            {updating ? "Saving..." : "Confirm & Mark Pending"}
-          </button>
-        </>
-      }>
-        <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
-          This will undo the paid status and remove the Platform Fee expense from the institute&apos;s Accounts ledger. Use this if the payment was marked paid by mistake.
-        </div>
-      </Modal>
-
-      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Confirm Payment" footer={
-        <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)} disabled={updating}>Cancel</button>
-          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid} disabled={updating}>
-            {updating ? "Saving..." : "Confirm & Mark Paid"}
-          </button>
-        </>
-      }>
-        <div className="form-gap">
-          <div>
-            <label className="flbl">Payslip Reference / Note (Optional)</label>
-            <input 
-              value={referenceNote} 
-              onChange={e => setReferenceNote(e.target.value)} 
-              placeholder="e.g. WhatsApp Slip #123456" 
-              autoFocus 
-            />
-          </div>
-          <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
-            Marking this as paid will automatically record a Platform Fee expense in the institute's Accounts ledger.
-          </div>
-        </div>
-      </Modal>
-
-      <Modal open={showAddInvoiceModal} onClose={() => setShowAddInvoiceModal(false)} title="Create Manual Invoice" footer={
-        <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowAddInvoiceModal(false)}>Cancel</button>
-          <button className="btn btn-p btn-sm" onClick={handleCreateInvoice}>Create Invoice</button>
-        </>
-      }>
-        <div className="form-gap">
-          <div>
-            <label className="flbl">Billing Month</label>
-            <input 
-              type="month" 
-              value={manualInvoice.month} 
-              onChange={e => setManualInvoice({ ...manualInvoice, month: e.target.value })} 
-              autoFocus 
-            />
-          </div>
-          <div>
-            <label className="flbl">Amount (LKR)</label>
-            <input 
-              type="number" 
-              value={manualInvoice.amount} 
-              onChange={e => setManualInvoice({ ...manualInvoice, amount: e.target.value })} 
-              placeholder="e.g. 1500" 
-            />
-          </div>
-          <div>
-            <label className="flbl">Due Date</label>
-            <input 
-              type="date" 
-              value={manualInvoice.due_date} 
-              onChange={e => setManualInvoice({ ...manualInvoice, due_date: e.target.value })} 
-            />
-          </div>
-        </div>
-      </Modal>
     </PageShell>
   );
 }
