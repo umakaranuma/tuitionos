@@ -1,246 +1,400 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 
-type Invoice = {
-  id: number; institute: number; institute_name: string;
-  amount: string; month: string; status: string;
-  paid_at: string | null; due_date: string; created_at: string;
+type MonthlyPayment = {
+  institute: number;
+  institute_name: string;
+  plan: string;
+  registered_at: string;
+  invoice_id: number | null;
+  amount: string;
+  paid_amount: string;
+  month: string;
+  status: string;
+  paid_at: string | null;
+  reference_note?: string | null;
+  payment_slip_url?: string | null;
+  has_invoice: boolean;
 };
+
+type Stats = {
+  total_expected: number;
+  collected: number;
+  outstanding: number;
+  paid_count: number;
+  partial_count?: number;
+  pending_count: number;
+  institute_count: number;
+};
+
+const PLAN_LABELS: Record<string, string> = {
+  solo: "Solo",
+  institute: "Institute",
+  institute_pro: "Pro",
+};
+
+const MONTHS = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
+const now = new Date();
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = {
     paid: <span className="bdg b-paid">Paid</span>,
+    partial: <span className="bdg" style={{ background: "#ede8fc", color: "#6b3ea8" }}>Partial</span>,
     pending: <span className="bdg b-due">Pending</span>,
     overdue: <span className="bdg b-over">Overdue</span>,
   };
-  return map[s] || <span>{s}</span>;
+  return map[s] || <span className="bdg b-due">{s}</span>;
 };
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [rows, setRows] = useState<MonthlyPayment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState<string>("all");
-  const [month, setMonth] = useState<string>("all");
+  const [year, setYear] = useState(String(now.getFullYear()));
+  const [month, setMonth] = useState(String(now.getMonth() + 1));
+  const [stats, setStats] = useState<Stats>({
+    total_expected: 0, collected: 0, outstanding: 0,
+    paid_count: 0, pending_count: 0, institute_count: 0,
+  });
+  const [periodLabel, setPeriodLabel] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(25);
+  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [generating, setGenerating] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
-  const [payInvId, setPayInvId] = useState<number | null>(null);
+  const [activeRow, setActiveRow] = useState<MonthlyPayment | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
   const [referenceNote, setReferenceNote] = useState("");
+  const [applyAdvance, setApplyAdvance] = useState(true);
+  const [paymentSlip, setPaymentSlip] = useState<File | null>(null);
   const [updating, setUpdating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchInvoices = () => {
+  const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i);
+  const selectedMonthLabel = MONTHS.find(m => m.value === month)?.label || "";
+
+  const load = () => {
     setLoading(true);
-    api.get(`/api/admin/billing/invoices?year=${year}&month=${month}`).then(r => {
-      const d = r.data;
-      setInvoices(Array.isArray(d) ? d : d.results || []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    api.get(`/api/admin/billing/invoices/monthly_overview?year=${year}&month=${month}&page=${page}&limit=${limit}`)
+      .then(r => {
+        const d = r.data;
+        setRows(d.results || []);
+        if (d.period?.label) setPeriodLabel(d.period.label);
+        if (d.stats) setStats(d.stats);
+        if (d.total_count !== undefined) {
+          setMeta({ total_count: d.total_count, total_pages: d.total_pages });
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchInvoices();
-  }, [year, month]);
+  useEffect(load, [page, limit, year, month]);
+
+  const remainingDue = (row: MonthlyPayment) =>
+    Math.max(Number(row.amount) - Number(row.paid_amount || 0), 0);
+
+  const openRecordPayment = (row: MonthlyPayment) => {
+    setActiveRow(row);
+    setPaymentAmount(String(remainingDue(row) || Number(row.amount)));
+    setReferenceNote(row.reference_note || "");
+    setApplyAdvance(true);
+    setPaymentSlip(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setShowPayModal(true);
+  };
 
   const handleGenerateMonthly = async () => {
     setGenerating(true);
     try {
       const res = await api.post("/api/admin/billing/invoices/generate_monthly");
       alert(res.data.message);
-      fetchInvoices();
-    } catch (e) {
+      load();
+    } catch {
       alert("Error generating invoices");
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleMarkPaid = async () => {
-    if (!payInvId) return;
+  const handleRecordPayment = async () => {
+    if (!activeRow || !paymentAmount) return;
     setUpdating(true);
     try {
-      await api.patch(`/api/admin/billing/invoices/${payInvId}`, { 
-        status: "paid",
-        reference_note: referenceNote
-      });
-      fetchInvoices();
+      const form = new FormData();
+      form.append("institute", String(activeRow.institute));
+      form.append("year", year);
+      form.append("month", month);
+      form.append("payment_amount", paymentAmount);
+      form.append("reference_note", referenceNote);
+      form.append("apply_advance", applyAdvance ? "true" : "false");
+      if (paymentSlip) form.append("payment_slip", paymentSlip);
+
+      const res = await api.post("/api/admin/billing/invoices/record_payment", form);
+      const advance = res.data.advance_applied || [];
+      if (advance.length > 0) {
+        alert(`Payment recorded. LKR ${res.data.overflow} applied as advance to upcoming month(s).`);
+      }
       setShowPayModal(false);
-      setReferenceNote("");
-      setPayInvId(null);
-    } catch (e) {
-      alert("Error marking paid");
+      setActiveRow(null);
+      setPaymentSlip(null);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      alert(msg || "Error recording payment");
     } finally {
       setUpdating(false);
     }
   };
 
   const handleMarkPending = async () => {
-    if (!payInvId) return;
+    if (!activeRow?.invoice_id) return;
     setUpdating(true);
     try {
-      await api.patch(`/api/admin/billing/invoices/${payInvId}`, {
+      await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, {
         status: "pending",
         reference_note: "",
       });
-      fetchInvoices();
       setShowPendingModal(false);
-      setPayInvId(null);
-    } catch (e) {
-      alert("Error reverting to pending");
+      setActiveRow(null);
+      load();
+    } catch {
+      alert("Error reverting payment to pending");
     } finally {
       setUpdating(false);
     }
   };
 
-  const paidCount = invoices.filter(i => i.status === "paid").length;
-  const pendingCount = invoices.filter(i => i.status !== "paid").length;
-  
-  const totalCollected = invoices.filter(i => i.status === "paid").reduce((acc, i) => acc + Number(i.amount), 0);
-  const expectedRevenue = invoices.filter(i => i.status !== "paid").reduce((acc, i) => acc + Number(i.amount), 0);
-
   return (
     <PageShell>
       <Topbar
         title="Invoices & Billing"
-        subtitle={`${invoices.length} total · ${paidCount} paid · ${pendingCount} pending`}
+        subtitle={periodLabel
+          ? `${periodLabel} · ${stats.institute_count} institutes · ${stats.paid_count} paid · ${stats.partial_count ?? 0} partial · ${stats.pending_count} unpaid`
+          : "Monthly institute billing"}
         right={
-          <div style={{ display: "flex", gap: 8 }}>
-            <select 
-              value={year} 
-              onChange={e => setYear(e.target.value)}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <select
+              value={year}
+              onChange={e => { setYear(e.target.value); setPage(1); }}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
             >
-              <option value="all">All Years</option>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
+              {yearOptions.map(y => (
+                <option key={y} value={String(y)}>{y}</option>
+              ))}
             </select>
-            <select 
-              value={month} 
-              onChange={e => setMonth(e.target.value)}
+            <select
+              value={month}
+              onChange={e => { setMonth(e.target.value); setPage(1); }}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
-              disabled={year === "all"}
             >
-              <option value="all">All Months</option>
-              <option value="1">January</option>
-              <option value="2">February</option>
-              <option value="3">March</option>
-              <option value="4">April</option>
-              <option value="5">May</option>
-              <option value="6">June</option>
-              <option value="7">July</option>
-              <option value="8">August</option>
-              <option value="9">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
+              {MONTHS.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
             </select>
             <button className="btn btn-p btn-sm" onClick={handleGenerateMonthly} disabled={generating}>
-              {generating ? "Generating..." : "Generate Monthly Invoices"}
+              {generating ? "Generating..." : "Generate monthly"}
             </button>
-            <button className="btn btn-s btn-sm">+ Manual invoice</button>
           </div>
         }
       />
       <div className="pb fi">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 16 }}>
-          <div className="card" style={{ padding: "16px 20px" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Total Collected (All Time)</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "var(--tc)", fontFamily: "var(--font-mono)" }}>LKR {totalCollected.toLocaleString()}</div>
-          </div>
-          <div className="card" style={{ padding: "16px 20px" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 4 }}>Pending Expected</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: "#c07b1a", fontFamily: "var(--font-mono)" }}>LKR {expectedRevenue.toLocaleString()}</div>
-          </div>
-        </div>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
+          <>
+            <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 14, lineHeight: 1.5 }}>
+              Record payments with payslip uploads. Overpayments can auto-apply to upcoming months as <strong>partial</strong> advance.
+            </div>
 
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading invoices...</div>
-        ) : (
-          <div className="tw">
-            <table>
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Institute</th>
-                  <th>Amount (LKR)</th>
-                  <th>Month</th>
-                  <th>Due</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="mono">#{String(inv.id).padStart(4, "0")}</td>
-                    <td>{inv.institute_name}</td>
-                    <td className="mono">{Number(inv.amount).toLocaleString()}</td>
-                    <td className="mono">{new Date(inv.month).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</td>
-                    <td className="mono" style={{ color: "var(--ink3)" }}>{inv.due_date}</td>
-                    <td>
-                      {statusBadge(inv.status)}
-                      {(inv as any).reference_note && (
-                        <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {(inv as any).reference_note}</div>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        {inv.status !== "paid" ? (
-                          <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setReferenceNote(""); setShowPayModal(true); }}>Mark paid</button>
-                        ) : (
-                          <button className="btn btn-xs btn-s" onClick={() => { setPayInvId(inv.id); setShowPendingModal(true); }}>Mark pending</button>
-                        )}
-                        <button className="btn btn-xs btn-s">PDF</button>
-                      </div>
-                    </td>
+            <div className="g4" style={{ marginBottom: 18 }}>
+              <div className="kpi" style={{ "--kc": "var(--tc)" } as React.CSSProperties}>
+                <div className="kpi-lbl">Expected ({selectedMonthLabel})</div>
+                <div className="kpi-val">LKR {stats.total_expected.toLocaleString()}</div>
+                <div className="kpi-tr nt">{stats.institute_count} institutes</div>
+              </div>
+              <div className="kpi" style={{ "--kc": "var(--jd)" } as React.CSSProperties}>
+                <div className="kpi-lbl">Collected</div>
+                <div className="kpi-val">LKR {stats.collected.toLocaleString()}</div>
+                <div className="kpi-tr up">{stats.paid_count} paid · {stats.partial_count ?? 0} partial</div>
+              </div>
+              <div className="kpi" style={{ "--kc": "var(--rb)" } as React.CSSProperties}>
+                <div className="kpi-lbl">Outstanding</div>
+                <div className="kpi-val">LKR {stats.outstanding.toLocaleString()}</div>
+                <div className="kpi-tr dn">{stats.pending_count} unpaid</div>
+              </div>
+            </div>
+
+            <div className="tw">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Institute</th>
+                    <th>Plan</th>
+                    <th>Amount (LKR)</th>
+                    <th>Paid (LKR)</th>
+                    <th>Status</th>
+                    <th>Document</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-                {invoices.length === 0 && (
-                  <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No invoices found</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.map(row => (
+                    <tr key={row.institute}>
+                      <td style={{ fontWeight: 600 }}>{row.institute_name}</td>
+                      <td>
+                        <span className="bdg" style={{ fontSize: 10.5, background: "#f1f5f9", color: "#475569" }}>
+                          {PLAN_LABELS[row.plan] || row.plan}
+                        </span>
+                      </td>
+                      <td className="mono">{Number(row.amount).toLocaleString()}</td>
+                      <td className="mono" style={{ color: Number(row.paid_amount) > 0 ? "var(--jd)" : "var(--ink3)" }}>
+                        {Number(row.paid_amount || 0).toLocaleString()}
+                      </td>
+                      <td>
+                        {statusBadge(row.status)}
+                        {row.reference_note && (
+                          <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {row.reference_note}</div>
+                        )}
+                      </td>
+                      <td>
+                        {row.payment_slip_url ? (
+                          <a href={row.payment_slip_url} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-s">
+                            View slip
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {row.status !== "paid" ? (
+                            <button className="btn btn-xs btn-ok" onClick={() => openRecordPayment(row)}>
+                              Record payment
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-xs btn-s"
+                              onClick={() => { setActiveRow(row); setShowPendingModal(true); }}
+                              disabled={!row.invoice_id}
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
+                        No institutes for {selectedMonthLabel} {year}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--ln)", background: "#fff", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
+                <div style={{ fontSize: 12, color: "var(--ink3)" }}>
+                  Showing {rows.length} of {meta.total_count} institutes
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+                  <button className="btn btn-s btn-xs" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>Next</button>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      <Modal open={showPendingModal} onClose={() => setShowPendingModal(false)} title="Revert to Pending" footer={
-        <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowPendingModal(false)} disabled={updating}>Cancel</button>
-          <button className="btn btn-p btn-sm" onClick={handleMarkPending} disabled={updating}>
-            {updating ? "Saving..." : "Confirm & Mark Pending"}
-          </button>
-        </>
-      }>
-        <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
-          This will undo the paid status and remove the Platform Fee expense from the institute&apos;s Accounts ledger. Use this if the payment was marked paid by mistake.
-        </div>
-      </Modal>
-
-      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Confirm Payment" footer={
+      <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Record Payment" footer={
         <>
           <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)} disabled={updating}>Cancel</button>
-          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid} disabled={updating}>
-            {updating ? "Saving..." : "Confirm & Mark Paid"}
+          <button className="btn btn-ok btn-sm" onClick={handleRecordPayment} disabled={updating}>
+            {updating ? "Saving..." : "Save payment"}
           </button>
         </>
       }>
         <div className="form-gap">
+          {activeRow && (
+            <div style={{ fontSize: 13, color: "var(--ink2)", marginBottom: 4 }}>
+              <strong>{activeRow.institute_name}</strong> — {selectedMonthLabel} {year}
+              <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 4 }}>
+                Due: LKR {Number(activeRow.amount).toLocaleString()} · Already paid: LKR {Number(activeRow.paid_amount || 0).toLocaleString()} · Remaining: LKR {remainingDue(activeRow).toLocaleString()}
+              </div>
+            </div>
+          )}
           <div>
-            <label className="flbl">Payslip Reference / Note (Optional)</label>
-            <input 
-              value={referenceNote} 
-              onChange={e => setReferenceNote(e.target.value)} 
-              placeholder="e.g. WhatsApp Slip #123456" 
-              autoFocus 
+            <label className="flbl">Payment amount (LKR)</label>
+            <input
+              type="number"
+              value={paymentAmount}
+              onChange={e => setPaymentAmount(e.target.value)}
+              placeholder="e.g. 7500"
+              autoFocus
             />
           </div>
+          <div>
+            <label className="flbl">Payslip / document</label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              onChange={e => setPaymentSlip(e.target.files?.[0] || null)}
+            />
+          </div>
+          <div>
+            <label className="flbl">Reference note (optional)</label>
+            <input
+              value={referenceNote}
+              onChange={e => setReferenceNote(e.target.value)}
+              placeholder="e.g. WhatsApp Slip #123456"
+            />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ink2)" }}>
+            <input type="checkbox" checked={applyAdvance} onChange={e => setApplyAdvance(e.target.checked)} />
+            Apply extra amount to upcoming month(s) as partial advance
+          </label>
           <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
-            Marking this as paid will automatically record a Platform Fee expense in the institute's Accounts ledger.
+            Example: due LKR 6,000 but paid LKR 7,500 — marks this month paid and applies LKR 1,500 to the next month as partial.
+            Income page updates automatically since both share the same billing data.
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showPendingModal} onClose={() => setShowPendingModal(false)} title="Reset Payment" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPendingModal(false)} disabled={updating}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={handleMarkPending} disabled={updating}>
+            {updating ? "Saving..." : "Reset to pending"}
+          </button>
+        </>
+      }>
+        <div className="form-gap">
+          {activeRow && (
+            <div style={{ fontSize: 13, color: "var(--ink2)", marginBottom: 4 }}>
+              <strong>{activeRow.institute_name}</strong> — {selectedMonthLabel} {year}
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
+            Clears paid/partial status for this month. The uploaded slip is kept for reference.
           </div>
         </div>
       </Modal>

@@ -1,11 +1,13 @@
 import datetime
 from calendar import monthrange
+from decimal import Decimal
 
 from django.core.paginator import Paginator
 from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -23,11 +25,46 @@ def _plan_amount(institute, settings_obj):
     return settings_obj.monthly_fee_institute
 
 
+def _next_billing_month(billing_month):
+    if billing_month.month == 12:
+        return datetime.date(billing_month.year + 1, 1, 1)
+    return datetime.date(billing_month.year, billing_month.month + 1, 1)
+
+
+def _row_collected_amount(row):
+    status = row['status']
+    amount = float(row['amount'])
+    paid_amount = float(row.get('paid_amount') or 0)
+    if status == Invoice.STATUS_PAID:
+        return amount
+    if status == Invoice.STATUS_PARTIAL:
+        return paid_amount
+    return 0.0
+
+
+def _compute_billing_stats(rows):
+    total_expected = sum(float(row['amount']) for row in rows)
+    collected = sum(_row_collected_amount(row) for row in rows)
+    outstanding = total_expected - collected
+    paid_count = sum(1 for row in rows if row['status'] == Invoice.STATUS_PAID)
+    partial_count = sum(1 for row in rows if row['status'] == Invoice.STATUS_PARTIAL)
+    pending_count = len(rows) - paid_count - partial_count
+    return {
+        'total_expected': total_expected,
+        'collected': collected,
+        'outstanding': outstanding,
+        'paid_count': paid_count,
+        'partial_count': partial_count,
+        'pending_count': pending_count,
+    }
+
+
 class InvoiceViewSet(viewsets.ModelViewSet):
     """Admin-facing: Platform invoices sent to institutes."""
     queryset = Invoice.objects.select_related('institute').all()
     serializer_class = InvoiceSerializer
     permission_classes = [] # Allow all for now, restrict in production
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -46,13 +83,110 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             
         return qs
 
-    def _resolve_payment_status(self, invoice_status, billing_month):
+    def _resolve_payment_status(self, invoice_status, billing_month, paid_amount=0, amount=0):
+        paid_amount = float(paid_amount or 0)
+        amount = float(amount or 0)
+        if amount > 0 and paid_amount >= amount:
+            return Invoice.STATUS_PAID
+        if paid_amount > 0:
+            return Invoice.STATUS_PARTIAL
         if invoice_status == Invoice.STATUS_PAID:
             return Invoice.STATUS_PAID
         today = timezone.now().date()
         if billing_month < today.replace(day=1):
             return Invoice.STATUS_OVERDUE
         return Invoice.STATUS_PENDING
+
+    def _payment_slip_url(self, invoice, request=None):
+        if not invoice or not invoice.payment_slip:
+            return None
+        if request:
+            return request.build_absolute_uri(invoice.payment_slip.url)
+        return invoice.payment_slip.url
+
+    def _serialize_invoice_row(self, institute, billing_month, invoice, settings_obj, request=None):
+        amount = invoice.amount if invoice else _plan_amount(institute, settings_obj)
+        paid_amount = invoice.paid_amount if invoice else Decimal('0')
+        raw_status = invoice.status if invoice else Invoice.STATUS_PENDING
+        status = self._resolve_payment_status(raw_status, billing_month, paid_amount, amount)
+        return {
+            'institute': institute.id,
+            'institute_name': institute.name,
+            'plan': institute.plan,
+            'registered_at': institute.created_at.date().isoformat(),
+            'invoice_id': invoice.id if invoice else None,
+            'amount': str(amount),
+            'paid_amount': str(paid_amount),
+            'month': billing_month.isoformat(),
+            'status': status,
+            'paid_at': invoice.paid_at.isoformat() if invoice and invoice.paid_at else None,
+            'reference_note': invoice.reference_note if invoice else None,
+            'due_date': invoice.due_date.isoformat() if invoice else (billing_month + datetime.timedelta(days=7)).isoformat(),
+            'payment_slip_url': self._payment_slip_url(invoice, request),
+            'has_invoice': invoice is not None,
+        }
+
+    def _get_or_create_invoice(self, institute, billing_month, settings_obj):
+        due_date = billing_month + datetime.timedelta(days=7)
+        invoice, _ = Invoice.objects.get_or_create(
+            institute=institute,
+            month=billing_month,
+            defaults={
+                'amount': _plan_amount(institute, settings_obj),
+                'status': Invoice.STATUS_PENDING,
+                'due_date': due_date,
+            },
+        )
+        return invoice
+
+    def _sync_invoice_status(self, invoice):
+        amount = float(invoice.amount)
+        paid_amount = float(invoice.paid_amount or 0)
+        old_status = invoice.status
+
+        if paid_amount >= amount and amount > 0:
+            invoice.status = Invoice.STATUS_PAID
+            if not invoice.paid_at:
+                invoice.paid_at = timezone.now()
+        elif paid_amount > 0:
+            invoice.status = Invoice.STATUS_PARTIAL
+            invoice.paid_at = None
+        else:
+            invoice.status = Invoice.STATUS_PENDING
+            invoice.paid_at = None
+
+        invoice.save(update_fields=['status', 'paid_at'])
+
+        if old_status != Invoice.STATUS_PAID and invoice.status == Invoice.STATUS_PAID:
+            self._create_platform_fee_transaction(invoice)
+        elif old_status == Invoice.STATUS_PAID and invoice.status != Invoice.STATUS_PAID:
+            self._remove_platform_fee_transaction(invoice)
+
+        return invoice
+
+    def _apply_advance_payment(self, institute, from_month, overflow, settings_obj, request=None):
+        results = []
+        remaining = Decimal(str(overflow))
+        billing_month = _next_billing_month(from_month)
+
+        while remaining > 0:
+            invoice = self._get_or_create_invoice(institute, billing_month, settings_obj)
+            amount_due = Decimal(str(invoice.amount))
+            already_paid = Decimal(str(invoice.paid_amount or 0))
+            room = amount_due - already_paid
+            if room <= 0:
+                billing_month = _next_billing_month(billing_month)
+                continue
+
+            applied = min(remaining, room)
+            invoice.paid_amount = already_paid + applied
+            invoice.save(update_fields=['paid_amount'])
+            invoice = self._sync_invoice_status(invoice)
+            remaining -= applied
+            results.append(self._serialize_invoice_row(institute, billing_month, invoice, settings_obj, request))
+            billing_month = _next_billing_month(billing_month)
+
+        return results
 
     def _billing_month_end(self, year, month):
         last_day = datetime.date(year, month, monthrange(year, month)[1])
@@ -86,24 +220,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             for inv in Invoice.objects.filter(month=billing_month).select_related('institute')
         }
 
+        request = getattr(self, 'request', None)
         rows = []
         for institute in institutes:
             invoice = invoices.get(institute.id)
-            amount = invoice.amount if invoice else _plan_amount(institute, settings_obj)
-            raw_status = invoice.status if invoice else Invoice.STATUS_PENDING
-            rows.append({
-                'institute': institute.id,
-                'institute_name': institute.name,
-                'plan': institute.plan,
-                'registered_at': institute.created_at.date().isoformat(),
-                'invoice_id': invoice.id if invoice else None,
-                'amount': str(amount),
-                'month': billing_month.isoformat(),
-                'status': self._resolve_payment_status(raw_status, billing_month),
-                'paid_at': invoice.paid_at.isoformat() if invoice and invoice.paid_at else None,
-                'reference_note': invoice.reference_note if invoice else None,
-                'has_invoice': invoice is not None,
-            })
+            rows.append(self._serialize_invoice_row(institute, billing_month, invoice, settings_obj, request))
         return rows
 
     def _apply_status_change(self, invoice, new_status, reference_note=None, old_status=None):
@@ -115,6 +236,12 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             invoice.reference_note = reference_note or None
             update_fields.append('reference_note')
 
+        if new_status == Invoice.STATUS_PAID:
+            invoice.paid_amount = invoice.amount
+        elif new_status in (Invoice.STATUS_PENDING, Invoice.STATUS_OVERDUE):
+            invoice.paid_amount = Decimal('0')
+            update_fields.append('paid_amount')
+
         invoice.status = new_status
         invoice.save(update_fields=update_fields)
 
@@ -122,6 +249,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             invoice.paid_at = timezone.now()
             invoice.save(update_fields=['paid_at'])
             self._create_platform_fee_transaction(invoice)
+        elif new_status in (Invoice.STATUS_PENDING, Invoice.STATUS_OVERDUE):
+            invoice.paid_at = None
+            invoice.save(update_fields=['paid_at'])
+            if old_status == Invoice.STATUS_PAID:
+                self._remove_platform_fee_transaction(invoice)
         elif old_status == Invoice.STATUS_PAID and new_status != Invoice.STATUS_PAID:
             invoice.paid_at = None
             invoice.save(update_fields=['paid_at'])
@@ -148,23 +280,8 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
         billing_month = datetime.date(year, month, 1)
         invoice = Invoice.objects.filter(institute=institute, month=billing_month).first()
-        amount = invoice.amount if invoice else _plan_amount(institute, settings_obj)
-        raw_status = invoice.status if invoice else Invoice.STATUS_PENDING
-
-        return {
-            'institute': institute.id,
-            'institute_name': institute.name,
-            'plan': institute.plan,
-            'registered_at': institute.created_at.date().isoformat(),
-            'invoice_id': invoice.id if invoice else None,
-            'amount': str(amount),
-            'month': billing_month.isoformat(),
-            'status': self._resolve_payment_status(raw_status, billing_month),
-            'paid_at': invoice.paid_at.isoformat() if invoice and invoice.paid_at else None,
-            'reference_note': invoice.reference_note if invoice else None,
-            'due_date': invoice.due_date.isoformat() if invoice else (billing_month + datetime.timedelta(days=7)).isoformat(),
-            'has_invoice': invoice is not None,
-        }
+        request = getattr(self, 'request', None)
+        return self._serialize_invoice_row(institute, billing_month, invoice, settings_obj, request)
 
     def _build_institute_billing_rows(self, institute, year, month=None):
         settings_obj = PlatformSettings.objects.first()
@@ -208,22 +325,13 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             period_label = billing_month_label(year, month)
             period_month = month
 
-        total_expected = sum(float(row['amount']) for row in rows)
-        collected = sum(float(row['amount']) for row in rows if row['status'] == Invoice.STATUS_PAID)
-        outstanding = total_expected - collected
-        paid_count = sum(1 for row in rows if row['status'] == Invoice.STATUS_PAID)
-        pending_count = len(rows) - paid_count
+        stats = _compute_billing_stats(rows)
+        stats['month_count'] = len(rows)
+        stats['institute_count'] = 1
 
         return Response({
             'results': rows,
-            'stats': {
-                'total_expected': total_expected,
-                'collected': collected,
-                'outstanding': outstanding,
-                'paid_count': paid_count,
-                'pending_count': pending_count,
-                'month_count': len(rows),
-            },
+            'stats': stats,
             'period': {
                 'year': year,
                 'month': period_month,
@@ -258,12 +366,8 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             period_label = billing_month_label(year, month)
             period_month = month
 
-        total_expected = sum(float(row['amount']) for row in rows)
-        collected = sum(float(row['amount']) for row in rows if row['status'] == Invoice.STATUS_PAID)
-        outstanding = total_expected - collected
-        paid_count = sum(1 for row in rows if row['status'] == Invoice.STATUS_PAID)
-        pending_count = len(rows) - paid_count
-        institute_count = len({row['institute'] for row in rows})
+        stats = _compute_billing_stats(rows)
+        stats['institute_count'] = len({row['institute'] for row in rows})
 
         page_size = int(request.query_params.get('limit', 25))
         page_num = int(request.query_params.get('page', 1))
@@ -276,14 +380,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             'per_page': page_size,
             'total_pages': paginator.num_pages,
             'results': list(page_obj),
-            'stats': {
-                'total_expected': total_expected,
-                'collected': collected,
-                'outstanding': outstanding,
-                'paid_count': paid_count,
-                'pending_count': pending_count,
-                'institute_count': institute_count,
-            },
+            'stats': stats,
             'period': {
                 'year': year,
                 'month': period_month,
@@ -302,7 +399,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         if not all([institute_id, year, month, new_status]):
             return Response({'error': 'institute, year, month, and status are required'}, status=400)
 
-        if new_status not in [Invoice.STATUS_PENDING, Invoice.STATUS_PAID, Invoice.STATUS_OVERDUE]:
+        if new_status not in [Invoice.STATUS_PENDING, Invoice.STATUS_PARTIAL, Invoice.STATUS_PAID, Invoice.STATUS_OVERDUE]:
             return Response({'error': 'Invalid status'}, status=400)
 
         try:
@@ -331,8 +428,83 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
         stored_status = Invoice.STATUS_PENDING if new_status == Invoice.STATUS_OVERDUE else new_status
         invoice = self._apply_status_change(invoice, stored_status, reference_note)
-        serializer = self.get_serializer(invoice)
+        serializer = self.get_serializer(invoice, context={'request': request})
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='record_payment', parser_classes=[MultiPartParser, FormParser])
+    def record_payment(self, request):
+        institute_id = request.data.get('institute')
+        year = request.data.get('year')
+        month = request.data.get('month')
+        payment_amount = request.data.get('payment_amount')
+        reference_note = request.data.get('reference_note', '')
+        apply_advance = str(request.data.get('apply_advance', 'true')).lower() in ('1', 'true', 'yes')
+        payment_slip = request.FILES.get('payment_slip')
+
+        if not all([institute_id, year, month, payment_amount]):
+            return Response({'error': 'institute, year, month, and payment_amount are required'}, status=400)
+
+        try:
+            year = int(year)
+            month = int(month)
+            payment_amount = Decimal(str(payment_amount))
+            institute = Institute.objects.get(pk=int(institute_id))
+        except (ValueError, Institute.DoesNotExist):
+            return Response({'error': 'Invalid payment data'}, status=400)
+
+        if payment_amount <= 0:
+            return Response({'error': 'payment_amount must be greater than zero'}, status=400)
+
+        settings_obj = PlatformSettings.objects.first()
+        if not settings_obj:
+            settings_obj = PlatformSettings.objects.create()
+
+        billing_month = datetime.date(year, month, 1)
+        invoice = self._get_or_create_invoice(institute, billing_month, settings_obj)
+
+        amount_due = Decimal(str(invoice.amount))
+        already_paid = Decimal(str(invoice.paid_amount or 0))
+        remaining_due = max(amount_due - already_paid, Decimal('0'))
+        if remaining_due > 0:
+            applied_here = min(payment_amount, remaining_due)
+            overflow = payment_amount - applied_here
+        else:
+            applied_here = Decimal('0')
+            overflow = payment_amount
+
+        if applied_here > 0:
+            invoice.paid_amount = already_paid + applied_here
+            if reference_note:
+                invoice.reference_note = reference_note
+            if payment_slip:
+                invoice.payment_slip = payment_slip
+            invoice.save(update_fields=['paid_amount', 'reference_note', 'payment_slip'])
+            invoice = self._sync_invoice_status(invoice)
+        elif payment_slip or reference_note:
+            if reference_note:
+                invoice.reference_note = reference_note
+            if payment_slip:
+                invoice.payment_slip = payment_slip
+            invoice.save(update_fields=['reference_note', 'payment_slip'])
+
+        advance_rows = []
+        if overflow > 0 and apply_advance:
+            advance_rows = self._apply_advance_payment(
+                institute, billing_month, overflow, settings_obj, request
+            )
+        elif overflow > 0:
+            return Response({
+                'error': f'Payment exceeds amount due by LKR {overflow}. Enable apply_advance or adjust the amount.',
+            }, status=400)
+
+        current_row = self._serialize_invoice_row(institute, billing_month, invoice, settings_obj, request)
+        serializer = self.get_serializer(invoice, context={'request': request})
+        return Response({
+            'invoice': serializer.data,
+            'current': current_row,
+            'advance_applied': advance_rows,
+            'overflow': str(overflow),
+        })
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())

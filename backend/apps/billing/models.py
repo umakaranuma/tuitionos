@@ -1,19 +1,31 @@
 from django.db import models
 from apps.institutes.models import Institute
 
+def payment_slip_upload_to(instance, filename):
+    return f'payment_slips/{instance.institute_id}/{instance.month.year}/{instance.month.month:02d}/{filename}'
+
+
 class Invoice(models.Model):
     STATUS_PENDING = 'pending'
+    STATUS_PARTIAL = 'partial'
     STATUS_PAID = 'paid'
     STATUS_OVERDUE = 'overdue'
-    STATUS_CHOICES = [(STATUS_PENDING, 'Pending'), (STATUS_PAID, 'Paid'), (STATUS_OVERDUE, 'Overdue')]
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_PARTIAL, 'Partially Paid'),
+        (STATUS_PAID, 'Paid'),
+        (STATUS_OVERDUE, 'Overdue'),
+    ]
 
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='invoices')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     month = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     paid_at = models.DateTimeField(null=True, blank=True)
     due_date = models.DateField()
     reference_note = models.CharField(max_length=200, blank=True, null=True)
+    payment_slip = models.FileField(upload_to=payment_slip_upload_to, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
