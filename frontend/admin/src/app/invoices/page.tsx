@@ -27,8 +27,10 @@ export default function InvoicesPage() {
   const [month, setMonth] = useState<string>("all");
   const [generating, setGenerating] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
   const [payInvId, setPayInvId] = useState<number | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
+  const [updating, setUpdating] = useState(false);
 
   const fetchInvoices = () => {
     setLoading(true);
@@ -58,6 +60,7 @@ export default function InvoicesPage() {
 
   const handleMarkPaid = async () => {
     if (!payInvId) return;
+    setUpdating(true);
     try {
       await api.patch(`/api/admin/billing/invoices/${payInvId}`, { 
         status: "paid",
@@ -69,6 +72,26 @@ export default function InvoicesPage() {
       setPayInvId(null);
     } catch (e) {
       alert("Error marking paid");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleMarkPending = async () => {
+    if (!payInvId) return;
+    setUpdating(true);
+    try {
+      await api.patch(`/api/admin/billing/invoices/${payInvId}`, {
+        status: "pending",
+        reference_note: "",
+      });
+      fetchInvoices();
+      setShowPendingModal(false);
+      setPayInvId(null);
+    } catch (e) {
+      alert("Error reverting to pending");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -166,7 +189,11 @@ export default function InvoicesPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 4 }}>
-                        {inv.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setShowPayModal(true); }}>Mark paid</button>}
+                        {inv.status !== "paid" ? (
+                          <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setReferenceNote(""); setShowPayModal(true); }}>Mark paid</button>
+                        ) : (
+                          <button className="btn btn-xs btn-s" onClick={() => { setPayInvId(inv.id); setShowPendingModal(true); }}>Mark pending</button>
+                        )}
                         <button className="btn btn-xs btn-s">PDF</button>
                       </div>
                     </td>
@@ -181,10 +208,25 @@ export default function InvoicesPage() {
         )}
       </div>
 
+      <Modal open={showPendingModal} onClose={() => setShowPendingModal(false)} title="Revert to Pending" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPendingModal(false)} disabled={updating}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={handleMarkPending} disabled={updating}>
+            {updating ? "Saving..." : "Confirm & Mark Pending"}
+          </button>
+        </>
+      }>
+        <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
+          This will undo the paid status and remove the Platform Fee expense from the institute&apos;s Accounts ledger. Use this if the payment was marked paid by mistake.
+        </div>
+      </Modal>
+
       <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Confirm Payment" footer={
         <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)}>Cancel</button>
-          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid}>Confirm & Mark Paid</button>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)} disabled={updating}>Cancel</button>
+          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid} disabled={updating}>
+            {updating ? "Saving..." : "Confirm & Mark Paid"}
+          </button>
         </>
       }>
         <div className="form-gap">

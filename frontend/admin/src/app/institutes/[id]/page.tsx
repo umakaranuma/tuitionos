@@ -32,8 +32,10 @@ export default function InstituteDetailPage() {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [settings, setSettings] = useState<any>(null);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showPendingModal, setShowPendingModal] = useState(false);
   const [payInvId, setPayInvId] = useState<number | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
+  const [updating, setUpdating] = useState(false);
   
   const [showAddInvoiceModal, setShowAddInvoiceModal] = useState(false);
   const [manualInvoice, setManualInvoice] = useState({ month: "", amount: "", due_date: "" });
@@ -68,21 +70,45 @@ export default function InstituteDetailPage() {
     setShowPlan(false);
   };
 
+  const refreshInstitute = async () => {
+    const res = await api.get(`/api/admin/institutes/${id}`);
+    setInst(res.data);
+  };
+
   const handleMarkPaid = async () => {
     if (!payInvId) return;
+    setUpdating(true);
     try {
       await api.patch(`/api/admin/billing/invoices/${payInvId}`, { 
         status: "paid",
         reference_note: referenceNote 
       });
-      // Refresh institute details to get updated invoices
-      const res = await api.get(`/api/admin/institutes/${id}`);
-      setInst(res.data);
+      await refreshInstitute();
       setShowPayModal(false);
       setReferenceNote("");
       setPayInvId(null);
     } catch (e) {
       alert("Error marking invoice as paid");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleMarkPending = async () => {
+    if (!payInvId) return;
+    setUpdating(true);
+    try {
+      await api.patch(`/api/admin/billing/invoices/${payInvId}`, {
+        status: "pending",
+        reference_note: "",
+      });
+      await refreshInstitute();
+      setShowPendingModal(false);
+      setPayInvId(null);
+    } catch (e) {
+      alert("Error reverting invoice to pending");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -270,8 +296,10 @@ export default function InstituteDetailPage() {
                     </td>
                     <td className="mono" style={{ color: "var(--ink3)" }}>{inv.due_date}</td>
                     <td>
-                      {inv.status !== "paid" && (
-                        <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setShowPayModal(true); }}>Mark Paid</button>
+                      {inv.status !== "paid" ? (
+                        <button className="btn btn-xs btn-ok" onClick={() => { setPayInvId(inv.id); setReferenceNote(""); setShowPayModal(true); }}>Mark Paid</button>
+                      ) : (
+                        <button className="btn btn-xs btn-s" onClick={() => { setPayInvId(inv.id); setShowPendingModal(true); }}>Mark Pending</button>
                       )}
                     </td>
                   </tr>
@@ -336,10 +364,25 @@ export default function InstituteDetailPage() {
         </div>
       </Modal>
 
+      <Modal open={showPendingModal} onClose={() => setShowPendingModal(false)} title="Revert to Pending" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPendingModal(false)} disabled={updating}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={handleMarkPending} disabled={updating}>
+            {updating ? "Saving..." : "Confirm & Mark Pending"}
+          </button>
+        </>
+      }>
+        <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
+          This will undo the paid status and remove the Platform Fee expense from the institute&apos;s Accounts ledger. Use this if the payment was marked paid by mistake.
+        </div>
+      </Modal>
+
       <Modal open={showPayModal} onClose={() => setShowPayModal(false)} title="Confirm Payment" footer={
         <>
-          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)}>Cancel</button>
-          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid}>Confirm & Mark Paid</button>
+          <button className="btn btn-s btn-sm" onClick={() => setShowPayModal(false)} disabled={updating}>Cancel</button>
+          <button className="btn btn-ok btn-sm" onClick={handleMarkPaid} disabled={updating}>
+            {updating ? "Saving..." : "Confirm & Mark Paid"}
+          </button>
         </>
       }>
         <div className="form-gap">
