@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 
@@ -69,7 +70,6 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
-  const [viewMode, setViewMode] = useState<"monthly" | "yearly">("monthly");
   const [periodLabel, setPeriodLabel] = useState("");
   const [updating, setUpdating] = useState(false);
 
@@ -87,10 +87,7 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
 
   const load = () => {
     setLoading(true);
-    const params = viewMode === "yearly"
-      ? `institute=${instituteId}&year=${year}&view=yearly`
-      : `institute=${instituteId}&year=${year}&month=${month}&view=monthly`;
-
+    const params = `institute=${instituteId}&year=${year}&month=${month}&view=monthly`;
     api.get(`/api/admin/billing/invoices/institute_billing?${params}`)
       .then(r => {
         setRows(r.data.results || []);
@@ -101,7 +98,7 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
       .catch(() => setLoading(false));
   };
 
-  useEffect(load, [instituteId, year, month, viewMode]);
+  useEffect(load, [instituteId, year, month]);
 
   const billingPeriod = (row: BillingRow) => {
     const d = new Date(row.month);
@@ -236,48 +233,19 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase" }}>
           Billing &amp; Invoices
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", background: "var(--cr)", borderRadius: 8, padding: 2 }}>
-            {(["monthly", "yearly"] as const).map(v => (
-              <button
-                key={v}
-                className="btn btn-xs"
-                style={{
-                  background: viewMode === v ? "#fff" : "transparent",
-                  border: viewMode === v ? "1px solid var(--ln)" : "1px solid transparent",
-                  fontWeight: viewMode === v ? 700 : 500,
-                  textTransform: "capitalize",
-                }}
-                onClick={() => setViewMode(v)}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-          <select
-            value={year}
-            onChange={e => setYear(e.target.value)}
-            style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid var(--ln)", fontSize: 12 }}
-          >
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <select className="sel-f" value={year} onChange={e => setYear(e.target.value)}>
             {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
           </select>
-          {viewMode === "monthly" && (
-            <select
-              value={month}
-              onChange={e => setMonth(e.target.value)}
-              style={{ padding: "5px 10px", borderRadius: 8, border: "1px solid var(--ln)", fontSize: 12 }}
-            >
-              {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-          )}
-          <button className="btn btn-s btn-xs" onClick={() => setShowAddModal(true)}>+ Add invoice</button>
+          <select className="sel-f" value={month} onChange={e => setMonth(e.target.value)}>
+            {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+          <button className="btn btn-s btn-sm" onClick={() => setShowAddModal(true)}>+ Add invoice</button>
         </div>
       </div>
 
       <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 12 }}>
-        {viewMode === "monthly"
-          ? <>Payment status for <strong>{selectedMonthLabel} {year}</strong></>
-          : <>Full year overview for <strong>{year}</strong> — {stats.month_count} billing months</>}
+        Payment status for <strong>{selectedMonthLabel} {year}</strong>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
@@ -303,7 +271,7 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
           <table>
             <thead>
               <tr>
-                {viewMode === "yearly" && <th>Month</th>}
+                <th>Month</th>
                 <th>Amount (LKR)</th>
                 <th>Due date</th>
                 <th>Status</th>
@@ -313,9 +281,7 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
             <tbody>
               {rows.map(row => (
                 <tr key={row.month}>
-                  {viewMode === "yearly" && (
-                    <td style={{ fontWeight: 600 }}>{rowMonthLabel(row)}</td>
-                  )}
+                  <td style={{ fontWeight: 600 }}>{rowMonthLabel(row)}</td>
                   <td className="mono">{Number(row.amount).toLocaleString()}</td>
                   <td className="mono" style={{ color: "var(--ink3)" }}>{row.due_date}</td>
                   <td>
@@ -331,6 +297,9 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
                   </td>
                   <td>
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {row.invoice_id && (
+                        <Link href={`/invoices/${row.invoice_id}`} className="btn btn-xs btn-s">Details</Link>
+                      )}
                       <button className="btn btn-xs btn-s" onClick={() => openEdit(row)}>Edit</button>
                       {row.status !== "paid" ? (
                         <button className="btn btn-xs btn-ok" onClick={() => { setActiveRow(row); setReferenceNote(""); setShowPayModal(true); }}>

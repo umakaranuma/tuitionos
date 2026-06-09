@@ -1,25 +1,12 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { MrrChart, TrendPoint } from "@/components/income/MrrChart";
+import { BreakdownTable, PlanBucket } from "@/components/income/BreakdownTable";
+import { InvoiceTable, PaymentRow } from "@/components/invoices/InvoiceTable";
 import { api } from "@/lib/api";
-
-type MonthlyPayment = {
-  institute: number;
-  institute_name: string;
-  plan: string;
-  registered_at: string;
-  invoice_id: number | null;
-  amount: string;
-  paid_amount: string;
-  month: string;
-  status: string;
-  paid_at: string | null;
-  reference_note?: string | null;
-  payment_slip_url?: string | null;
-  has_invoice: boolean;
-};
 
 type Stats = {
   total_expected: number;
@@ -31,42 +18,40 @@ type Stats = {
   institute_count: number;
 };
 
-const PLAN_LABELS: Record<string, string> = {
-  solo: "Solo",
-  institute: "Institute",
-  institute_pro: "Pro",
+type Analytics = {
+  trend: TrendPoint[];
+  plan_breakdown: PlanBucket[];
+  focus_label: string;
+  focus_month: number;
+  summary: {
+    year_expected: number;
+    year_collected: number;
+    year_outstanding: number;
+    collection_rate: number;
+    avg_mrr: number;
+    active_institutes: number;
+    best_month: string | null;
+    best_month_collected: number;
+  };
 };
 
 const MONTHS = [
-  { value: "1", label: "January" },
-  { value: "2", label: "February" },
-  { value: "3", label: "March" },
-  { value: "4", label: "April" },
-  { value: "5", label: "May" },
-  { value: "6", label: "June" },
-  { value: "7", label: "July" },
-  { value: "8", label: "August" },
-  { value: "9", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
+  { value: "1", label: "January" }, { value: "2", label: "February" },
+  { value: "3", label: "March" }, { value: "4", label: "April" },
+  { value: "5", label: "May" }, { value: "6", label: "June" },
+  { value: "7", label: "July" }, { value: "8", label: "August" },
+  { value: "9", label: "September" }, { value: "10", label: "October" },
+  { value: "11", label: "November" }, { value: "12", label: "December" },
 ];
 
 const now = new Date();
-
-const statusBadge = (s: string) => {
-  const map: Record<string, JSX.Element> = {
-    paid: <span className="bdg b-paid">Paid</span>,
-    partial: <span className="bdg" style={{ background: "#ede8fc", color: "#6b3ea8" }}>Partial</span>,
-    pending: <span className="bdg b-due">Pending</span>,
-    overdue: <span className="bdg b-over">Overdue</span>,
-  };
-  return map[s] || <span className="bdg b-due">{s}</span>;
-};
+const selStyle = { padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 };
 
 export default function IncomePage() {
-  const [rows, setRows] = useState<MonthlyPayment[]>([]);
+  const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [anLoading, setAnLoading] = useState(true);
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [stats, setStats] = useState<Stats>({
@@ -79,14 +64,14 @@ export default function IncomePage() {
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [showPayModal, setShowPayModal] = useState(false);
   const [showPendingModal, setShowPendingModal] = useState(false);
-  const [activeRow, setActiveRow] = useState<MonthlyPayment | null>(null);
+  const [activeRow, setActiveRow] = useState<PaymentRow | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
   const [updating, setUpdating] = useState(false);
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i);
   const selectedMonthLabel = MONTHS.find(m => m.value === month)?.label || "";
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true);
     api.get(`/api/admin/billing/invoices/monthly_overview?year=${year}&month=${month}&page=${page}&limit=${limit}`)
       .then(r => {
@@ -94,62 +79,77 @@ export default function IncomePage() {
         setRows(d.results || []);
         if (d.period?.label) setPeriodLabel(d.period.label);
         if (d.stats) setStats(d.stats);
-        if (d.total_count !== undefined) {
-          setMeta({ total_count: d.total_count, total_pages: d.total_pages });
-        }
+        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  };
+  }, [year, month, page, limit]);
 
-  useEffect(load, [page, limit, year, month]);
+  const loadAnalytics = useCallback(() => {
+    setAnLoading(true);
+    api.get(`/api/admin/billing/invoices/revenue_analytics?year=${year}&month=${month}`)
+      .then(r => { setAnalytics(r.data); setAnLoading(false); })
+      .catch(() => setAnLoading(false));
+  }, [year, month]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
+
+  const refresh = () => { load(); loadAnalytics(); };
 
   const handleMarkPaid = async () => {
     if (!activeRow) return;
     setUpdating(true);
     try {
       if (activeRow.invoice_id) {
-        await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, {
-          status: "paid",
-          reference_note: referenceNote,
-        });
+        await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, { status: "paid", reference_note: referenceNote });
       } else {
         await api.post("/api/admin/billing/invoices/ensure_status", {
-          institute: activeRow.institute,
-          year: Number(year),
-          month: Number(month),
-          status: "paid",
-          reference_note: referenceNote,
+          institute: activeRow.institute, year: Number(year), month: Number(month),
+          status: "paid", reference_note: referenceNote,
         });
       }
-      setShowPayModal(false);
-      setReferenceNote("");
-      setActiveRow(null);
-      load();
-    } catch {
-      alert("Error marking payment as paid");
-    } finally {
-      setUpdating(false);
-    }
+      setShowPayModal(false); setReferenceNote(""); setActiveRow(null); refresh();
+    } catch { alert("Error marking payment as paid"); }
+    finally { setUpdating(false); }
   };
 
   const handleMarkPending = async () => {
     if (!activeRow?.invoice_id) return;
     setUpdating(true);
     try {
-      await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, {
-        status: "pending",
-        reference_note: "",
-      });
-      setShowPendingModal(false);
-      setActiveRow(null);
-      load();
-    } catch {
-      alert("Error reverting payment to pending");
-    } finally {
-      setUpdating(false);
-    }
+      await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, { status: "pending", reference_note: "" });
+      setShowPendingModal(false); setActiveRow(null); refresh();
+    } catch { alert("Error reverting payment to pending"); }
+    finally { setUpdating(false); }
   };
+
+  const exportCsv = () => {
+    const header = ["Institute", "Plan", "Registered", "Amount (LKR)", "Paid (LKR)", "Status", "Reference", "Month"];
+    const lines = rows.map(r => [
+      `"${r.institute_name}"`, r.plan,
+      new Date(r.registered_at).toLocaleDateString("en-CA"),
+      r.amount, r.paid_amount || "0", r.status,
+      `"${r.reference_note || ""}"`, r.month,
+    ].join(","));
+    const csv = [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `income_${year}_${month}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const sm = analytics?.summary;
+
+  const kpis = [
+    { lbl: `Expected (${selectedMonthLabel})`, val: stats.total_expected, tr: `${stats.institute_count} institutes`, cls: "nt", color: "var(--tc)" },
+    { lbl: "Collected", val: stats.collected, tr: `${stats.paid_count} paid · ${stats.partial_count ?? 0} partial`, cls: "up", color: "var(--jd)" },
+    { lbl: "Outstanding", val: stats.outstanding, tr: `${stats.pending_count} unpaid`, cls: "dn", color: "var(--rb)" },
+    { lbl: `YTD Collected (${year})`, val: sm?.year_collected ?? 0, tr: `${sm?.collection_rate ?? 0}% collection rate`, cls: "nt", color: "var(--ac)" },
+  ];
 
   return (
     <PageShell>
@@ -160,135 +160,71 @@ export default function IncomePage() {
           : "Monthly institute payments"}
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <select
-              value={year}
-              onChange={e => { setYear(e.target.value); setPage(1); }}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
-            >
-              {yearOptions.map(y => (
-                <option key={y} value={String(y)}>{y}</option>
-              ))}
+            <select value={year} onChange={e => { setYear(e.target.value); setPage(1); }} style={selStyle}>
+              {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
             </select>
-            <select
-              value={month}
-              onChange={e => { setMonth(e.target.value); setPage(1); }}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
-            >
-              {MONTHS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
+            <select value={month} onChange={e => { setMonth(e.target.value); setPage(1); }} style={selStyle}>
+              {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
-            <button className="btn btn-s btn-sm">Export CSV</button>
+            <button className="btn btn-s btn-sm" onClick={exportCsv} disabled={rows.length === 0}>Export CSV</button>
           </div>
         }
       />
       <div className="pb fi">
-        {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
+        <div className="g4" style={{ marginBottom: 16 }}>
+          {kpis.map(k => (
+            <div key={k.lbl} className="kpi" style={{ "--kc": k.color } as React.CSSProperties}>
+              <div className="kpi-lbl">{k.lbl}</div>
+              <div className="kpi-val">LKR {k.val.toLocaleString()}</div>
+              <div className={`kpi-tr ${k.cls}`}>{k.tr}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 14, marginBottom: 16 }}>
+          <MrrChart trend={analytics?.trend ?? []} loading={anLoading} focusMonth={analytics?.focus_month} />
+          <BreakdownTable breakdown={analytics?.plan_breakdown ?? []} focusLabel={analytics?.focus_label} loading={anLoading} />
+        </div>
+
+        {sm && (
+          <div className="g4" style={{ marginBottom: 16 }}>
+            {[
+              { lbl: "Avg MRR", val: `LKR ${sm.avg_mrr.toLocaleString()}` },
+              { lbl: "Active institutes", val: sm.active_institutes },
+              { lbl: "Best month", val: sm.best_month || "—" },
+              { lbl: "YTD outstanding", val: `LKR ${sm.year_outstanding.toLocaleString()}` },
+            ].map(s => (
+              <div key={s.lbl} className="card" style={{ padding: "12px 16px" }}>
+                <div style={{ fontSize: 10, color: "var(--ink3)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".05em" }}>{s.lbl}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", marginTop: 4 }}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 10, lineHeight: 1.5 }}>
+          Institute payments for <strong>{selectedMonthLabel} {year}</strong>.
+          Past months show institutes registered by then; current and upcoming months show all institutes.
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading…</div>
+        ) : (
           <>
-            <div style={{ fontSize: 12, color: "var(--ink3)", marginBottom: 14, lineHeight: 1.5 }}>
-              Institute payments for <strong>{selectedMonthLabel} {year}</strong>.
-              Past months show institutes registered by then; current and upcoming months show all institutes.
-            </div>
-
-            <div className="g4" style={{ marginBottom: 18 }}>
-              <div className="kpi" style={{ "--kc": "var(--tc)" } as React.CSSProperties}>
-                <div className="kpi-lbl">Expected ({selectedMonthLabel})</div>
-                <div className="kpi-val">LKR {stats.total_expected.toLocaleString()}</div>
-                <div className="kpi-tr nt">{stats.institute_count} institutes</div>
-              </div>
-              <div className="kpi" style={{ "--kc": "var(--jd)" } as React.CSSProperties}>
-                <div className="kpi-lbl">Collected</div>
-                <div className="kpi-val">LKR {stats.collected.toLocaleString()}</div>
-                <div className="kpi-tr up">{stats.paid_count} paid · {stats.partial_count ?? 0} partial</div>
-              </div>
-              <div className="kpi" style={{ "--kc": "var(--rb)" } as React.CSSProperties}>
-                <div className="kpi-lbl">Outstanding</div>
-                <div className="kpi-val">LKR {stats.outstanding.toLocaleString()}</div>
-                <div className="kpi-tr dn">{stats.pending_count} unpaid</div>
-              </div>
-            </div>
-
-            <div className="tw">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Institute</th>
-                    <th>Plan</th>
-                    <th>Registered</th>
-                    <th>Amount (LKR)</th>
-                    <th>Paid (LKR)</th>
-                    <th>Status</th>
-                    <th>Document</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(row => (
-                    <tr key={row.institute}>
-                      <td style={{ fontWeight: 600 }}>{row.institute_name}</td>
-                      <td>
-                        <span className="bdg" style={{ fontSize: 10.5, background: "#f1f5f9", color: "#475569" }}>
-                          {PLAN_LABELS[row.plan] || row.plan}
-                        </span>
-                      </td>
-                      <td className="mono" style={{ color: "var(--ink3)" }}>
-                        {new Date(row.registered_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </td>
-                      <td className="mono">{Number(row.amount).toLocaleString()}</td>
-                      <td className="mono" style={{ color: Number(row.paid_amount) > 0 ? "var(--jd)" : "var(--ink3)" }}>
-                        {Number(row.paid_amount || 0).toLocaleString()}
-                      </td>
-                      <td>
-                        {statusBadge(row.status)}
-                        {row.reference_note && (
-                          <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {row.reference_note}</div>
-                        )}
-                      </td>
-                      <td>
-                        {row.payment_slip_url ? (
-                          <a href={row.payment_slip_url} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-s">
-                            View slip
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          {row.status !== "paid" ? (
-                            <button className="btn btn-xs btn-ok" onClick={() => { setActiveRow(row); setReferenceNote(""); setShowPayModal(true); }}>
-                              Mark paid
-                            </button>
-                          ) : (
-                            <button
-                              className="btn btn-xs btn-s"
-                              onClick={() => { setActiveRow(row); setShowPendingModal(true); }}
-                              disabled={!row.invoice_id}
-                            >
-                              Mark pending
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={8} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
-                        No institutes for {selectedMonthLabel} {year}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--ln)", background: "#fff", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
-                <div style={{ fontSize: 12, color: "var(--ink3)" }}>
-                  Showing {rows.length} of {meta.total_count} institutes
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-                  <button className="btn btn-s btn-xs" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>Next</button>
-                </div>
+            <InvoiceTable
+              rows={rows}
+              showRegistered
+              emptyLabel={`No institutes for ${selectedMonthLabel} ${year}`}
+              primaryLabel="Mark paid"
+              resetLabel="Mark pending"
+              onPrimaryAction={row => { setActiveRow(row); setReferenceNote(""); setShowPayModal(true); }}
+              onResetAction={row => { setActiveRow(row); setShowPendingModal(true); }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 4px", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--ink3)" }}>Showing {rows.length} of {meta.total_count} institutes</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+                <button className="btn btn-s btn-xs" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>Next</button>
               </div>
             </div>
           </>
@@ -311,12 +247,7 @@ export default function IncomePage() {
           )}
           <div>
             <label className="flbl">Payslip Reference / Note (Optional)</label>
-            <input
-              value={referenceNote}
-              onChange={e => setReferenceNote(e.target.value)}
-              placeholder="e.g. WhatsApp Slip #123456"
-              autoFocus
-            />
+            <input value={referenceNote} onChange={e => setReferenceNote(e.target.value)} placeholder="e.g. WhatsApp Slip #123456" autoFocus />
           </div>
           <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
             {activeRow && !activeRow.has_invoice

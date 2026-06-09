@@ -86,9 +86,10 @@ export default function InstituteDetailPage() {
       <Topbar
         title={inst.name}
         subtitle={`${inst.subdomain}.tuitionos.lk`}
+        onBack={() => router.back()}
+        backLabel="Institutes"
         right={
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-g btn-sm" onClick={() => router.back()}>← Back</button>
             <button className="btn btn-s btn-sm" onClick={() => setShowPlan(true)}>Change plan</button>
             {status === "pending" ? (
               <button className="btn btn-ok btn-sm" onClick={() => { setSelectedStatus("active"); setShowStatusModal(true); }}>Activate</button>

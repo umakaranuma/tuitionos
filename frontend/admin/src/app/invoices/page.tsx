@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
+import { InvoiceTable } from "@/components/invoices/InvoiceTable";
 import { api } from "@/lib/api";
 
 type MonthlyPayment = {
@@ -31,12 +32,6 @@ type Stats = {
   institute_count: number;
 };
 
-const PLAN_LABELS: Record<string, string> = {
-  solo: "Solo",
-  institute: "Institute",
-  institute_pro: "Pro",
-};
-
 const MONTHS = [
   { value: "1", label: "January" },
   { value: "2", label: "February" },
@@ -53,16 +48,6 @@ const MONTHS = [
 ];
 
 const now = new Date();
-
-const statusBadge = (s: string) => {
-  const map: Record<string, JSX.Element> = {
-    paid: <span className="bdg b-paid">Paid</span>,
-    partial: <span className="bdg" style={{ background: "#ede8fc", color: "#6b3ea8" }}>Partial</span>,
-    pending: <span className="bdg b-due">Pending</span>,
-    overdue: <span className="bdg b-over">Overdue</span>,
-  };
-  return map[s] || <span className="bdg b-due">{s}</span>;
-};
 
 export default function InvoicesPage() {
   const [rows, setRows] = useState<MonthlyPayment[]>([]);
@@ -241,83 +226,22 @@ export default function InvoicesPage() {
               </div>
             </div>
 
-            <div className="tw">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Institute</th>
-                    <th>Plan</th>
-                    <th>Amount (LKR)</th>
-                    <th>Paid (LKR)</th>
-                    <th>Status</th>
-                    <th>Document</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(row => (
-                    <tr key={row.institute}>
-                      <td style={{ fontWeight: 600 }}>{row.institute_name}</td>
-                      <td>
-                        <span className="bdg" style={{ fontSize: 10.5, background: "#f1f5f9", color: "#475569" }}>
-                          {PLAN_LABELS[row.plan] || row.plan}
-                        </span>
-                      </td>
-                      <td className="mono">{Number(row.amount).toLocaleString()}</td>
-                      <td className="mono" style={{ color: Number(row.paid_amount) > 0 ? "var(--jd)" : "var(--ink3)" }}>
-                        {Number(row.paid_amount || 0).toLocaleString()}
-                      </td>
-                      <td>
-                        {statusBadge(row.status)}
-                        {row.reference_note && (
-                          <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {row.reference_note}</div>
-                        )}
-                      </td>
-                      <td>
-                        {row.payment_slip_url ? (
-                          <a href={row.payment_slip_url} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-s">
-                            View slip
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                          {row.status !== "paid" ? (
-                            <button className="btn btn-xs btn-ok" onClick={() => openRecordPayment(row)}>
-                              Record payment
-                            </button>
-                          ) : (
-                            <button
-                              className="btn btn-xs btn-s"
-                              onClick={() => { setActiveRow(row); setShowPendingModal(true); }}
-                              disabled={!row.invoice_id}
-                            >
-                              Reset
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
-                        No institutes for {selectedMonthLabel} {year}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderTop: "1px solid var(--ln)", background: "#fff", borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
-                <div style={{ fontSize: 12, color: "var(--ink3)" }}>
-                  Showing {rows.length} of {meta.total_count} institutes
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-                  <button className="btn btn-s btn-xs" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>Next</button>
-                </div>
+            <InvoiceTable
+              rows={rows}
+              showRegistered={false}
+              emptyLabel={`No institutes for ${selectedMonthLabel} ${year}`}
+              primaryLabel="Record payment"
+              resetLabel="Reset"
+              onPrimaryAction={openRecordPayment}
+              onResetAction={row => { setActiveRow(row); setShowPendingModal(true); }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 4px", marginTop: 4 }}>
+              <div style={{ fontSize: 12, color: "var(--ink3)" }}>
+                Showing {rows.length} of {meta.total_count} institutes
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
+                <button className="btn btn-s btn-xs" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>Next</button>
               </div>
             </div>
           </>

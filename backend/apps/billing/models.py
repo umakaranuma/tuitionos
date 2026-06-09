@@ -60,3 +60,40 @@ class InstituteTransaction(models.Model):
         db_table = 'institute_transactions'
         ordering = ['-date']
     def __str__(self): return f'{self.label} ({self.amount})'
+
+
+class InvoiceActivity(models.Model):
+    """Audit trail of every billing edit performed on an invoice."""
+    ACTION_CREATED = 'created'
+    ACTION_PAYMENT_RECORDED = 'payment_recorded'
+    ACTION_MARKED_PAID = 'marked_paid'
+    ACTION_REVERTED_PENDING = 'reverted_pending'
+    ACTION_STATUS_CHANGED = 'status_changed'
+    ACTION_AMOUNT_CHANGED = 'amount_changed'
+    ACTION_SLIP_UPLOADED = 'slip_uploaded'
+    ACTION_ADVANCE_APPLIED = 'advance_applied'
+    ACTION_CHOICES = [
+        (ACTION_CREATED, 'Invoice Created'),
+        (ACTION_PAYMENT_RECORDED, 'Payment Recorded'),
+        (ACTION_MARKED_PAID, 'Marked Paid'),
+        (ACTION_REVERTED_PENDING, 'Reverted to Pending'),
+        (ACTION_STATUS_CHANGED, 'Status Changed'),
+        (ACTION_AMOUNT_CHANGED, 'Amount Changed'),
+        (ACTION_SLIP_UPLOADED, 'Slip Uploaded'),
+        (ACTION_ADVANCE_APPLIED, 'Advance Applied'),
+    ]
+
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='activities')
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='invoice_activities')
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    detail = models.CharField(max_length=300, blank=True, default='')
+    actor = models.CharField(max_length=120, blank=True, default='Admin')
+    amount_snapshot = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'invoice_activities'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_action_display()} — {self.invoice_id}'

@@ -13,8 +13,19 @@ from rest_framework.response import Response
 
 from apps.core.permissions import AdminOnly, InstituteOnly
 from apps.institutes.models import Institute, PlatformSettings
-from .models import Invoice, InstituteTransaction
-from .serializers import InvoiceSerializer, InstituteTransactionSerializer
+from .models import Invoice, InstituteTransaction, InvoiceActivity
+from .serializers import (
+    InvoiceSerializer,
+    InstituteTransactionSerializer,
+    InvoiceActivitySerializer,
+)
+
+
+def _actor_name(request):
+    user = getattr(request, 'user', None)
+    if user and getattr(user, 'is_authenticated', False):
+        return user.get_full_name() or getattr(user, 'username', None) or getattr(user, 'email', 'Admin')
+    return 'Admin'
 
 
 def _plan_amount(institute, settings_obj):
@@ -126,9 +137,20 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             'has_invoice': invoice is not None,
         }
 
+    def _log_activity(self, invoice, action, detail='', amount=None):
+        request = getattr(self, 'request', None)
+        InvoiceActivity.objects.create(
+            invoice=invoice,
+            institute=invoice.institute,
+            action=action,
+            detail=detail or '',
+            actor=_actor_name(request) if request else 'Admin',
+            amount_snapshot=amount if amount is not None else invoice.amount,
+        )
+
     def _get_or_create_invoice(self, institute, billing_month, settings_obj):
         due_date = billing_month + datetime.timedelta(days=7)
-        invoice, _ = Invoice.objects.get_or_create(
+        invoice, created = Invoice.objects.get_or_create(
             institute=institute,
             month=billing_month,
             defaults={
@@ -137,6 +159,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 'due_date': due_date,
             },
         )
+        if created:
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_CREATED,
+                f'Invoice generated for {invoice.month.strftime("%B %Y")}',
+            )
         return invoice
 
     def _sync_invoice_status(self, invoice):
@@ -182,6 +209,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             invoice.paid_amount = already_paid + applied
             invoice.save(update_fields=['paid_amount'])
             invoice = self._sync_invoice_status(invoice)
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_ADVANCE_APPLIED,
+                f'Advance of LKR {applied} applied from {from_month.strftime("%B %Y")}',
+                amount=applied,
+            )
             remaining -= applied
             results.append(self._serialize_invoice_row(institute, billing_month, invoice, settings_obj, request))
             billing_month = _next_billing_month(billing_month)
@@ -249,15 +281,33 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             invoice.paid_at = timezone.now()
             invoice.save(update_fields=['paid_at'])
             self._create_platform_fee_transaction(invoice)
+            note = f' (Ref: {reference_note})' if reference_note else ''
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_MARKED_PAID,
+                f'Marked paid — LKR {invoice.amount}{note}',
+            )
         elif new_status in (Invoice.STATUS_PENDING, Invoice.STATUS_OVERDUE):
             invoice.paid_at = None
             invoice.save(update_fields=['paid_at'])
             if old_status == Invoice.STATUS_PAID:
                 self._remove_platform_fee_transaction(invoice)
+                self._log_activity(
+                    invoice, InvoiceActivity.ACTION_REVERTED_PENDING,
+                    'Reverted to pending — platform fee removed from ledger',
+                )
+            elif old_status != new_status:
+                self._log_activity(
+                    invoice, InvoiceActivity.ACTION_STATUS_CHANGED,
+                    f'Status changed {old_status} → {new_status}',
+                )
         elif old_status == Invoice.STATUS_PAID and new_status != Invoice.STATUS_PAID:
             invoice.paid_at = None
             invoice.save(update_fields=['paid_at'])
             self._remove_platform_fee_transaction(invoice)
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_STATUS_CHANGED,
+                f'Status changed {old_status} → {new_status}',
+            )
 
         return invoice
 
@@ -337,6 +387,139 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 'month': period_month,
                 'label': period_label,
                 'view': view_mode,
+            },
+        })
+
+    def _plan_breakdown(self, rows):
+        plan_labels = {
+            Institute.PLAN_SOLO: 'Solo',
+            Institute.PLAN_INSTITUTE: 'Institute',
+            Institute.PLAN_INSTITUTE_PRO: 'Pro',
+        }
+        buckets = {}
+        for row in rows:
+            plan = row['plan']
+            bucket = buckets.setdefault(plan, {
+                'plan': plan,
+                'label': plan_labels.get(plan, plan.title()),
+                'institutes': 0,
+                'expected': 0.0,
+                'collected': 0.0,
+                'paid_count': 0,
+            })
+            bucket['institutes'] += 1
+            bucket['expected'] += float(row['amount'])
+            bucket['collected'] += _row_collected_amount(row)
+            if row['status'] == Invoice.STATUS_PAID:
+                bucket['paid_count'] += 1
+        breakdown = []
+        for bucket in buckets.values():
+            bucket['outstanding'] = bucket['expected'] - bucket['collected']
+            breakdown.append(bucket)
+        breakdown.sort(key=lambda b: b['expected'], reverse=True)
+        return breakdown
+
+    @action(detail=True, methods=['get'], url_path='detail')
+    def detail_view(self, request, pk=None):
+        """Single-invoice view: invoice data, payment breakdown, and activity log."""
+        invoice = self.get_object()
+        amount = float(invoice.amount)
+        paid = float(invoice.paid_amount or 0)
+        billing_month = invoice.month
+        status = self._resolve_payment_status(invoice.status, billing_month, paid, amount)
+
+        activities = InvoiceActivitySerializer(
+            invoice.activities.all(), many=True, context={'request': request},
+        ).data
+        invoice_data = self.get_serializer(invoice, context={'request': request}).data
+        invoice_data['status'] = status
+
+        return Response({
+            'invoice': invoice_data,
+            'institute': {
+                'id': invoice.institute_id,
+                'name': invoice.institute.name,
+                'plan': invoice.institute.plan,
+                'subdomain': invoice.institute.subdomain,
+                'status': invoice.institute.status,
+            },
+            'breakdown': {
+                'amount': amount,
+                'paid': paid,
+                'remaining': max(amount - paid, 0),
+                'month': billing_month.isoformat(),
+                'month_label': billing_month.strftime('%B %Y'),
+                'status': status,
+            },
+            'activities': activities,
+        })
+
+    @action(detail=False, methods=['get'], url_path='revenue_analytics')
+    def revenue_analytics(self, request):
+        """Year-long revenue trend + plan breakdown for the admin finance dashboards."""
+        year_str = request.query_params.get('year', str(timezone.now().year))
+        month_str = request.query_params.get('month')
+        try:
+            year = int(year_str)
+        except ValueError:
+            return Response({'error': 'Invalid year'}, status=400)
+
+        focus_month = None
+        if month_str and month_str != 'all':
+            try:
+                focus_month = int(month_str)
+            except ValueError:
+                focus_month = None
+
+        month_short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+        trend = []
+        year_expected = year_collected = 0.0
+        best = {'label': None, 'collected': 0.0}
+        focus_rows = []
+        for m in range(1, 13):
+            rows = self._build_monthly_rows(year, m)
+            stats = _compute_billing_stats(rows)
+            trend.append({
+                'month': m,
+                'label': month_short[m - 1],
+                'expected': round(stats['total_expected'], 2),
+                'collected': round(stats['collected'], 2),
+                'outstanding': round(stats['outstanding'], 2),
+                'paid_count': stats['paid_count'],
+                'institutes': len(rows),
+            })
+            year_expected += stats['total_expected']
+            year_collected += stats['collected']
+            if stats['collected'] > best['collected']:
+                best = {'label': billing_month_label(year, m), 'collected': stats['collected']}
+            if focus_month and m == focus_month:
+                focus_rows = rows
+
+        if focus_month is None:
+            focus_month = timezone.now().month if timezone.now().year == year else 12
+            focus_rows = self._build_monthly_rows(year, focus_month)
+
+        breakdown = self._plan_breakdown(focus_rows)
+        active_count = Institute.objects.filter(status=Institute.STATUS_ACTIVE).count()
+        collection_rate = (year_collected / year_expected * 100) if year_expected else 0.0
+
+        return Response({
+            'year': year,
+            'focus_month': focus_month,
+            'focus_label': billing_month_label(year, focus_month),
+            'trend': trend,
+            'plan_breakdown': breakdown,
+            'summary': {
+                'year_expected': round(year_expected, 2),
+                'year_collected': round(year_collected, 2),
+                'year_outstanding': round(year_expected - year_collected, 2),
+                'collection_rate': round(collection_rate, 1),
+                'avg_mrr': round(year_collected / 12, 2),
+                'active_institutes': active_count,
+                'best_month': best['label'],
+                'best_month_collected': round(best['collected'], 2),
             },
         })
 
@@ -480,12 +663,28 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 invoice.payment_slip = payment_slip
             invoice.save(update_fields=['paid_amount', 'reference_note', 'payment_slip'])
             invoice = self._sync_invoice_status(invoice)
+            note = f' (Ref: {reference_note})' if reference_note else ''
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_PAYMENT_RECORDED,
+                f'Recorded payment of LKR {applied_here}{note}',
+                amount=applied_here,
+            )
+            if payment_slip:
+                self._log_activity(
+                    invoice, InvoiceActivity.ACTION_SLIP_UPLOADED,
+                    f'Payment slip uploaded ({payment_slip.name})',
+                )
         elif payment_slip or reference_note:
             if reference_note:
                 invoice.reference_note = reference_note
             if payment_slip:
                 invoice.payment_slip = payment_slip
             invoice.save(update_fields=['reference_note', 'payment_slip'])
+            if payment_slip:
+                self._log_activity(
+                    invoice, InvoiceActivity.ACTION_SLIP_UPLOADED,
+                    f'Payment slip uploaded ({payment_slip.name})',
+                )
 
         advance_rows = []
         if overflow > 0 and apply_advance:
@@ -568,10 +767,16 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         old_instance = self.get_object()
         old_status = old_instance.status
+        old_amount = old_instance.amount
         validated = serializer.validated_data
         new_status = validated.get('status', old_status)
         reference_note = validated.get('reference_note') if 'reference_note' in validated else None
         instance = serializer.save()
+        if 'amount' in validated and validated['amount'] != old_amount:
+            self._log_activity(
+                instance, InvoiceActivity.ACTION_AMOUNT_CHANGED,
+                f'Amount changed LKR {old_amount} → LKR {instance.amount}',
+            )
         if new_status != old_status or reference_note is not None:
             self._apply_status_change(instance, new_status, reference_note, old_status=old_status)
 
@@ -596,12 +801,16 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 elif institute.plan == 'institute_pro': amount = settings_obj.monthly_fee_institute_pro
                 else: amount = settings_obj.monthly_fee_institute
 
-                Invoice.objects.create(
+                invoice = Invoice.objects.create(
                     institute=institute,
                     amount=amount,
                     month=first_day_of_month,
                     status=Invoice.STATUS_PENDING,
                     due_date=due_date
+                )
+                self._log_activity(
+                    invoice, InvoiceActivity.ACTION_CREATED,
+                    f'Auto-generated for {first_day_of_month.strftime("%B %Y")}',
                 )
                 generated_count += 1
 

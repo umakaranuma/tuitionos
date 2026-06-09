@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Invoice, InstituteTransaction
+from .models import Invoice, InstituteTransaction, InvoiceActivity
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -35,3 +35,14 @@ class InstituteTransactionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
         return super().create(validated_data)
+
+
+class InvoiceActivitySerializer(serializers.ModelSerializer):
+    action_label = serializers.CharField(source='get_action_display', read_only=True)
+
+    class Meta:
+        model = InvoiceActivity
+        fields = [
+            'id', 'action', 'action_label', 'detail', 'actor',
+            'amount_snapshot', 'created_at',
+        ]
