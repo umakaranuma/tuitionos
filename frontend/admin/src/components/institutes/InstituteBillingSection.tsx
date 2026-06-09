@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 type BillingRow = {
@@ -62,6 +63,7 @@ type Props = {
 };
 
 export function InstituteBillingSection({ instituteId, onBillingChange }: Props) {
+  const toast = useToast();
   const [rows, setRows] = useState<BillingRow[]>([]);
   const [stats, setStats] = useState<BillingStats>({
     total_expected: 0, collected: 0, outstanding: 0,
@@ -133,8 +135,9 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
       setReferenceNote("");
       setActiveRow(null);
       refreshAll();
+      toast.success("Invoice marked as paid.");
     } catch {
-      alert("Error marking as paid");
+      toast.error("Couldn't mark the invoice as paid.");
     } finally {
       setUpdating(false);
     }
@@ -151,8 +154,9 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
       setShowPendingModal(false);
       setActiveRow(null);
       refreshAll();
+      toast.success("Invoice reverted to pending.");
     } catch {
-      alert("Error reverting to pending");
+      toast.error("Couldn't revert the invoice to pending.");
     } finally {
       setUpdating(false);
     }
@@ -183,8 +187,9 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
       setShowEditModal(false);
       setActiveRow(null);
       refreshAll();
+      toast.success("Invoice updated successfully.");
     } catch {
-      alert("Error saving invoice");
+      toast.error("Couldn't save the invoice changes.");
     } finally {
       setUpdating(false);
     }
@@ -192,7 +197,7 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
 
   const handleCreateInvoice = async () => {
     if (!manualInvoice.month || !manualInvoice.amount || !manualInvoice.due_date) {
-      alert("Please fill all fields");
+      toast.error("Please fill in all fields before creating the invoice.");
       return;
     }
     setUpdating(true);
@@ -207,8 +212,9 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
       setShowAddModal(false);
       setManualInvoice({ month: "", amount: "", due_date: "" });
       refreshAll();
+      toast.success("Manual invoice created.");
     } catch {
-      alert("Error creating invoice");
+      toast.error("Couldn't create the invoice. Please try again.");
     } finally {
       setUpdating(false);
     }

@@ -5,6 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Topbar } from "@/components/layout/Topbar";
 import { Modal } from "@/components/ui/Modal";
 import { InstituteBillingSection } from "@/components/institutes/InstituteBillingSection";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
@@ -22,6 +23,7 @@ const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }
 export default function InstituteDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const toast = useToast();
   const id = params.id as string;
 
   const [inst, setInst] = useState<any>(null);
@@ -47,19 +49,30 @@ export default function InstituteDetailPage() {
   }, [id]);
 
   const handleStatusChange = async () => {
-    if (selectedStatus === "active" && status === "pending") {
-      await api.post(`/api/admin/institutes/${id}/activate`);
-    } else {
-      const is_active = selectedStatus === "active" || selectedStatus === "trial";
-      await api.patch(`/api/admin/institutes/${id}`, { status: selectedStatus, is_active });
+    try {
+      if (selectedStatus === "active" && status === "pending") {
+        await api.post(`/api/admin/institutes/${id}/activate`);
+        toast.success("Institute activated. A welcome email has been sent.");
+      } else {
+        const is_active = selectedStatus === "active" || selectedStatus === "trial";
+        await api.patch(`/api/admin/institutes/${id}`, { status: selectedStatus, is_active });
+        toast.success(`Account status updated to ${selectedStatus}.`);
+      }
+      setStatus(selectedStatus);
+      setShowStatusModal(false);
+    } catch {
+      toast.error("Couldn't update the account status. Please try again.");
     }
-    setStatus(selectedStatus);
-    setShowStatusModal(false);
   };
 
   const handlePlanChange = async () => {
-    await api.patch(`/api/admin/institutes/${id}`, { plan });
-    setShowPlan(false);
+    try {
+      await api.patch(`/api/admin/institutes/${id}`, { plan });
+      setShowPlan(false);
+      toast.success("Subscription plan updated.");
+    } catch {
+      toast.error("Couldn't update the subscription plan.");
+    }
   };
 
   const refreshInstitute = async () => {

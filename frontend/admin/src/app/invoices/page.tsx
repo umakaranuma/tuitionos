@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { InvoiceTable } from "@/components/invoices/InvoiceTable";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 type MonthlyPayment = {
@@ -50,6 +51,7 @@ const MONTHS = [
 const now = new Date();
 
 export default function InvoicesPage() {
+  const toast = useToast();
   const [rows, setRows] = useState<MonthlyPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(now.getFullYear()));
@@ -111,10 +113,10 @@ export default function InvoicesPage() {
     setGenerating(true);
     try {
       const res = await api.post("/api/admin/billing/invoices/generate_monthly");
-      alert(res.data.message);
+      toast.success(res.data.message || "Monthly invoices generated.");
       load();
     } catch {
-      alert("Error generating invoices");
+      toast.error("Couldn't generate monthly invoices. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -136,7 +138,9 @@ export default function InvoicesPage() {
       const res = await api.post("/api/admin/billing/invoices/record_payment", form);
       const advance = res.data.advance_applied || [];
       if (advance.length > 0) {
-        alert(`Payment recorded. LKR ${res.data.overflow} applied as advance to upcoming month(s).`);
+        toast.success(`Payment recorded. LKR ${res.data.overflow} applied as advance to upcoming month(s).`);
+      } else {
+        toast.success("Payment recorded successfully.");
       }
       setShowPayModal(false);
       setActiveRow(null);
@@ -144,7 +148,7 @@ export default function InvoicesPage() {
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      alert(msg || "Error recording payment");
+      toast.error(msg || "Couldn't record the payment. Please try again.");
     } finally {
       setUpdating(false);
     }
@@ -161,8 +165,9 @@ export default function InvoicesPage() {
       setShowPendingModal(false);
       setActiveRow(null);
       load();
+      toast.success("Payment reset to pending.");
     } catch {
-      alert("Error reverting payment to pending");
+      toast.error("Couldn't reset the payment to pending.");
     } finally {
       setUpdating(false);
     }

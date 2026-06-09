@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
-import { Toast } from "@/components/ui/Toast";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 type Settings = {
@@ -14,6 +14,7 @@ type Settings = {
 };
 
 export default function PricingPage() {
+  const toast = useToast();
   const [settings, setSettings] = useState<Settings>({
     monthly_fee_solo: 0,
     monthly_fee_institute: 0,
@@ -23,7 +24,6 @@ export default function PricingPage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string; type: "success" | "error" } | null>(null);
 
   useEffect(() => {
     api.get("/api/admin/settings").then(r => {
@@ -36,9 +36,9 @@ export default function PricingPage() {
     setSaving(true);
     try {
       await api.put("/api/admin/settings", settings);
-      setAlertModal({ open: true, message: "Settings saved successfully", type: "success" });
-    } catch (err) {
-      setAlertModal({ open: true, message: "Failed to save settings", type: "error" });
+      toast.success("Pricing & billing rules updated successfully.");
+    } catch {
+      toast.error("Couldn't save pricing settings. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -128,13 +128,6 @@ export default function PricingPage() {
           </div>
         )}
       </div>
-
-      <Toast 
-        open={!!alertModal?.open} 
-        message={alertModal?.message || ""} 
-        type={alertModal?.type || "success"} 
-        onClose={() => setAlertModal(null)} 
-      />
     </PageShell>
   );
 }

@@ -4,6 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { Topbar } from "@/components/layout/Topbar";
 import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 type Invoice = {
@@ -66,6 +67,7 @@ const fmt = (n: number) => `LKR ${Math.round(n).toLocaleString()}`;
 export default function InvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const toast = useToast();
   const id = params.id as string;
 
   const [data, setData] = useState<DetailResponse | null>(null);
@@ -133,12 +135,14 @@ export default function InvoiceDetailPage() {
       if (paymentSlip) form.append("payment_slip", paymentSlip);
       const res = await api.post("/api/admin/billing/invoices/record_payment", form);
       if ((res.data.advance_applied || []).length > 0) {
-        alert(`Payment recorded. LKR ${res.data.overflow} applied as advance to upcoming month(s).`);
+        toast.success(`Payment recorded. LKR ${res.data.overflow} applied as advance to upcoming month(s).`);
+      } else {
+        toast.success("Payment recorded successfully.");
       }
       setShowPay(false); load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      alert(msg || "Error recording payment");
+      toast.error(msg || "Couldn't record the payment. Please try again.");
     } finally { setUpdating(false); }
   };
 
@@ -148,7 +152,8 @@ export default function InvoiceDetailPage() {
     try {
       await api.patch(`/api/admin/billing/invoices/${data.invoice.id}`, { status: "paid", reference_note: referenceNote });
       setShowPaid(false); setReferenceNote(""); load();
-    } catch { alert("Error marking as paid"); }
+      toast.success("Invoice marked as paid.");
+    } catch { toast.error("Couldn't mark the invoice as paid."); }
     finally { setUpdating(false); }
   };
 
@@ -158,7 +163,8 @@ export default function InvoiceDetailPage() {
     try {
       await api.patch(`/api/admin/billing/invoices/${data.invoice.id}`, { status: "pending", reference_note: "" });
       setShowRevert(false); load();
-    } catch { alert("Error reverting to pending"); }
+      toast.success("Invoice reverted to pending.");
+    } catch { toast.error("Couldn't revert the invoice."); }
     finally { setUpdating(false); }
   };
 
@@ -172,7 +178,8 @@ export default function InvoiceDetailPage() {
         reference_note: editForm.reference_note,
       });
       setShowEdit(false); load();
-    } catch { alert("Error saving invoice"); }
+      toast.success("Invoice updated successfully.");
+    } catch { toast.error("Couldn't save the invoice changes."); }
     finally { setUpdating(false); }
   };
 

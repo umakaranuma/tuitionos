@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 const featureFlags = [
@@ -22,6 +23,7 @@ const techStack = [
 ];
 
 export default function SettingsPage() {
+  const toast = useToast();
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     student_cap: true, sms_premium: true, open_reg: true,
   });
@@ -56,9 +58,9 @@ export default function SettingsPage() {
         monthly_fee_institute: monthlyFeeInstitute,
         monthly_fee_institute_pro: monthlyFeePro,
       });
-      alert("Settings saved successfully");
-    } catch (e) {
-      alert("Failed to save settings");
+      toast.success("Platform settings updated successfully.");
+    } catch {
+      toast.error("Couldn't save settings. Please try again.");
     } finally {
       setSaving(false);
     }

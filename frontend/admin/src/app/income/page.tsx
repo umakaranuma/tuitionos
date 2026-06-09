@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { MrrChart, TrendPoint } from "@/components/income/MrrChart";
 import { BreakdownTable, PlanBucket } from "@/components/income/BreakdownTable";
 import { InvoiceTable, PaymentRow } from "@/components/invoices/InvoiceTable";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 type Stats = {
@@ -48,6 +49,7 @@ const now = new Date();
 const selStyle = { padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 };
 
 export default function IncomePage() {
+  const toast = useToast();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -110,7 +112,8 @@ export default function IncomePage() {
         });
       }
       setShowPayModal(false); setReferenceNote(""); setActiveRow(null); refresh();
-    } catch { alert("Error marking payment as paid"); }
+      toast.success("Payment marked as paid.");
+    } catch { toast.error("Couldn't mark the payment as paid."); }
     finally { setUpdating(false); }
   };
 
@@ -120,7 +123,8 @@ export default function IncomePage() {
     try {
       await api.patch(`/api/admin/billing/invoices/${activeRow.invoice_id}`, { status: "pending", reference_note: "" });
       setShowPendingModal(false); setActiveRow(null); refresh();
-    } catch { alert("Error reverting payment to pending"); }
+      toast.success("Payment reset to pending.");
+    } catch { toast.error("Couldn't reset the payment to pending."); }
     finally { setUpdating(false); }
   };
 
