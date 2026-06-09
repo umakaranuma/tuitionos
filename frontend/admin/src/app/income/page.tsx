@@ -46,7 +46,6 @@ const MONTHS = [
 ];
 
 const now = new Date();
-const selStyle = { padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 };
 
 export default function IncomePage() {
   const toast = useToast();
@@ -164,10 +163,10 @@ export default function IncomePage() {
           : "Monthly institute payments"}
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <select value={year} onChange={e => { setYear(e.target.value); setPage(1); }} style={selStyle}>
+            <select className="sel-f" value={year} onChange={e => { setYear(e.target.value); setPage(1); }}>
               {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
             </select>
-            <select value={month} onChange={e => { setMonth(e.target.value); setPage(1); }} style={selStyle}>
+            <select className="sel-f" value={month} onChange={e => { setMonth(e.target.value); setPage(1); }}>
               {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
             <button className="btn btn-s btn-sm" onClick={exportCsv} disabled={rows.length === 0}>Export CSV</button>
@@ -224,11 +223,18 @@ export default function IncomePage() {
               onPrimaryAction={row => { setActiveRow(row); setReferenceNote(""); setShowPayModal(true); }}
               onResetAction={row => { setActiveRow(row); setShowPendingModal(true); }}
             />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 4px", marginTop: 4 }}>
-              <div style={{ fontSize: 12, color: "var(--ink3)" }}>Showing {rows.length} of {meta.total_count} institutes</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="btn btn-s btn-xs" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</button>
-                <button className="btn btn-s btn-xs" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>Next</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 4px", marginTop: 4 }}>
+              <span className="pg-info">Showing {rows.length} of {meta.total_count} institutes</span>
+              <div className="pagination">
+                <button className="pg-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 14 14"><path d="M8.5 3L4.5 7l4 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
+                {Array.from({ length: Math.min(meta.total_pages, 5) }, (_, i) => i + 1).map(p => (
+                  <button key={p} className={`pg-btn ${page === p ? "on" : ""}`} onClick={() => setPage(p)}>{p}</button>
+                ))}
+                <button className="pg-btn" disabled={page === meta.total_pages || meta.total_pages === 0} onClick={() => setPage(p => p + 1)}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 14 14"><path d="M5.5 3l4 4-4 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </button>
               </div>
             </div>
           </>

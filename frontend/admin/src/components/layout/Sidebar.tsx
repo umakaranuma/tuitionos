@@ -15,20 +15,37 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       {
         label: "Dashboard", href: "/dashboard",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1.2"/>
+            <rect x="9" y="1.5" width="5.5" height="5.5" rx="1.2"/>
+            <rect x="1.5" y="9" width="5.5" height="5.5" rx="1.2"/>
+            <rect x="9" y="9" width="5.5" height="5.5" rx="1.2"/>
+          </svg>
+        ),
       },
     ],
   },
   {
-    title: "Institutes",
+    title: "People",
     items: [
       {
-        label: "All institutes", href: "/institutes",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M2 12V6.5L7 2l5 4.5V12"/><rect x="5" y="8" width="2.5" height="4" rx=".5"/><rect x="6.5" y="8" width="2.5" height="4" rx=".5"/></svg>
+        label: "Institutes", href: "/institutes",
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <path d="M2 14V8L8 3l6 5v6"/>
+            <rect x="6" y="9.5" width="4" height="4.5" rx=".8"/>
+          </svg>
+        ),
       },
       {
         label: "Add institute", href: "/institutes/add",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M7 3v8M3 7h8"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <circle cx="8" cy="8" r="6.5"/>
+            <path d="M8 5v6M5 8h6"/>
+          </svg>
+        ),
       },
     ],
   },
@@ -37,11 +54,21 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       {
         label: "Income", href: "/income",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M1 10l3.5-3.5 2.5 2.5 3.5-4.5L13 6.5"/><rect x="1" y="1" width="12" height="11" rx="1.5"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <path d="M2 11.5l3.5-4 3 3 4-5L15 7"/>
+            <path d="M2 2v12h13"/>
+          </svg>
+        ),
       },
       {
         label: "Invoices", href: "/invoices",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 2h9a.5.5 0 01.5.5v10l-1.5-1L9 12.5 7.5 11.5 6 12.5 4.5 11.5 3 12.5V2.5a.5.5 0 01.5-.5z"/><path d="M4.5 5h5M4.5 7.5h3.5"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <path d="M3 2.5h10a.5.5 0 01.5.5v11l-1.75-1.25L10 14l-2-1.25L6 14l-1.75-1.25L2.5 14V3a.5.5 0 01.5-.5z"/>
+            <path d="M5.5 6.5h5M5.5 9h3.5"/>
+          </svg>
+        ),
       },
     ],
   },
@@ -50,15 +77,30 @@ const sections: { title: string; items: NavItem[] }[] = [
     items: [
       {
         label: "Alerts", href: "/alerts", badge: "3",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M7 1.5a3.5 3.5 0 013.5 3.5v2.5l1 2H2.5l1-2V5A3.5 3.5 0 017 1.5z"/><path d="M5.5 11a1.5 1.5 0 003 0"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <path d="M8 2a4 4 0 014 4v3l1.5 2.5h-11L4 9V6a4 4 0 014-4z"/>
+            <path d="M6.5 12.5a1.5 1.5 0 003 0"/>
+          </svg>
+        ),
       },
       {
         label: "Settings", href: "/settings",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><circle cx="7" cy="7" r="2"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <circle cx="8" cy="8" r="2.5"/>
+            <path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>
+          </svg>
+        ),
       },
       {
         label: "Pricing", href: "/pricing",
-        icon: <svg fill="none" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="1.5"><path d="M1.5 7l5.5-5.5 5.5 5.5v5.5a.5.5 0 01-.5.5h-10a.5.5 0 01-.5-.5z"/><rect x="5" y="8" width="4" height="5" rx=".5"/></svg>
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <path d="M2 8.5l6-6.5 6 6.5V14a.5.5 0 01-.5.5h-11A.5.5 0 012 14z"/>
+            <rect x="5.5" y="9" width="5" height="5.5" rx=".8"/>
+          </svg>
+        ),
       },
     ],
   },
@@ -77,21 +119,23 @@ export function Sidebar() {
         <div className="sb-logo-url">admin.tuitionos.lk</div>
       </div>
 
-      {sections.map((section) => (
-        <div key={section.title}>
-          <div className="sb-sec">{section.title}</div>
-          {section.items.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link key={item.href} href={item.href} className={`sb-item ${isActive ? "on" : ""}`}>
-                {item.icon}
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {item.badge && <span className="sb-badge">{item.badge}</span>}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+      <nav style={{ flex: 1, padding: "8px 0" }}>
+        {sections.map((section) => (
+          <div key={section.title}>
+            <div className="sb-sec">{section.title}</div>
+            {section.items.map((item) => {
+              const isActive = pathname === item.href || (item.href !== "/institutes/add" && pathname.startsWith(`${item.href}/`));
+              return (
+                <Link key={item.href} href={item.href} className={`sb-item ${isActive ? "on" : ""}`}>
+                  {item.icon}
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.badge && <span className="sb-badge">{item.badge}</span>}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
 
       <div className="sb-foot">
         <div className="sb-ava">SD</div>

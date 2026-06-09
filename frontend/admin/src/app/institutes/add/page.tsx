@@ -65,9 +65,10 @@ export default function AddInstitutePage() {
       <Topbar
         title="Add institute"
         subtitle="Manual onboarding"
-        right={
-          <button className="btn btn-g btn-sm" onClick={() => router.back()}>← Back</button>
-        }
+        crumbs={[
+          { label: "Institutes", onClick: () => router.push("/institutes") },
+          { label: "Add institute" },
+        ]}
       />
 
       {step === "success" ? (

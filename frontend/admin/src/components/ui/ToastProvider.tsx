@@ -65,32 +65,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       {mounted && createPortal(
-        <div style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 99999,
-          display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-end",
-          pointerEvents: "none",
-        }}>
+        <div className="toast-stack">
           {toasts.map(t => (
-            <div key={t.id} style={{
-              pointerEvents: "auto",
-              background: "#fff", borderRadius: 12, padding: "13px 16px",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)",
-              display: "flex", alignItems: "flex-start", gap: 12, minWidth: 300, maxWidth: 420,
-              border: "1px solid var(--ln)", borderLeft: `4px solid ${ACCENT[t.type]}`,
-              animation: "toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}>
-              <div style={{ marginTop: 1 }}><Icon type={t.type} /></div>
+            <div key={t.id} className="toast-item" style={{ borderLeft: `4px solid ${ACCENT[t.type]}` }}>
+              <div style={{ marginTop: 2 }}><Icon type={t.type} /></div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 1 }}>{TITLE[t.type]}</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink2)", lineHeight: 1.4 }}>{t.message}</div>
+                <div className="toast-title">{TITLE[t.type]}</div>
+                <div className="toast-msg">{t.message}</div>
               </div>
               <button onClick={() => dismiss(t.id)} aria-label="Dismiss" style={{
                 background: "none", border: "none", cursor: "pointer", color: "var(--ink3)",
-                fontSize: 18, lineHeight: 1, padding: 0, marginTop: -1,
+                fontSize: 18, lineHeight: 1, padding: 0, marginTop: -2, flexShrink: 0,
               }}>×</button>
             </div>
           ))}
-          <style>{`@keyframes toast-in { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
         </div>,
         document.body
       )}
