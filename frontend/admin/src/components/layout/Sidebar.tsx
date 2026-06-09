@@ -38,15 +38,6 @@ const sections: { title: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
-      {
-        label: "Add institute", href: "/institutes/add",
-        icon: (
-          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
-            <circle cx="8" cy="8" r="6.5"/>
-            <path d="M8 5v6M5 8h6"/>
-          </svg>
-        ),
-      },
     ],
   },
   {

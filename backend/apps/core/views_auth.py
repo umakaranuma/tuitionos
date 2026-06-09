@@ -131,12 +131,18 @@ class MeView(APIView):
 
         data = {
             "id": user.id,
+            "username": user.username,
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,
-            "name": f"{user.first_name} {user.last_name}".strip(),
+            "name": f"{user.first_name} {user.last_name}".strip() or user.username,
             "is_fynux_admin": is_fynux_admin,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+            "is_totp_enabled": user.is_totp_enabled,
             "role": role,
+            "date_joined": user.date_joined,
+            "last_login": user.last_login,
             "institute": None,
         }
 
