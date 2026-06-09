@@ -166,6 +166,100 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             source_month=source_month,
         )
 
+    def _recompute_invoice_from_payments(self, invoice):
+        """After editing/removing payment rows, set paid_amount to their sum and
+        re-sync the invoice status (pending/partial/paid + ledger entry)."""
+        total = invoice.payments.aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        invoice.paid_amount = total
+        invoice.save(update_fields=['paid_amount'])
+        return self._sync_invoice_status(invoice)
+
+    @action(detail=True, methods=['get'], url_path='payments')
+    def list_payments(self, request, pk=None):
+        invoice = self.get_object()
+        payments = InvoicePaymentSerializer(
+            invoice.payments.all(), many=True, context={'request': request},
+        ).data
+        amount = float(invoice.amount)
+        paid = float(invoice.paid_amount or 0)
+        return Response({
+            'results': payments,
+            'breakdown': {
+                'amount': amount,
+                'paid': paid,
+                'remaining': max(amount - paid, 0),
+                'status': invoice.status,
+            },
+        })
+
+    @action(detail=True, methods=['patch', 'delete'],
+            url_path=r'payments/(?P<payment_id>[^/.]+)',
+            parser_classes=[MultiPartParser, FormParser, JSONParser])
+    def edit_payment(self, request, pk=None, payment_id=None):
+        invoice = self.get_object()
+        try:
+            payment = invoice.payments.get(pk=int(payment_id))
+        except (ValueError, InvoicePayment.DoesNotExist):
+            return Response({'error': 'Payment record not found'}, status=404)
+
+        if request.method == 'DELETE':
+            removed_amount = payment.amount
+            payment.delete()
+            invoice = self._recompute_invoice_from_payments(invoice)
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_PAYMENT_REMOVED,
+                f'Removed payment of LKR {removed_amount}', amount=removed_amount,
+            )
+            return self._payments_response(invoice, request)
+
+        # PATCH — edit amount / reference / slip of an existing transfer.
+        changes = []
+        new_amount = request.data.get('amount')
+        if new_amount not in (None, ''):
+            try:
+                amt = Decimal(str(new_amount))
+            except (ValueError, ArithmeticError):
+                return Response({'error': 'Invalid amount'}, status=400)
+            if amt <= 0:
+                return Response({'error': 'Amount must be greater than zero'}, status=400)
+            if amt != Decimal(str(payment.amount)):
+                changes.append(f'amount LKR {payment.amount} -> LKR {amt}')
+                payment.amount = amt
+        if 'reference_note' in request.data:
+            ref = request.data.get('reference_note') or ''
+            if ref != (payment.reference_note or ''):
+                changes.append('reference updated')
+            payment.reference_note = ref
+        slip = request.FILES.get('slip')
+        if slip:
+            payment.slip = slip
+            changes.append('document replaced')
+
+        payment.save()
+        invoice = self._recompute_invoice_from_payments(invoice)
+        if changes:
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_PAYMENT_EDITED,
+                'Edited payment — ' + '; '.join(changes), amount=payment.amount,
+            )
+        return self._payments_response(invoice, request)
+
+    def _payments_response(self, invoice, request):
+        payments = InvoicePaymentSerializer(
+            invoice.payments.all(), many=True, context={'request': request},
+        ).data
+        amount = float(invoice.amount)
+        paid = float(invoice.paid_amount or 0)
+        return Response({
+            'results': payments,
+            'breakdown': {
+                'amount': amount,
+                'paid': paid,
+                'remaining': max(amount - paid, 0),
+                'status': invoice.status,
+            },
+        })
+
     def _get_or_create_invoice(self, institute, billing_month, settings_obj):
         due_date = billing_month + datetime.timedelta(days=7)
         invoice, created = Invoice.objects.get_or_create(

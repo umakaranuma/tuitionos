@@ -102,6 +102,8 @@ class InvoiceActivity(models.Model):
     ACTION_AMOUNT_CHANGED = 'amount_changed'
     ACTION_SLIP_UPLOADED = 'slip_uploaded'
     ACTION_ADVANCE_APPLIED = 'advance_applied'
+    ACTION_PAYMENT_EDITED = 'payment_edited'
+    ACTION_PAYMENT_REMOVED = 'payment_removed'
     ACTION_CHOICES = [
         (ACTION_CREATED, 'Invoice Created'),
         (ACTION_PAYMENT_RECORDED, 'Payment Recorded'),
@@ -111,6 +113,8 @@ class InvoiceActivity(models.Model):
         (ACTION_AMOUNT_CHANGED, 'Amount Changed'),
         (ACTION_SLIP_UPLOADED, 'Slip Uploaded'),
         (ACTION_ADVANCE_APPLIED, 'Advance Applied'),
+        (ACTION_PAYMENT_EDITED, 'Payment Edited'),
+        (ACTION_PAYMENT_REMOVED, 'Payment Removed'),
     ]
 
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='activities')

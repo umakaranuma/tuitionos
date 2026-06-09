@@ -88,6 +88,12 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
   const [manualInvoice, setManualInvoice] = useState({ month: "", amount: "", transfer: "", due_date: "", reference: "", applyAdvance: true });
   const [manualSlip, setManualSlip] = useState<File | null>(null);
 
+  // Editable partial-payment records for the Edit modal.
+  type EditPayment = { id: number; amount: string; reference_note: string; is_advance: boolean; created_at: string; slip_url: string | null; _removed?: boolean };
+  const [editPayments, setEditPayments] = useState<EditPayment[]>([]);
+  const [origPayments, setOrigPayments] = useState<EditPayment[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i);
   const selectedMonthLabel = MONTHS.find(m => m.value === month)?.label || "";
 
@@ -188,8 +194,25 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
         due_date: editForm.due_date,
         reference_note: editForm.reference_note,
       });
+
+      // Apply edits/removals to the individual partial-payment records last, so
+      // the invoice's paid total + status recompute against the updated amount.
+      for (const p of editPayments) {
+        const orig = origPayments.find(o => o.id === p.id);
+        if (p._removed) {
+          await api.delete(`/api/admin/billing/invoices/${invoiceId}/payments/${p.id}`);
+        } else if (orig && (orig.amount !== p.amount || orig.reference_note !== p.reference_note)) {
+          await api.patch(`/api/admin/billing/invoices/${invoiceId}/payments/${p.id}`, {
+            amount: p.amount,
+            reference_note: p.reference_note,
+          });
+        }
+      }
+
       setShowEditModal(false);
       setActiveRow(null);
+      setEditPayments([]);
+      setOrigPayments([]);
       refreshAll();
       toast.success("Invoice updated successfully.");
     } catch {
@@ -256,8 +279,35 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
       due_date: row.due_date,
       reference_note: row.reference_note || "",
     });
+    setEditPayments([]);
+    setOrigPayments([]);
     setShowEditModal(true);
+    // Load the recorded transfers so already-paid (partial) details are editable.
+    if (row.invoice_id) {
+      setLoadingPayments(true);
+      api.get(`/api/admin/billing/invoices/${row.invoice_id}/payments`)
+        .then(r => {
+          const list: EditPayment[] = (r.data.results || []).map((p: EditPayment) => ({
+            id: p.id, amount: String(p.amount), reference_note: p.reference_note || "",
+            is_advance: p.is_advance, created_at: p.created_at, slip_url: p.slip_url,
+          }));
+          setEditPayments(list);
+          setOrigPayments(list.map(p => ({ ...p })));
+          setLoadingPayments(false);
+        })
+        .catch(() => setLoadingPayments(false));
+    }
   };
+
+  const updateEditPayment = (id: number, field: "amount" | "reference_note", value: string) =>
+    setEditPayments(prev => prev.map(p => (p.id === id ? { ...p, [field]: value } : p)));
+
+  const toggleRemovePayment = (id: number) =>
+    setEditPayments(prev => prev.map(p => (p.id === id ? { ...p, _removed: !p._removed } : p)));
+
+  const editPaidTotal = editPayments
+    .filter(p => !p._removed)
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
   const rowMonthLabel = (row: BillingRow) =>
     new Date(row.month).toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -435,6 +485,62 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
           <div>
             <label className="flbl">Reference note</label>
             <input value={editForm.reference_note} onChange={e => setEditForm({ ...editForm, reference_note: e.target.value })} placeholder="Optional payment reference" />
+          </div>
+
+          {/* Editable partial-payment records */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label className="flbl" style={{ marginBottom: 0 }}>Recorded payments</label>
+              {editPayments.filter(p => !p._removed).length > 0 && (
+                <span style={{ fontSize: 11, color: "var(--ink3)" }}>
+                  Paid LKR {editPaidTotal.toLocaleString()} of LKR {Number(editForm.amount || 0).toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            {loadingPayments ? (
+              <div style={{ fontSize: 12, color: "var(--ink3)", padding: "8px 0" }}>Loading payments…</div>
+            ) : editPayments.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--ink3)", background: "var(--cr)", borderRadius: 8, padding: "10px 12px" }}>
+                No payments recorded for this month yet.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {editPayments.map((p, idx) => (
+                  <div key={p.id} style={{
+                    display: "flex", gap: 8, alignItems: "center",
+                    padding: "8px 10px", borderRadius: 8,
+                    border: "1px solid var(--ln)",
+                    background: p._removed ? "var(--rb-l)" : "#fff",
+                    opacity: p._removed ? 0.6 : 1,
+                  }}>
+                    <span style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 600, width: 16 }}>{idx + 1}</span>
+                    <div style={{ width: 120 }}>
+                      <input type="number" value={p.amount} disabled={p._removed}
+                        onChange={e => updateEditPayment(p.id, "amount", e.target.value)}
+                        style={{ height: 32, fontSize: 12.5 }} placeholder="Amount" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <input value={p.reference_note} disabled={p._removed}
+                        onChange={e => updateEditPayment(p.id, "reference_note", e.target.value)}
+                        style={{ height: 32, fontSize: 12.5 }} placeholder="Reference" />
+                    </div>
+                    {p.is_advance && <span className="bdg b-trial">adv</span>}
+                    {p.slip_url && (
+                      <a href={p.slip_url} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-s" style={{ textDecoration: "none" }}>Doc</a>
+                    )}
+                    <button type="button" className={`btn btn-xs ${p._removed ? "btn-s" : "btn-d"}`}
+                      onClick={() => toggleRemovePayment(p.id)}>
+                      {p._removed ? "Undo" : "Remove"}
+                    </button>
+                  </div>
+                ))}
+                <div style={{ fontSize: 11, color: "var(--ink3)", lineHeight: 1.5 }}>
+                  Editing amounts recomputes the paid total and status (partial / paid) automatically.
+                  Removing a record reduces the paid amount.
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </Modal>
