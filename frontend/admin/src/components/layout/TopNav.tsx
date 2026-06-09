@@ -5,7 +5,6 @@ import { ALERTS, AlertIcon } from "@/lib/notifications";
 
 export function TopNav() {
   const router = useRouter();
-  const [search, setSearch] = useState("");
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -28,27 +27,6 @@ export function TopNav() {
 
   return (
     <div className="top-nav">
-      {/* Workspace selector */}
-      <div className="tnav-ws">
-        <div className="tnav-ws-ava">TO</div>
-        <span className="tnav-ws-name">TuitionOS Admin</span>
-      </div>
-
-      {/* Global search */}
-      <div className="tnav-search">
-        <span className="tnav-search-ic">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 16 16">
-            <circle cx="7" cy="7" r="5"/>
-            <path d="M10.5 10.5L14 14" strokeLinecap="round"/>
-          </svg>
-        </span>
-        <input
-          placeholder="Search..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
-
       {/* Action icons */}
       <div className="tnav-acts">
         {/* Notifications */}

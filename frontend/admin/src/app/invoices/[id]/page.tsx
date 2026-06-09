@@ -195,10 +195,8 @@ export default function InvoiceDetailPage() {
       <Topbar
         title={`Invoice · ${breakdown.month_label}`}
         subtitle={`${institute.name} · ${institute.subdomain}.tuitionos.lk`}
-        crumbs={[
-          { label: "Invoices", onClick: () => router.push("/invoices") },
-          { label: breakdown.month_label },
-        ]}
+        onBack={() => router.push("/invoices")}
+        backLabel="Back"
         right={
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-s btn-sm" onClick={openEdit}>Edit invoice</button>

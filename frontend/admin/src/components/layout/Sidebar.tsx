@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { logout } from "@/lib/auth";
 
 interface NavItem {
   label: string;
@@ -129,11 +130,19 @@ export function Sidebar() {
       </nav>
 
       <div className="sb-foot">
-        <div className="sb-ava">SD</div>
-        <div>
-          <div className="sb-user">Solo Developer</div>
-          <div className="sb-role">Super Admin</div>
-        </div>
+        <Link href="/profile" className="sb-foot-user" title="View profile">
+          <div className="sb-ava">SD</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="sb-user">Solo Developer</div>
+            <div className="sb-role">Super Admin</div>
+          </div>
+        </Link>
+        <button className="sb-logout" onClick={() => logout()} title="Sign out" aria-label="Sign out">
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 16 16">
+            <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3"/>
+            <path d="M10.5 11L14 7.5 10.5 4M14 7.5H6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
     </aside>
   );

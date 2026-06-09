@@ -65,10 +65,8 @@ export default function AddInstitutePage() {
       <Topbar
         title="Add institute"
         subtitle="Manual onboarding"
-        crumbs={[
-          { label: "Institutes", onClick: () => router.push("/institutes") },
-          { label: "Add institute" },
-        ]}
+        onBack={() => router.push("/institutes")}
+        backLabel="Back"
       />
 
       {step === "success" ? (

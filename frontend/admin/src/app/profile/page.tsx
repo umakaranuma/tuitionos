@@ -49,7 +49,7 @@ export default function ProfilePage() {
   if (loading && !me) {
     return (
       <PageShell>
-        <Topbar title="Profile" crumbs={[{ label: "Account" }, { label: "Profile" }]} />
+        <Topbar title="Profile" onBack={() => router.back()} backLabel="Back" />
         <div className="pb fi"><div style={{ textAlign: "center", padding: 48, color: "var(--ink3)" }}>Loading profile…</div></div>
       </PageShell>
     );
@@ -64,7 +64,8 @@ export default function ProfilePage() {
       <Topbar
         title="My profile"
         subtitle="Your administrator account details"
-        crumbs={[{ label: "Account" }, { label: "Profile" }]}
+        onBack={() => router.back()}
+        backLabel="Back"
         right={
           <button className="btn btn-d btn-sm" onClick={() => logout()}>Sign out</button>
         }

@@ -99,10 +99,8 @@ export default function InstituteDetailPage() {
       <Topbar
         title={inst.name}
         subtitle={`${inst.subdomain}.tuitionos.lk`}
-        crumbs={[
-          { label: "Institutes", onClick: () => router.push("/institutes") },
-          { label: inst.name },
-        ]}
+        onBack={() => router.push("/institutes")}
+        backLabel="Back"
         right={
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-s btn-sm" onClick={() => setShowPlan(true)}>Change plan</button>
