@@ -82,7 +82,8 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
   const [activeRow, setActiveRow] = useState<BillingRow | null>(null);
   const [referenceNote, setReferenceNote] = useState("");
   const [editForm, setEditForm] = useState({ amount: "", due_date: "", reference_note: "" });
-  const [manualInvoice, setManualInvoice] = useState({ month: "", amount: "", due_date: "" });
+  const [manualInvoice, setManualInvoice] = useState({ month: "", amount: "", transfer: "", due_date: "", reference: "", applyAdvance: true });
+  const [manualSlip, setManualSlip] = useState<File | null>(null);
 
   const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i);
   const selectedMonthLabel = MONTHS.find(m => m.value === month)?.label || "";
@@ -195,24 +196,49 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
     }
   };
 
+  const manualRemaining = Math.max(Number(manualInvoice.amount || 0) - Number(manualInvoice.transfer || 0), 0);
+
   const handleCreateInvoice = async () => {
-    if (!manualInvoice.month || !manualInvoice.amount || !manualInvoice.due_date) {
-      toast.error("Please fill in all fields before creating the invoice.");
+    if (!manualInvoice.month || !manualInvoice.amount) {
+      toast.error("Please choose a month and enter the invoice amount.");
       return;
     }
+    const [y, m] = manualInvoice.month.split("-");
     setUpdating(true);
     try {
-      await api.post("/api/admin/billing/invoices", {
-        institute: instituteId,
-        month: `${manualInvoice.month}-01`,
-        amount: manualInvoice.amount,
-        due_date: manualInvoice.due_date,
-        status: "pending",
-      });
+      const transfer = Number(manualInvoice.transfer || 0);
+      if (transfer > 0) {
+        // Same unified flow as the Invoices screen: record the transfer (with
+        // document) so partial/paid/advance is handled consistently.
+        const fd = new FormData();
+        fd.append("institute", instituteId);
+        fd.append("year", y);
+        fd.append("month", String(Number(m)));
+        fd.append("amount", manualInvoice.amount);
+        fd.append("payment_amount", manualInvoice.transfer);
+        if (manualInvoice.due_date) fd.append("due_date", manualInvoice.due_date);
+        fd.append("reference_note", manualInvoice.reference);
+        fd.append("apply_advance", manualInvoice.applyAdvance ? "true" : "false");
+        if (manualSlip) fd.append("payment_slip", manualSlip);
+        await api.post("/api/admin/billing/invoices/record_payment", fd);
+        toast.success(manualRemaining > 0
+          ? `Invoice added. Partial — LKR ${manualRemaining.toLocaleString()} balance due by ${manualInvoice.due_date || "due date"}.`
+          : "Invoice added and marked paid.");
+      } else {
+        // No transfer yet — create a pending invoice for the month.
+        await api.post("/api/admin/billing/invoices", {
+          institute: instituteId,
+          month: `${manualInvoice.month}-01`,
+          amount: manualInvoice.amount,
+          due_date: manualInvoice.due_date || undefined,
+          status: "pending",
+        });
+        toast.success("Pending invoice created.");
+      }
       setShowAddModal(false);
-      setManualInvoice({ month: "", amount: "", due_date: "" });
+      setManualInvoice({ month: "", amount: "", transfer: "", due_date: "", reference: "", applyAdvance: true });
+      setManualSlip(null);
       refreshAll();
-      toast.success("Manual invoice created.");
     } catch {
       toast.error("Couldn't create the invoice. Please try again.");
     } finally {
@@ -399,27 +425,62 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
         </div>
       </Modal>
 
-      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add Manual Invoice" footer={
+      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add invoice" footer={
         <>
           <button className="btn btn-s btn-sm" onClick={() => setShowAddModal(false)} disabled={updating}>Cancel</button>
           <button className="btn btn-p btn-sm" onClick={handleCreateInvoice} disabled={updating}>
-            {updating ? "Creating..." : "Create invoice"}
+            {updating ? "Saving..." : "Add invoice"}
           </button>
         </>
       }>
         <div className="form-gap">
-          <div>
-            <label className="flbl">Billing month</label>
-            <input type="month" value={manualInvoice.month} onChange={e => setManualInvoice({ ...manualInvoice, month: e.target.value })} autoFocus />
+          <div className="field-row">
+            <div>
+              <label className="flbl">Billing month *</label>
+              <input type="month" value={manualInvoice.month} onChange={e => setManualInvoice({ ...manualInvoice, month: e.target.value })} autoFocus />
+            </div>
+            <div>
+              <label className="flbl">Invoice amount (LKR) *</label>
+              <input type="number" value={manualInvoice.amount} onChange={e => setManualInvoice({ ...manualInvoice, amount: e.target.value })} placeholder="e.g. 3000" />
+            </div>
           </div>
           <div>
-            <label className="flbl">Amount (LKR)</label>
-            <input type="number" value={manualInvoice.amount} onChange={e => setManualInvoice({ ...manualInvoice, amount: e.target.value })} placeholder="e.g. 3000" />
+            <label className="flbl">Transferred amount (LKR)</label>
+            <input type="number" value={manualInvoice.transfer} onChange={e => setManualInvoice({ ...manualInvoice, transfer: e.target.value })} placeholder="Leave blank to create a pending invoice" />
+          </div>
+
+          {manualRemaining > 0 && Number(manualInvoice.transfer || 0) > 0 && (
+            <div style={{
+              background: "var(--sf-l)", border: "1px solid #f3d3b3", borderRadius: 10,
+              padding: "10px 12px", fontSize: 12, color: "#9a5b14", lineHeight: 1.5,
+            }}>
+              Partial payment — <strong>LKR {manualRemaining.toLocaleString()}</strong> balance remains.
+              Set the date this balance must be settled by:
+              <div style={{ marginTop: 8 }}>
+                <input type="date" value={manualInvoice.due_date} onChange={e => setManualInvoice({ ...manualInvoice, due_date: e.target.value })} />
+              </div>
+            </div>
+          )}
+
+          {!(manualRemaining > 0 && Number(manualInvoice.transfer || 0) > 0) && (
+            <div>
+              <label className="flbl">Due date</label>
+              <input type="date" value={manualInvoice.due_date} onChange={e => setManualInvoice({ ...manualInvoice, due_date: e.target.value })} />
+            </div>
+          )}
+
+          <div>
+            <label className="flbl">Transfer document / payslip</label>
+            <input type="file" accept="image/*,.pdf" onChange={e => setManualSlip(e.target.files?.[0] || null)} />
           </div>
           <div>
-            <label className="flbl">Due date</label>
-            <input type="date" value={manualInvoice.due_date} onChange={e => setManualInvoice({ ...manualInvoice, due_date: e.target.value })} />
+            <label className="flbl">Reference note (optional)</label>
+            <input value={manualInvoice.reference} onChange={e => setManualInvoice({ ...manualInvoice, reference: e.target.value })} placeholder="e.g. Bank transfer ref #889201" />
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ink2)" }}>
+            <input type="checkbox" checked={manualInvoice.applyAdvance} onChange={e => setManualInvoice({ ...manualInvoice, applyAdvance: e.target.checked })} />
+            If they paid extra, carry the surplus to upcoming month(s) as advance
+          </label>
         </div>
       </Modal>
     </div>

@@ -620,6 +620,8 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         year = request.data.get('year')
         month = request.data.get('month')
         payment_amount = request.data.get('payment_amount')
+        invoice_amount = request.data.get('amount')  # optional: set/override the billed amount
+        due_date_str = request.data.get('due_date')  # optional: set the balance-due deadline
         reference_note = request.data.get('reference_note', '')
         apply_advance = str(request.data.get('apply_advance', 'true')).lower() in ('1', 'true', 'yes')
         payment_slip = request.FILES.get('payment_slip')
@@ -644,6 +646,32 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
         billing_month = datetime.date(year, month, 1)
         invoice = self._get_or_create_invoice(institute, billing_month, settings_obj)
+
+        # Optionally set the billed amount (e.g. when adding a manual invoice with a
+        # custom fee) and the due date for the balance on partial payments.
+        invoice_update_fields = []
+        if invoice_amount not in (None, ''):
+            try:
+                new_amount = Decimal(str(invoice_amount))
+                if new_amount > 0 and new_amount != Decimal(str(invoice.amount)):
+                    old_amount = invoice.amount
+                    invoice.amount = new_amount
+                    invoice_update_fields.append('amount')
+                    self._log_activity(
+                        invoice, InvoiceActivity.ACTION_AMOUNT_CHANGED,
+                        f'Amount set LKR {old_amount} → LKR {new_amount}',
+                        amount=new_amount,
+                    )
+            except (ValueError, ArithmeticError):
+                return Response({'error': 'Invalid amount'}, status=400)
+        if due_date_str:
+            try:
+                invoice.due_date = datetime.date.fromisoformat(due_date_str)
+                invoice_update_fields.append('due_date')
+            except ValueError:
+                return Response({'error': 'Invalid due_date (expected YYYY-MM-DD)'}, status=400)
+        if invoice_update_fields:
+            invoice.save(update_fields=invoice_update_fields)
 
         amount_due = Decimal(str(invoice.amount))
         already_paid = Decimal(str(invoice.paid_amount or 0))

@@ -50,9 +50,32 @@ const MONTHS = [
 
 const now = new Date();
 
+type InstituteOpt = { id: number; name: string; plan: string };
+
+const PLAN_FEES: Record<string, number> = {
+  solo: 1500,
+  institute: 3000,
+  institute_pro: 6000,
+};
+
 export default function InvoicesPage() {
   const toast = useToast();
   const [rows, setRows] = useState<MonthlyPayment[]>([]);
+  const [institutes, setInstitutes] = useState<InstituteOpt[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    institute: "",
+    year: String(now.getFullYear()),
+    month: String(now.getMonth() + 1),
+    amount: "",
+    transfer: "",
+    dueDate: "",
+    reference: "",
+    applyAdvance: true,
+  });
+  const [addSlip, setAddSlip] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const addFileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
@@ -95,6 +118,91 @@ export default function InvoicesPage() {
   };
 
   useEffect(load, [page, limit, year, month]);
+
+  // Load the institute list once for the "Add invoice" institute picker.
+  useEffect(() => {
+    api.get("/api/institutes/")
+      .then(r => {
+        const d = r.data;
+        const list: InstituteOpt[] = (Array.isArray(d) ? d : d.results || [])
+          .map((i: { id: number; name: string; plan: string }) => ({ id: i.id, name: i.name, plan: i.plan }));
+        setInstitutes(list);
+      })
+      .catch(() => { /* non-blocking */ });
+  }, []);
+
+  const openAddInvoice = () => {
+    setAddForm({
+      institute: "",
+      year, month,
+      amount: "",
+      transfer: "",
+      dueDate: "",
+      reference: "",
+      applyAdvance: true,
+    });
+    setAddSlip(null);
+    if (addFileRef.current) addFileRef.current.value = "";
+    setShowAddModal(true);
+  };
+
+  // When an institute is picked, prefill amount + transfer from its plan fee,
+  // and set a sensible balance-due date (7th of the billing month).
+  const onPickInstitute = (id: string) => {
+    const inst = institutes.find(i => String(i.id) === id);
+    const fee = inst ? PLAN_FEES[inst.plan] ?? 3000 : 3000;
+    const dd = new Date(Number(addForm.year), Number(addForm.month) - 1, 7);
+    setAddForm(f => ({
+      ...f,
+      institute: id,
+      amount: String(fee),
+      transfer: String(fee),
+      dueDate: dd.toISOString().slice(0, 10),
+    }));
+  };
+
+  const addRemaining = Math.max(Number(addForm.amount || 0) - Number(addForm.transfer || 0), 0);
+
+  const handleAddInvoice = async () => {
+    if (!addForm.institute) { toast.error("Please choose an institute."); return; }
+    if (!addForm.amount || Number(addForm.amount) <= 0) { toast.error("Enter the invoice amount."); return; }
+    if (!addForm.transfer || Number(addForm.transfer) <= 0) { toast.error("Enter the transferred amount."); return; }
+    setSaving(true);
+    try {
+      const fd = new FormData();
+      fd.append("institute", addForm.institute);
+      fd.append("year", addForm.year);
+      fd.append("month", addForm.month);
+      fd.append("amount", addForm.amount);
+      fd.append("payment_amount", addForm.transfer);
+      if (addForm.dueDate) fd.append("due_date", addForm.dueDate);
+      fd.append("reference_note", addForm.reference);
+      fd.append("apply_advance", addForm.applyAdvance ? "true" : "false");
+      if (addSlip) fd.append("payment_slip", addSlip);
+
+      const res = await api.post("/api/admin/billing/invoices/record_payment", fd);
+      const advance = res.data.advance_applied || [];
+      if (Number(addForm.transfer) < Number(addForm.amount)) {
+        toast.success(`Invoice added. Partial — LKR ${addRemaining.toLocaleString()} balance due by ${addForm.dueDate || "due date"}.`);
+      } else if (advance.length > 0) {
+        toast.success(`Invoice paid. LKR ${res.data.overflow} carried to upcoming month(s) as advance.`);
+      } else {
+        toast.success("Invoice added and marked paid.");
+      }
+      setShowAddModal(false);
+      setAddSlip(null);
+      // Jump the view to the invoice's period so it's visible, then reload.
+      setYear(addForm.year);
+      setMonth(addForm.month);
+      setPage(1);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || "Couldn't add the invoice. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const remainingDue = (row: MonthlyPayment) =>
     Math.max(Number(row.amount) - Number(row.paid_amount || 0), 0);
@@ -200,9 +308,10 @@ export default function InvoicesPage() {
                 <option key={m.value} value={m.value}>{m.label}</option>
               ))}
             </select>
-            <button className="btn btn-p btn-sm" onClick={handleGenerateMonthly} disabled={generating}>
+            <button className="btn btn-s btn-sm" onClick={handleGenerateMonthly} disabled={generating}>
               {generating ? "Generating..." : "Generate monthly"}
             </button>
+            <button className="btn btn-p btn-sm" onClick={openAddInvoice}>+ Add invoice</button>
           </div>
         }
       />
@@ -309,6 +418,94 @@ export default function InvoicesPage() {
           <div style={{ fontSize: 12, color: "var(--ink3)", lineHeight: 1.5 }}>
             Example: due LKR 6,000 but paid LKR 7,500 — marks this month paid and applies LKR 1,500 to the next month as partial.
             Income page updates automatically since both share the same billing data.
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add invoice" footer={
+        <>
+          <button className="btn btn-s btn-sm" onClick={() => setShowAddModal(false)} disabled={saving}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={handleAddInvoice} disabled={saving}>
+            {saving ? "Saving..." : "Add invoice"}
+          </button>
+        </>
+      }>
+        <div className="form-gap">
+          <div>
+            <label className="flbl">Institute *</label>
+            <select value={addForm.institute} onChange={e => onPickInstitute(e.target.value)} autoFocus>
+              <option value="">Select an institute…</option>
+              {institutes.map(i => (
+                <option key={i.id} value={String(i.id)}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field-row">
+            <div>
+              <label className="flbl">Billing year *</label>
+              <select value={addForm.year} onChange={e => setAddForm(f => ({ ...f, year: e.target.value }))}>
+                {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="flbl">Billing month *</label>
+              <select value={addForm.month} onChange={e => setAddForm(f => ({ ...f, month: e.target.value }))}>
+                {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="field-row">
+            <div>
+              <label className="flbl">Invoice amount (LKR) *</label>
+              <input type="number" value={addForm.amount} placeholder="e.g. 3000"
+                onChange={e => setAddForm(f => ({ ...f, amount: e.target.value }))} />
+            </div>
+            <div>
+              <label className="flbl">Transferred amount (LKR) *</label>
+              <input type="number" value={addForm.transfer} placeholder="e.g. 3000"
+                onChange={e => setAddForm(f => ({ ...f, transfer: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Partial-payment helper: shows the balance and lets you set its deadline. */}
+          {addRemaining > 0 && (
+            <div style={{
+              background: "var(--sf-l)", border: "1px solid #f3d3b3", borderRadius: 10,
+              padding: "10px 12px", fontSize: 12, color: "#9a5b14", lineHeight: 1.5,
+            }}>
+              Partial payment — <strong>LKR {addRemaining.toLocaleString()}</strong> balance remains.
+              Mark the date this balance must be settled by:
+              <div style={{ marginTop: 8 }}>
+                <input type="date" value={addForm.dueDate}
+                  onChange={e => setAddForm(f => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="flbl">Transfer document / payslip</label>
+            <input ref={addFileRef} type="file" accept="image/*,.pdf"
+              onChange={e => setAddSlip(e.target.files?.[0] || null)} />
+          </div>
+
+          <div>
+            <label className="flbl">Reference note (optional)</label>
+            <input value={addForm.reference} placeholder="e.g. Bank transfer ref #889201"
+              onChange={e => setAddForm(f => ({ ...f, reference: e.target.value }))} />
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--ink2)" }}>
+            <input type="checkbox" checked={addForm.applyAdvance}
+              onChange={e => setAddForm(f => ({ ...f, applyAdvance: e.target.checked }))} />
+            If they paid extra, carry the surplus to upcoming month(s) as advance
+          </label>
+
+          <div style={{ fontSize: 11.5, color: "var(--ink3)", lineHeight: 1.5 }}>
+            Full payment marks the month <strong>paid</strong>; less than the invoice amount marks it{" "}
+            <strong>partial</strong> with the balance due by the date above. This updates the Income
+            dashboard automatically since both screens share the same billing data.
           </div>
         </div>
       </Modal>
