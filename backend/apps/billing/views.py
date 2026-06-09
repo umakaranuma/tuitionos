@@ -13,11 +13,12 @@ from rest_framework.response import Response
 
 from apps.core.permissions import AdminOnly, InstituteOnly
 from apps.institutes.models import Institute, PlatformSettings
-from .models import Invoice, InstituteTransaction, InvoiceActivity
+from .models import Invoice, InstituteTransaction, InvoiceActivity, InvoicePayment
 from .serializers import (
     InvoiceSerializer,
     InstituteTransactionSerializer,
     InvoiceActivitySerializer,
+    InvoicePaymentSerializer,
 )
 
 
@@ -134,6 +135,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             'reference_note': invoice.reference_note if invoice else None,
             'due_date': invoice.due_date.isoformat() if invoice else (billing_month + datetime.timedelta(days=7)).isoformat(),
             'payment_slip_url': self._payment_slip_url(invoice, request),
+            'payment_count': invoice.payments.count() if invoice else 0,
             'has_invoice': invoice is not None,
         }
 
@@ -146,6 +148,22 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             detail=detail or '',
             actor=_actor_name(request) if request else 'Admin',
             amount_snapshot=amount if amount is not None else invoice.amount,
+        )
+
+    def _record_payment_entry(self, invoice, amount, slip=None, reference_note='',
+                              is_advance=False, source_month=None):
+        """Persist a single transfer/installment so partial settlements keep
+        every entry and its own document on record."""
+        request = getattr(self, 'request', None)
+        return InvoicePayment.objects.create(
+            invoice=invoice,
+            institute=invoice.institute,
+            amount=amount,
+            slip=slip if slip else None,
+            reference_note=reference_note or '',
+            actor=_actor_name(request) if request else 'Admin',
+            is_advance=is_advance,
+            source_month=source_month,
         )
 
     def _get_or_create_invoice(self, institute, billing_month, settings_obj):
@@ -209,6 +227,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             invoice.paid_amount = already_paid + applied
             invoice.save(update_fields=['paid_amount'])
             invoice = self._sync_invoice_status(invoice)
+            self._record_payment_entry(
+                invoice, applied,
+                reference_note=f'Advance carried from {from_month.strftime("%B %Y")}',
+                is_advance=True, source_month=from_month,
+            )
             self._log_activity(
                 invoice, InvoiceActivity.ACTION_ADVANCE_APPLIED,
                 f'Advance of LKR {applied} applied from {from_month.strftime("%B %Y")}',
@@ -431,6 +454,9 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         activities = InvoiceActivitySerializer(
             invoice.activities.all(), many=True, context={'request': request},
         ).data
+        payments = InvoicePaymentSerializer(
+            invoice.payments.all(), many=True, context={'request': request},
+        ).data
         invoice_data = self.get_serializer(invoice, context={'request': request}).data
         invoice_data['status'] = status
 
@@ -451,6 +477,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 'month_label': billing_month.strftime('%B %Y'),
                 'status': status,
             },
+            'payments': payments,
             'activities': activities,
         })
 
@@ -691,6 +718,15 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 invoice.payment_slip = payment_slip
             invoice.save(update_fields=['paid_amount', 'reference_note', 'payment_slip'])
             invoice = self._sync_invoice_status(invoice)
+            # Persist this transfer as its own record (keeps each partial entry + doc).
+            if payment_slip:
+                try:
+                    payment_slip.seek(0)  # rewind: file was already read for invoice.payment_slip
+                except (AttributeError, ValueError):
+                    pass
+            self._record_payment_entry(
+                invoice, applied_here, slip=payment_slip, reference_note=reference_note,
+            )
             note = f' (Ref: {reference_note})' if reference_note else ''
             self._log_activity(
                 invoice, InvoiceActivity.ACTION_PAYMENT_RECORDED,

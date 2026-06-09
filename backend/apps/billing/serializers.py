@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Invoice, InstituteTransaction, InvoiceActivity
+from .models import Invoice, InstituteTransaction, InvoiceActivity, InvoicePayment
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -35,6 +35,26 @@ class InstituteTransactionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
         return super().create(validated_data)
+
+
+class InvoicePaymentSerializer(serializers.ModelSerializer):
+    slip_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = InvoicePayment
+        fields = [
+            'id', 'amount', 'slip', 'slip_url', 'reference_note', 'actor',
+            'is_advance', 'source_month', 'created_at',
+        ]
+        read_only_fields = ['slip_url']
+
+    def get_slip_url(self, obj):
+        if not obj.slip:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.slip.url)
+        return obj.slip.url
 
 
 class InvoiceActivitySerializer(serializers.ModelSerializer):

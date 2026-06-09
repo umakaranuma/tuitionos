@@ -9,11 +9,13 @@ type BillingRow = {
   institute: number;
   invoice_id: number | null;
   amount: string;
+  paid_amount?: string;
   month: string;
   status: string;
   paid_at: string | null;
   reference_note?: string | null;
   due_date: string;
+  payment_count?: number;
   has_invoice: boolean;
 };
 
@@ -46,6 +48,7 @@ const now = new Date();
 const statusBadge = (s: string) => {
   const map: Record<string, { bg: string; color: string; label: string }> = {
     paid: { bg: "#d4ede3", color: "#1a5040", label: "Paid" },
+    partial: { bg: "#ede8fc", color: "#6b3ea8", label: "Partial" },
     pending: { bg: "#fef3d7", color: "#c07b1a", label: "Pending" },
     overdue: { bg: "#fceaea", color: "#b83030", label: "Overdue" },
   };
@@ -318,6 +321,17 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
                   <td className="mono" style={{ color: "var(--ink3)" }}>{row.due_date}</td>
                   <td>
                     {statusBadge(row.status)}
+                    {row.status === "partial" && (
+                      <div style={{ fontSize: 10, color: "#9a5b14", marginTop: 4 }}>
+                        Paid LKR {Number(row.paid_amount || 0).toLocaleString()} ·
+                        Bal LKR {Math.max(Number(row.amount) - Number(row.paid_amount || 0), 0).toLocaleString()}
+                      </div>
+                    )}
+                    {(row.payment_count ?? 0) > 0 && (
+                      <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 3 }}>
+                        {row.payment_count} payment{(row.payment_count ?? 0) !== 1 ? "s" : ""} recorded
+                      </div>
+                    )}
                     {row.reference_note && (
                       <div style={{ fontSize: 10, color: "var(--ink3)", marginTop: 4 }}>Ref: {row.reference_note}</div>
                     )}

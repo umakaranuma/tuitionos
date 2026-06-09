@@ -5,6 +5,11 @@ def payment_slip_upload_to(instance, filename):
     return f'payment_slips/{instance.institute_id}/{instance.month.year}/{instance.month.month:02d}/{filename}'
 
 
+def invoice_payment_slip_upload_to(instance, filename):
+    inv = instance.invoice
+    return f'payment_slips/{inv.institute_id}/{inv.month.year}/{inv.month.month:02d}/payments/{filename}'
+
+
 class Invoice(models.Model):
     STATUS_PENDING = 'pending'
     STATUS_PARTIAL = 'partial'
@@ -32,6 +37,31 @@ class Invoice(models.Model):
         db_table = 'invoices'
         ordering = ['-month']
         unique_together = ('institute', 'month')
+
+class InvoicePayment(models.Model):
+    """A single transfer/installment against an invoice.
+
+    Partial payments accumulate as multiple InvoicePayment rows — each with its
+    own transferred amount, document/slip and reference — so a 2–3 installment
+    settlement keeps every entry and document on record.
+    """
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='payments')
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='invoice_payments')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    slip = models.FileField(upload_to=invoice_payment_slip_upload_to, blank=True, null=True)
+    reference_note = models.CharField(max_length=200, blank=True, default='')
+    actor = models.CharField(max_length=120, blank=True, default='Admin')
+    is_advance = models.BooleanField(default=False)
+    source_month = models.DateField(null=True, blank=True)  # for advance carried from another month
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'invoice_payments'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'Payment {self.amount} on invoice {self.invoice_id}'
+
 
 class InstituteTransaction(models.Model):
     """Institute-level income/expense transactions for the Accounts page."""

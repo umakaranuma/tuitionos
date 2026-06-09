@@ -32,10 +32,22 @@ type Activity = {
   created_at: string;
 };
 
+type Payment = {
+  id: number;
+  amount: string;
+  slip_url: string | null;
+  reference_note: string;
+  actor: string;
+  is_advance: boolean;
+  source_month: string | null;
+  created_at: string;
+};
+
 type DetailResponse = {
   invoice: Invoice;
   institute: { id: number; name: string; plan: string; subdomain: string; status: string };
   breakdown: { amount: number; paid: number; remaining: number; month: string; month_label: string; status: string };
+  payments: Payment[];
   activities: Activity[];
 };
 
@@ -186,7 +198,7 @@ export default function InvoiceDetailPage() {
   if (loading) return <PageShell><div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>Loading invoice…</div></PageShell>;
   if (!data) return <PageShell><div style={{ padding: 60, textAlign: "center", color: "var(--ink3)" }}>Invoice not found</div></PageShell>;
 
-  const { invoice, institute, breakdown, activities } = data;
+  const { invoice, institute, breakdown, payments, activities } = data;
   const collectedPct = breakdown.amount ? Math.round((breakdown.paid / breakdown.amount) * 100) : 0;
   const slipIsImage = invoice.payment_slip_url && /\.(png|jpe?g|gif|webp)$/i.test(invoice.payment_slip_url);
 
@@ -287,6 +299,79 @@ export default function InvoiceDetailPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Payment records — every transfer / installment with its own document */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+              Payment records · {payments.length} entr{payments.length !== 1 ? "ies" : "y"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink3)" }}>
+              Paid {fmt(breakdown.paid)} of {fmt(breakdown.amount)}
+              {breakdown.remaining > 0 && <> · <span style={{ color: "var(--rb)", fontWeight: 600 }}>{fmt(breakdown.remaining)} balance</span></>}
+            </div>
+          </div>
+
+          {payments.length === 0 ? (
+            <div style={{ textAlign: "center", color: "var(--ink3)", padding: 20, fontSize: 12.5 }}>
+              No transfers recorded yet.
+              {breakdown.status !== "paid" && (
+                <div style={{ marginTop: 10 }}>
+                  <button className="btn btn-ok btn-xs" onClick={openPay}>Record a payment</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="tw" style={{ boxShadow: "none" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 36 }}>#</th>
+                    <th>Amount</th>
+                    <th>Reference</th>
+                    <th>Recorded</th>
+                    <th>By</th>
+                    <th>Document</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((p, i) => (
+                    <tr key={p.id}>
+                      <td style={{ color: "var(--ink3)", fontWeight: 600 }}>{i + 1}</td>
+                      <td>
+                        <span className="mono" style={{ fontWeight: 600, color: "var(--ink)" }}>{fmt(Number(p.amount))}</span>
+                        {p.is_advance && <span className="bdg b-trial" style={{ marginLeft: 6 }}>advance</span>}
+                      </td>
+                      <td style={{ fontSize: 12.5, color: "var(--ink2)" }}>
+                        {p.reference_note || <span style={{ color: "var(--ink3)" }}>—</span>}
+                      </td>
+                      <td style={{ fontSize: 11.5, color: "var(--ink3)", fontFamily: "var(--font-mono)" }}>
+                        {new Date(p.created_at).toLocaleString()}
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--ink3)" }}>{p.actor}</td>
+                      <td>
+                        {p.slip_url ? (
+                          <a href={p.slip_url} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-s">View doc</a>
+                        ) : (
+                          <span style={{ fontSize: 11.5, color: "var(--ink3)" }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {breakdown.remaining > 0 && payments.length > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 12, color: "#9a5b14", background: "var(--sf-l)", border: "1px solid #f3d3b3", borderRadius: 8, padding: "6px 10px" }}>
+                Balance of <strong>{fmt(breakdown.remaining)}</strong> due by {new Date(invoice.due_date).toLocaleDateString()}
+              </div>
+              <button className="btn btn-ok btn-sm" onClick={openPay}>Add another payment</button>
+            </div>
+          )}
         </div>
 
         {/* Activity timeline */}
