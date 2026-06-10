@@ -1,14 +1,14 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ALERTS, AlertIcon } from "@/lib/notifications";
+import { useNotifications, AlertIcon } from "@/lib/notifications";
 
 export function TopNav() {
   const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const notifCount = ALERTS.length;
+  const { alerts, unreadCount, markRead, markAllRead, relative } = useNotifications();
 
   // Close notification popup on outside click / Escape
   useEffect(() => {
@@ -41,7 +41,7 @@ export function TopNav() {
               <path d="M8 2a4 4 0 014 4v3l1.5 2.5h-11L4 9V6a4 4 0 014-4z"/>
               <path d="M6.5 12.5a1.5 1.5 0 003 0"/>
             </svg>
-            {notifCount > 0 && <span className="tnav-notif-badge">{notifCount > 9 ? "9+" : notifCount}</span>}
+            {unreadCount > 0 && <span className="tnav-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
           </button>
 
           {notifOpen && (
@@ -49,38 +49,58 @@ export function TopNav() {
               <div className="notif-pop-hdr">
                 <div>
                   <div className="notif-pop-title">Notifications</div>
-                  <div className="notif-pop-sub">{notifCount} items need action</div>
+                  <div className="notif-pop-sub">
+                    {unreadCount > 0 ? `${unreadCount} unread` : "You're all caught up"}
+                  </div>
                 </div>
                 <button
                   className="notif-pop-all"
-                  onClick={() => { setNotifOpen(false); router.push("/alerts"); }}
+                  onClick={markAllRead}
+                  disabled={unreadCount === 0}
+                  style={unreadCount === 0 ? { opacity: .5, cursor: "default" } : undefined}
                 >
-                  View all
+                  Mark all read
                 </button>
               </div>
 
               <div className="notif-pop-list">
-                {notifCount === 0 ? (
+                {alerts.length === 0 ? (
                   <div className="notif-pop-empty">
                     <div style={{ fontSize: 22, marginBottom: 6 }}>✓</div>
                     All clear — no notifications
                   </div>
                 ) : (
-                  ALERTS.map(a => (
-                    <button
+                  alerts.map(a => (
+                    <div
                       key={a.id}
-                      className="notif-row"
-                      onClick={() => { setNotifOpen(false); router.push("/alerts"); }}
+                      className={`notif-row ${a.read ? "is-read" : ""}`}
+                      onClick={() => { markRead(a.id); setNotifOpen(false); router.push("/alerts"); }}
+                      role="button"
+                      tabIndex={0}
                     >
                       <span className="notif-row-ic" style={{ background: a.bg }}>
                         <AlertIcon type={a.type} stroke={a.stroke} size={14} />
                       </span>
                       <span className="notif-row-body">
-                        <span className="notif-row-title">{a.title}</span>
+                        <span className="notif-row-title">
+                          {!a.read && <span className="notif-row-dot" aria-hidden />}
+                          {a.title}
+                        </span>
                         <span className="notif-row-sub">{a.sub}</span>
                       </span>
-                      <span className="notif-row-time">{a.time}</span>
-                    </button>
+                      <div className="notif-row-side">
+                        <span className="notif-row-time">{relative(a.createdAt)}</span>
+                        {!a.read && (
+                          <button
+                            className="notif-row-read"
+                            title="Mark as read"
+                            onClick={e => { e.stopPropagation(); markRead(a.id); }}
+                          >
+                            Mark read
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ))
                 )}
               </div>

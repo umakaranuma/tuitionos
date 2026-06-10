@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { NotificationsProvider } from "@/lib/notifications";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-display" });
-const inter = Inter({ subsets: ["latin"], variable: "--font-body" });
-const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
+// Manrope — clean, geometric, modern. Single family for display + body to give
+// the UI a tight, contemporary SaaS feel.
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono-raw",
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "TuitionOS Admin",
@@ -15,8 +27,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${jakarta.variable} ${inter.variable} ${mono.variable}`}>
-        <ToastProvider>{children}</ToastProvider>
+      <body className={`${manrope.variable} ${mono.variable}`}>
+        <NotificationsProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </NotificationsProvider>
       </body>
     </html>
   );

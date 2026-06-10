@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
-import { ALERTS, AlertIcon } from "@/lib/notifications";
+import { useNotifications, AlertIcon, groupByDate } from "@/lib/notifications";
 
 const toggleData = [
   { label: "WhatsApp reminder — day 3 overdue", sub: "Auto-message overdue institutes", key: "wa_remind" },
@@ -12,16 +12,29 @@ const toggleData = [
 ];
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState(ALERTS);
+  const { alerts, unreadCount, markRead, markAllRead, dismiss, relative } = useNotifications();
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     wa_remind: true, auto_suspend: true, trial_email: true, monthly_summary: true,
   });
 
-  const dismiss = (id: number) => setAlerts((prev) => prev.filter((a) => a.id !== id));
+  const groups = groupByDate(alerts);
 
   return (
     <PageShell>
-      <Topbar title="Alerts" subtitle={`${alerts.length} items need action`} />
+      <Topbar
+        title="Alerts"
+        subtitle={`${alerts.length} items · ${unreadCount} unread`}
+        right={
+          <button
+            className="btn btn-s btn-sm"
+            onClick={markAllRead}
+            disabled={unreadCount === 0}
+            style={unreadCount === 0 ? { opacity: .5, cursor: "default" } : undefined}
+          >
+            Mark all read
+          </button>
+        }
+      />
       <div className="pb fi">
         <div className="g2">
           <div>
@@ -33,24 +46,51 @@ export default function AlertsPage() {
                 <div style={{ fontSize: 11, marginTop: 4 }}>No alerts requiring action</div>
               </div>
             ) : (
-              alerts.map((a) => (
-                <div key={a.id} className="alert-c" style={{ borderLeft: `3px solid ${a.color}` }}>
-                  <div className="alert-ic" style={{ background: a.bg }}>
-                    <AlertIcon type={a.type} stroke={a.stroke} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div className="alert-tl">{a.title}</div>
-                    <div className="alert-sb">{a.sub}</div>
-                    <div className="alert-ac">
-                      {a.actions.map((ac) => (
-                        <button key={ac.label} className={`btn btn-xs ${ac.cls}`} onClick={() => dismiss(a.id)}>
-                          {ac.label}
-                        </button>
-                      ))}
+              groups.map(g => {
+                const groupUnread = g.items.filter(a => !a.read).length;
+                return (
+                  <div key={g.label} style={{ marginBottom: 18 }}>
+                    <div className="alert-day">
+                      <span className="alert-day-lbl">{g.label}</span>
+                      <span className="alert-day-meta">
+                        {g.items.length} item{g.items.length !== 1 ? "s" : ""}
+                        {groupUnread > 0 && <span className="alert-day-unread">· {groupUnread} unread</span>}
+                      </span>
                     </div>
+                    {g.items.map((a) => (
+                      <div key={a.id} className={`alert-c ${a.read ? "is-read" : ""}`} style={{ borderLeft: `3px solid ${a.color}` }}>
+                        <div className="alert-ic" style={{ background: a.bg }}>
+                          <AlertIcon type={a.type} stroke={a.stroke} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                            <div className="alert-tl">
+                              {!a.read && <span className="notif-row-dot" aria-hidden style={{ marginRight: 6 }} />}
+                              {a.title}
+                            </div>
+                            <span style={{ fontSize: 11, color: "var(--ink3)", fontWeight: 500, flexShrink: 0 }}>
+                              {relative(a.createdAt)}
+                            </span>
+                          </div>
+                          <div className="alert-sb">{a.sub}</div>
+                          <div className="alert-ac">
+                            {a.actions.map((ac) => (
+                              <button key={ac.label} className={`btn btn-xs ${ac.cls}`} onClick={() => dismiss(a.id)}>
+                                {ac.label}
+                              </button>
+                            ))}
+                            {!a.read && (
+                              <button className="btn btn-xs btn-g" onClick={() => markRead(a.id)}>
+                                Mark as read
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
