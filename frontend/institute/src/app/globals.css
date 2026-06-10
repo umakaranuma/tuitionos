@@ -588,6 +588,93 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(135deg, var(--tc), var(--tc-d)); color: #fff;
 }
 
+/* ── YEAR-END PROMOTION ── */
+.promo-summary {
+  display: flex; gap: 16px; align-items: center; flex-shrink: 0;
+  padding-left: 18px; border-left: 1px solid var(--ln);
+}
+.promo-summary-item { text-align: center; min-width: 72px; }
+.promo-summary-val {
+  font-family: var(--font-display); font-size: 22px; font-weight: 800;
+  color: var(--ink); letter-spacing: -.025em; line-height: 1;
+}
+.promo-summary-lbl {
+  font-size: 10px; font-weight: 700; color: var(--ink3);
+  letter-spacing: .08em; text-transform: uppercase; margin-top: 4px;
+}
+.promo-arrow {
+  font-size: 22px; color: var(--ink3); font-weight: 700; line-height: 1;
+}
+.promo-grid { display: flex; flex-direction: column; gap: 10px; }
+.promo-row {
+  display: grid; align-items: stretch;
+  grid-template-columns: 1fr 90px 1fr auto; gap: 10px;
+  background: #fff; border: 1px solid var(--ln); border-radius: var(--r-lg);
+  padding: 14px 14px 14px 18px; box-shadow: var(--sh);
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+.promo-row:hover { transform: translateY(-1px); }
+.promo-row-saved { border-color: #bbf7d0; }
+.promo-row-suggested { border-color: #fbd38d; background: #fffbf3; }
+.promo-row-pending { border-color: var(--ln); background: var(--cr); }
+
+.promo-batch {
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  padding: 6px 10px; border-radius: 9px; min-height: 64px;
+}
+.promo-batch-from { background: var(--cr-d); }
+.promo-batch-to { background: var(--tc-l); }
+.promo-batch-passout { background: #ede8fc; border: 1px dashed #c8b8f0; }
+.promo-batch-empty {
+  background: #fff; border: 1.5px dashed var(--ln);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.promo-batch-year {
+  font-size: 10px; font-weight: 800; color: var(--ink3);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.promo-batch-passout .promo-batch-year { color: #6b3ea8; }
+.promo-batch-to .promo-batch-year { color: var(--tc-d); }
+.promo-batch-name {
+  font-family: var(--font-display); font-size: 15px; font-weight: 700;
+  color: var(--ink); letter-spacing: -.02em; line-height: 1.2;
+}
+.promo-batch-meta { font-size: 11px; color: var(--ink3); font-weight: 500; }
+
+.promo-flow {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 80px;
+}
+.promo-flow-line {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  width: 100%; text-align: center;
+}
+.promo-flow-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 99px;
+  background: var(--cr-d); color: var(--ink3);
+}
+.promo-flow-label.saved { background: #dcfce7; color: #15803d; }
+.promo-flow-label.suggested { background: var(--sf-l); color: var(--sf); }
+.promo-flow-label.pending { background: var(--rb-l); color: var(--rb); }
+.promo-flow-arrow {
+  font-size: 22px; font-weight: 700; color: var(--ink3); line-height: 1;
+}
+.promo-flow-line.saved .promo-flow-arrow { color: #15803d; }
+.promo-flow-line.suggested .promo-flow-arrow { color: var(--sf); }
+
+.promo-actions {
+  display: flex; flex-direction: column; gap: 6px; align-items: stretch;
+  justify-content: center; min-width: 96px;
+}
+
+@media (max-width: 760px) {
+  .promo-row {
+    grid-template-columns: 1fr; gap: 8px;
+  }
+  .promo-flow { transform: rotate(90deg); justify-self: center; }
+}
+
 /* ── EXAM CARDS (timetable / exams) ── */
 .exam-card {
   position: relative; background: #fff; border: 1px solid var(--ln);

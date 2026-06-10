@@ -1,350 +1,465 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { Modal } from "@/components/ui/Modal";
+import { SearchSelect } from "@/components/ui/SearchSelect";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
-import { Modal } from "@/components/ui/Modal";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Toast } from "@/components/ui/Toast";
 
-type Pmap = { id: number; batch_code: string; source_batch_name: string; batch: number | null; batch_name: string; academic_year: number; is_passout: boolean };
-type Student = { id: number; name: string; attPct?: number; feeStatus?: string };
+type Batch = {
+  id: number;
+  grade: string;
+  section: string;
+  display_name: string;
+  name: string;
+  label: string;
+  academic_year: number;
+  student_count: number;
+};
 
-const AVA_COLORS = [
-  { bg: "#d4ede3", fg: "#1a5040" }, { bg: "#d8e6fa", fg: "#2a5fa8" },
-  { bg: "#fceaea", fg: "#b83030" }, { bg: "#fef3d7", fg: "#6b3e20" }, { bg: "#ede8fc", fg: "#6b3ea8" },
-];
+type Pmap = {
+  id: number;
+  batch_code: string;
+  source_batch_name: string;
+  batch: number | null;
+  batch_name: string;
+  academic_year: number;
+  is_passout: boolean;
+};
+
+// Parse a numeric grade out of "Grade 6", "Grade 11", "A/L Year 1", etc.
+function gradeNumber(grade: string): number | null {
+  const m = /(\d+)/.exec(grade);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// Suggest a target batch in the next year: same scheme but grade+1.
+// Grade 11 (or anything without a higher peer) → passout.
+function suggestTargetBatch(source: Batch, targets: Batch[]): { batch: Batch | null; passout: boolean } {
+  const n = gradeNumber(source.grade);
+  if (n === null) return { batch: null, passout: false };
+  const targetGrade = source.grade.replace(/\d+/, String(n + 1));
+  const peer = targets.find(b =>
+    b.grade.toLowerCase() === targetGrade.toLowerCase() &&
+    b.section.toLowerCase() === source.section.toLowerCase(),
+  ) || targets.find(b => b.grade.toLowerCase() === targetGrade.toLowerCase());
+  if (peer) return { batch: peer, passout: false };
+  // No next-grade peer exists — this is the terminal grade for this institute.
+  return { batch: null, passout: true };
+}
 
 export default function PromotionPage() {
-  const [maps, setMaps] = useState<Pmap[]>([]);
-  const [loading, setLoading] = useState(true);
+  const toast = useToast();
   const [isLocked, setIsLocked] = useState(false);
-  const [batches, setBatches] = useState<any[]>([]);
-  const [promoModal, setPromoModal] = useState<any>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [alertModal, setAlertModal] = useState<{open: boolean, message: string, type: "success"|"error"}|null>(null);
-  
-  const [studentsByMap, setStudentsByMap] = useState<Record<number, Student[]>>({});
-  const [selectedMapId, setSelectedMapId] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
 
-  const load = () => {
+  const currentYear = useMemo(() => {
+    if (typeof window === "undefined") return new Date().getFullYear();
+    const stored = parseInt(window.localStorage.getItem("academic_year") || "", 10);
+    return Number.isFinite(stored) ? stored : new Date().getFullYear();
+  }, []);
+  // From year = the year that is ENDING. To year = the year being promoted INTO.
+  // Default: promote the current academic year → next.
+  const [fromYear, setFromYear] = useState<number>(currentYear);
+  const [toYear, setToYear] = useState<number>(currentYear + 1);
+
+  const [sourceBatches, setSourceBatches] = useState<Batch[]>([]);
+  const [targetBatches, setTargetBatches] = useState<Batch[]>([]);
+  const [maps, setMaps] = useState<Pmap[]>([]);
+
+  const [editingFor, setEditingFor] = useState<Batch | null>(null);
+  const [editForm, setEditForm] = useState<{ targetBatchId: string; isPassout: boolean }>({ targetBatchId: "", isPassout: false });
+
+  // Plan check
+  useEffect(() => {
     const user = getStoredUser();
-    if (user?.institute?.plan !== "institute_pro") { setIsLocked(true); return; }
-    Promise.all([
-      api.get("/api/promotion/").then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
-      api.get("/api/academics/batches?academic_year=all").then(r => Array.isArray(r.data) ? r.data : r.data.results || [])
-    ]).then(([m, b]) => {
-      setMaps(m);
-      setBatches(b);
-      setLoading(false);
-      
-      // Fetch students for all mappings to display them in the UI
-      m.forEach((map: Pmap) => {
-        api.get(`/api/students/students?batch_code=${map.batch_code}`).then(r => {
-          const st = (Array.isArray(r.data) ? r.data : r.data.results || []).map((s: any, i: number) => ({
-            ...s,
-            attPct: s.attPct ?? Math.floor(Math.random() * 20) + 80,
-            feeStatus: s.feeStatus ?? (Math.random() > 0.3 ? "paid" : "due"),
-          }));
-          setStudentsByMap(prev => ({ ...prev, [map.id]: st }));
-        }).catch(console.error);
-      });
-      if (m.length > 0 && !selectedMapId) setSelectedMapId(m[0].id);
-    }).catch(() => setLoading(false));
-  };
+    if (user?.institute?.plan !== "institute_pro") setIsLocked(true);
+  }, []);
 
-  useEffect(load, []);
-
-  const searchBatches = async (q: string) => {
-    try { const r = await api.get(`/api/academics/batches?academic_year=all&search=${encodeURIComponent(q)}`); setBatches(Array.isArray(r.data) ? r.data : r.data.results || []); } catch (e) {}
-  };
-
-  const savePromo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const ne: Record<string, string> = {};
-    if (!promoModal.source_batch) ne.source_batch = "Required";
-    if (!promoModal.is_passout && !promoModal.batch) ne.batch = "Required";
-    if (!promoModal.academic_year) ne.academic_year = "Required";
-    if (Object.keys(ne).length > 0) { setErrors(ne); return; }
-    setErrors({});
+  // Load mappings + both years of batches
+  const load = useCallback(async () => {
+    if (isLocked) { setLoading(false); return; }
+    setLoading(true);
     try {
-      const payload = { ...promoModal };
-      if (payload.is_passout) payload.batch = null;
-      const res = await api.post("/api/promotion/", payload);
-      setAlertModal({ open: true, message: "Promotion map executed automatically.", type: "success" });
-      setPromoModal(null); setErrors({}); 
-      setSelectedMapId(res.data.id);
-      load();
-    } catch (err: any) {
-      const msg = err?.response?.data?.non_field_errors?.[0] || "Failed to add map.";
-      setAlertModal({ open: true, message: msg, type: "error" });
-    }
+      const [mapsRes, srcRes, tgtRes] = await Promise.all([
+        api.get(`/api/promotion/`, { headers: { "X-Academic-Year": String(toYear) } }),
+        api.get(`/api/academics/batches?academic_year=${fromYear}`),
+        api.get(`/api/academics/batches?academic_year=${toYear}`),
+      ]);
+      const mapsArr: Pmap[] = Array.isArray(mapsRes.data) ? mapsRes.data : mapsRes.data.results || [];
+      const srcArr: Batch[] = Array.isArray(srcRes.data) ? srcRes.data : srcRes.data.results || [];
+      const tgtArr: Batch[] = Array.isArray(tgtRes.data) ? tgtRes.data : tgtRes.data.results || [];
+      // Sort by grade number when possible — keeps the visual ordered low → high.
+      const byGrade = (a: Batch, b: Batch) => (gradeNumber(a.grade) ?? 99) - (gradeNumber(b.grade) ?? 99);
+      setMaps(mapsArr);
+      setSourceBatches([...srcArr].sort(byGrade));
+      setTargetBatches([...tgtArr].sort(byGrade));
+    } catch {
+      toast.error("Couldn't load promotion plan.");
+    } finally { setLoading(false); }
+  }, [fromYear, toYear, isLocked, toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Build a per-source plan: existing map (if any), or suggested map.
+  type PlanRow = {
+    source: Batch;
+    map: Pmap | null;
+    suggested: { batch: Batch | null; passout: boolean };
   };
-
-  const deletePromo = async (id: number) => {
-    try {
-      await api.delete(`/api/promotion/${id}/`);
-      setAlertModal({ open: true, message: "Map deleted.", type: "success" });
-      if (selectedMapId === id) setSelectedMapId(null);
-      load();
-    } catch (err) {
-      setAlertModal({ open: true, message: "Failed to delete.", type: "error" });
-    }
-  };
-
-  const selectedMap = maps.find(m => m.id === selectedMapId);
-  const selectedStudents = selectedMapId ? (studentsByMap[selectedMapId] || []) : [];
-  const filteredStudents = selectedStudents.filter(s => !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-  // Stats for sidebar pills
-  const getMapStats = (map: Pmap) => {
-    const students = studentsByMap[map.id] || [];
-    return { promote: students.length, total: students.length };
-  };
-
-  const totalStats = useMemo(() => {
-    let promote = 0, total = 0;
-    maps.forEach(m => {
-      const s = getMapStats(m);
-      promote += s.promote; total += s.total;
+  const plan: PlanRow[] = useMemo(() => {
+    return sourceBatches.map(s => {
+      // Map from source year's batch → its promotion mapping. The Pmap records
+      // batch_code per source batch, which the backend resolves via enrollments.
+      const m = maps.find(mp => mp.source_batch_name === (s.display_name || s.name));
+      return { source: s, map: m || null, suggested: suggestTargetBatch(s, targetBatches) };
     });
-    return { promote, total };
-  }, [maps, studentsByMap]);
+  }, [sourceBatches, targetBatches, maps]);
 
+  const summary = useMemo(() => {
+    const promoted = plan.filter(r => r.map && !r.map.is_passout).length;
+    const graduated = plan.filter(r => r.map?.is_passout).length;
+    const pending = plan.filter(r => !r.map).length;
+    const students = plan.reduce((s, r) => s + (r.source.student_count || 0), 0);
+    return { promoted, graduated, pending, students };
+  }, [plan]);
+
+  const createMap = async (source: Batch, targetBatchId: number | null, isPassout: boolean) => {
+    try {
+      await api.post(`/api/promotion/`, {
+        source_batch: source.id,
+        batch: isPassout ? null : targetBatchId,
+        is_passout: isPassout,
+        academic_year: toYear,
+      }, { headers: { "X-Academic-Year": String(toYear) } });
+      return true;
+    } catch (err) {
+      const msg = (err as { response?: { data?: { non_field_errors?: string[]; error?: string } } })?.response?.data;
+      toast.error(msg?.non_field_errors?.[0] || msg?.error || "Couldn't save this promotion.");
+      return false;
+    }
+  };
+
+  const deleteMap = async (id: number) => {
+    try {
+      await api.delete(`/api/promotion/${id}/`, { headers: { "X-Academic-Year": String(toYear) } });
+      toast.success("Promotion removed.");
+      load();
+    } catch { toast.error("Couldn't remove that promotion."); }
+  };
+
+  const openEditFor = (source: Batch) => {
+    const existing = plan.find(r => r.source.id === source.id);
+    if (existing?.map) {
+      setEditForm({
+        targetBatchId: existing.map.batch ? String(existing.map.batch) : "",
+        isPassout: existing.map.is_passout,
+      });
+    } else {
+      const sug = existing?.suggested;
+      setEditForm({
+        targetBatchId: sug?.batch ? String(sug.batch.id) : "",
+        isPassout: !!sug?.passout,
+      });
+    }
+    setEditingFor(source);
+  };
+
+  const saveEdit = async () => {
+    if (!editingFor) return;
+    setWorking(true);
+    // If there's an existing map, remove it first so the new one replaces cleanly.
+    const existing = plan.find(r => r.source.id === editingFor.id)?.map;
+    if (existing) {
+      try { await api.delete(`/api/promotion/${existing.id}/`, { headers: { "X-Academic-Year": String(toYear) } }); }
+      catch { /* ignore */ }
+    }
+    const ok = await createMap(
+      editingFor,
+      editForm.isPassout ? null : (editForm.targetBatchId ? parseInt(editForm.targetBatchId, 10) : null),
+      editForm.isPassout,
+    );
+    if (ok) {
+      toast.success(editForm.isPassout ? "Marked as graduating." : "Promotion saved.");
+      setEditingFor(null);
+      load();
+    }
+    setWorking(false);
+  };
+
+  const autoSuggestAll = async () => {
+    const unmapped = plan.filter(r => !r.map);
+    if (unmapped.length === 0) {
+      toast.info?.("Every batch already has a promotion.");
+      return;
+    }
+    setWorking(true);
+    let ok = 0, fail = 0;
+    for (const row of unmapped) {
+      const sug = row.suggested;
+      if (sug.passout) {
+        const did = await createMap(row.source, null, true);
+        did ? ok++ : fail++;
+      } else if (sug.batch) {
+        const did = await createMap(row.source, sug.batch.id, false);
+        did ? ok++ : fail++;
+      }
+    }
+    if (ok > 0) toast.success(`Auto-mapped ${ok} batch${ok !== 1 ? "es" : ""}.`);
+    if (fail > 0) toast.error(`${fail} batch${fail !== 1 ? "es" : ""} couldn't be auto-mapped.`);
+    setWorking(false);
+    load();
+  };
+
+  // ── Render ──
   if (isLocked) {
     return (
       <PageShell>
         <Topbar title="Year-end Promotion" />
-        <div className="pb fi" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 80 }}>
-          <div style={{ background: "var(--tc)", color: "white", padding: "4px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>PRO FEATURE</div>
-          <h2 style={{ fontSize: 24, color: "var(--ink)", fontWeight: 700, marginBottom: 12 }}>Promotions Locked</h2>
-          <p style={{ color: "var(--ink2)", textAlign: "center", maxWidth: 400, lineHeight: 1.5 }}>
-            Automated batch migrations are an Institute Pro feature. Please upgrade in Settings.
-          </p>
+        <div className="pb fi" style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 60 }}>
+          <span className="bdg b-prem" style={{ marginBottom: 12 }}>PRO FEATURE</span>
+          <div className="topbar-title" style={{ marginBottom: 6 }}>Promotions are locked</div>
+          <div style={{ color: "var(--ink3)", textAlign: "center", maxWidth: 400, fontSize: 13.5, lineHeight: 1.5 }}>
+            Year-end promotion automation is an Institute Pro feature.
+          </div>
+          <Link href="/settings" className="btn btn-p btn-sm" style={{ marginTop: 14 }}>Upgrade plan</Link>
         </div>
       </PageShell>
     );
   }
 
+  const yearOptions = [-1, 0, 1, 2].map(off => currentYear + off);
+
   return (
     <PageShell>
-      <Topbar 
-        title="Year-end Promotion Engine" 
-        subtitle="Automated batch migration & parent notifications"
-        right={
-          <button className="btn btn-p" onClick={() => setPromoModal({ source_batch: "", batch: "", academic_year: new Date().getFullYear() + 1, is_passout: false })}>+ Create mapping</button>
-        }
+      <Topbar
+        title="Year-end Promotion"
+        subtitle="Move every batch up one year. Graduating cohorts become passout."
       />
-      
-      <div style={{ background: "linear-gradient(90deg, #6b3ea8, #4a2b75)", color: "#fff", padding: "10px 24px", fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 10, fontWeight: 800, background: "#8e67c2", padding: "2px 8px", borderRadius: 4, letterSpacing: ".05em" }}>AUTOMATION ENGINE</span>
-          <span>Students are automatically moved instantly upon creation. Review your execution below.</span>
-        </div>
-      </div>
+      <div className="pb fi">
 
-      <div className="pb fi" style={{ minHeight: "calc(100vh - 120px)" }}>
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 60, color: "var(--ink3)" }}>Loading engine...</div>
-        ) : maps.length === 0 ? (
-          <div style={{ maxWidth: 600, margin: "40px auto", textAlign: "center" }}>
-            <div style={{ background: "#fff", border: "2px dashed var(--ln)", borderRadius: 16, padding: "40px 20px" }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>🗺️</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>No configured promotion maps</div>
-              <div style={{ fontSize: 13, color: "var(--ink3)", marginBottom: 16 }}>Create mapping strips to define how students progress to the next year. It happens instantly!</div>
-              <button className="btn btn-s" onClick={() => setPromoModal({ source_batch: "", batch: "", academic_year: new Date().getFullYear() + 1, is_passout: false })}>Create mapping</button>
-            </div>
-          </div>
-        ) : (
-          <div className="promo-layout" style={{ marginTop: 24 }}>
-            {/* ── Left Sidebar ── */}
-            <div className="promo-sidebar">
-              {/* All batches summary */}
-              <div style={{
-                padding: "12px 14px", borderRadius: 10, marginBottom: 8,
-                background: "#fff", border: "1px solid var(--ln)",
-                boxShadow: "0 1px 3px rgba(28,25,23,.04)",
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 8 }}>Total execution</div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "var(--tc-d)", fontFamily: "var(--font-serif)" }}>{totalStats.promote}</div>
-                    <div style={{ fontSize: 9, fontWeight: 600, color: "var(--ink3)", textTransform: "uppercase" }}>Migrated</div>
-                  </div>
+        {/* ── Year transition header ── */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 18 }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink3)", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 8 }}>
+                Promote
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ width: 140 }}>
+                  <SearchSelect
+                    value={String(fromYear)}
+                    onChange={v => setFromYear(parseInt(v, 10))}
+                    searchable={false}
+                    options={yearOptions.map(y => ({ value: String(y), label: `Year ${y}` }))}
+                  />
+                </div>
+                <div className="promo-arrow" aria-hidden>→</div>
+                <div style={{ width: 140 }}>
+                  <SearchSelect
+                    value={String(toYear)}
+                    onChange={v => setToYear(parseInt(v, 10))}
+                    searchable={false}
+                    options={yearOptions.map(y => ({ value: String(y), label: `Year ${y}` }))}
+                  />
                 </div>
               </div>
-
-              {/* Batch list */}
-              {maps.map(m => {
-                const stats = getMapStats(m);
-                const isActive = selectedMapId === m.id;
-                return (
-                  <div
-                    key={m.id}
-                    className={`promo-sidebar-item ${isActive ? "active" : ""}`}
-                    onClick={() => { setSelectedMapId(m.id); setSearchQuery(""); }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? "var(--ink)" : "var(--ink2)" }}>
-                        {m.source_batch_name} <span style={{ color: "var(--ink3)", margin: "0 4px" }}>➔</span> {m.batch_name || "Passout"}
-                      </div>
-                      <div style={{ fontSize: 10.5, color: "var(--ink3)", marginTop: 2 }}>{stats.total} students</div>
-                    </div>
-                    <div className="promo-sidebar-pills">
-                      <span className="promo-sidebar-pill" style={{ background: "var(--tc-l)", color: "var(--tc-d)" }}>Executed</span>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
 
-            {/* ── Right Workspace ── */}
-            <div className="promo-workspace">
-              {!selectedMap ? (
-                <div style={{ background: "#fff", border: "2px dashed var(--ln)", borderRadius: 16, padding: "40px 20px", textAlign: "center" }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>👈</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>Select a mapping to view migrated students</div>
-                </div>
-              ) : (
-                <>
-                  {/* Workspace header */}
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 12, marginBottom: 14,
-                    padding: "12px 16px", background: "#fff", border: "1px solid var(--tc-l)",
-                    borderRadius: 12, boxShadow: "0 1px 3px rgba(28,25,23,.04)",
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{selectedMap.source_batch_name}</div>
-                      <div style={{ fontSize: 12, color: "var(--ink3)", marginTop: 2 }}>
-                        → {selectedMap.batch_name || "Passout"} · Academic Year {selectedMap.academic_year}
+            <div className="promo-summary">
+              <div className="promo-summary-item">
+                <div className="promo-summary-val" style={{ color: "var(--jd)" }}>{summary.promoted}</div>
+                <div className="promo-summary-lbl">Promoted</div>
+              </div>
+              <div className="promo-summary-item">
+                <div className="promo-summary-val" style={{ color: "var(--tc)" }}>{summary.graduated}</div>
+                <div className="promo-summary-lbl">Graduating</div>
+              </div>
+              <div className="promo-summary-item">
+                <div className="promo-summary-val" style={{ color: summary.pending > 0 ? "var(--sf)" : "var(--ink3)" }}>{summary.pending}</div>
+                <div className="promo-summary-lbl">Pending</div>
+              </div>
+              <div className="promo-summary-item">
+                <div className="promo-summary-val">{summary.students}</div>
+                <div className="promo-summary-lbl">Students</div>
+              </div>
+            </div>
+          </div>
+
+          {summary.pending > 0 && (
+            <div style={{
+              marginTop: 14, padding: "12px 14px", background: "var(--ac-l)",
+              border: "1px solid #f5d98a", borderRadius: 10, display: "flex",
+              alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+            }}>
+              <div style={{ fontSize: 12.5, color: "#9a5b14", lineHeight: 1.5 }}>
+                <strong>{summary.pending} batch{summary.pending !== 1 ? "es" : ""} still need a target.</strong>{" "}
+                Auto-suggest will move Grade N → Grade N+1 and mark the highest grade as graduating.
+              </div>
+              <button className="btn btn-p btn-sm" onClick={autoSuggestAll} disabled={working}>
+                {working ? "Working…" : "Auto-suggest all"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Promotion plan grid ── */}
+        {loading ? (
+          <div className="card" style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading promotion plan…</div>
+        ) : plan.length === 0 ? (
+          <div className="card" style={{ textAlign: "center", padding: "48px 20px" }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🎓</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", marginBottom: 6 }}>
+              No batches in {fromYear}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink3)", marginBottom: 16, lineHeight: 1.5 }}>
+              Add batches for the year you want to promote from, then come back here to map them to the next year.
+            </div>
+            <Link href="/batches" className="btn btn-s btn-sm">Manage batches</Link>
+          </div>
+        ) : (
+          <div className="promo-grid">
+            {plan.map(row => {
+              const { source, map, suggested } = row;
+              const isPassout = map?.is_passout ?? (!map && suggested.passout);
+              const targetName = map
+                ? (map.is_passout ? null : map.batch_name)
+                : (suggested.batch ? suggested.batch.display_name || suggested.batch.name : null);
+              const status: "saved" | "suggested" | "pending" = map
+                ? "saved"
+                : (suggested.batch || suggested.passout) ? "suggested" : "pending";
+              return (
+                <div key={source.id} className={`promo-row promo-row-${status}`}>
+                  {/* Source */}
+                  <div className="promo-batch promo-batch-from">
+                    <div className="promo-batch-year">{fromYear}</div>
+                    <div className="promo-batch-name">{source.display_name || source.name}</div>
+                    <div className="promo-batch-meta">{source.student_count} student{source.student_count !== 1 ? "s" : ""}</div>
+                  </div>
+
+                  {/* Arrow + status */}
+                  <div className="promo-flow">
+                    <div className={`promo-flow-line ${status}`}>
+                      <div className={`promo-flow-label ${status}`}>
+                        {status === "saved" ? "✓ saved" : status === "suggested" ? "suggested" : "needs target"}
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--tc-d)", background: "var(--tc-l)", padding: "4px 10px", borderRadius: 6 }}>✓ Instantly Executed</span>
-                      <button className="btn btn-d btn-xs" onClick={() => deletePromo(selectedMap.id)}>Delete Mapping</button>
+                      <div className="promo-flow-arrow">→</div>
                     </div>
                   </div>
 
-                  {/* Search */}
-                  <div style={{ position: "relative", marginBottom: 12 }}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ink3)" strokeWidth="1.5" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }}>
-                      <circle cx="6" cy="6" r="4.5"/><path d="M9.5 9.5L13 13"/>
-                    </svg>
-                    <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search students..." style={{ paddingLeft: 30, height: 34, fontSize: 12 }} />
-                  </div>
-
-                  {/* Student cards */}
-                  {filteredStudents.length === 0 ? (
-                    <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--ink3)", fontSize: 12.5, background: "#fff", border: "1.5px dashed var(--ln)", borderRadius: 12 }}>
-                      {selectedStudents.length === 0 ? "No students in this batch." : `No students matching "${searchQuery}"`}
+                  {/* Target */}
+                  {isPassout ? (
+                    <div className="promo-batch promo-batch-passout">
+                      <div className="promo-batch-year">🎓 Passout</div>
+                      <div className="promo-batch-name">Graduating cohort</div>
+                      <div className="promo-batch-meta">Students mark as inactive</div>
+                    </div>
+                  ) : targetName ? (
+                    <div className="promo-batch promo-batch-to">
+                      <div className="promo-batch-year">{toYear}</div>
+                      <div className="promo-batch-name">{targetName}</div>
+                      <div className="promo-batch-meta">Continues in {toYear}</div>
                     </div>
                   ) : (
-                    <div>
-                      {filteredStudents.map((s, si) => {
-                        const c = AVA_COLORS[si % AVA_COLORS.length];
-                        const initials = s.name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
-                        return (
-                          <div key={s.id} className="stu-action-card" style={{ borderLeft: "3px solid var(--tc)", background: "#fafdfb" }}>
-                            {/* Avatar */}
-                            <div className="ava" style={{ background: c.bg, color: c.fg, width: 32, height: 32, fontSize: 11 }}>{initials}</div>
-
-                            {/* Info */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
-                                {/* Attendance mini-bar */}
-                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                  <div style={{ width: 60, height: 4, background: "var(--ln)", borderRadius: 99, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${s.attPct || 0}%`, background: (s.attPct || 0) >= 85 ? "var(--tc)" : "var(--sf)", borderRadius: 99 }} />
-                                  </div>
-                                  <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--ink3)" }}>{s.attPct || 0}%</span>
-                                </div>
-                                {/* Fee badge */}
-                                <span className={`bdg ${s.feeStatus === "paid" ? "b-paid" : "b-due"}`} style={{ fontSize: 9 }}>
-                                  {s.feeStatus === "paid" ? "Paid" : "Due"}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Status label instead of segmented control */}
-                            <div style={{ fontSize: 12, fontWeight: 700, color: selectedMap.batch ? "var(--tc-d)" : "var(--rb)", background: selectedMap.batch ? "var(--tc-l)" : "var(--rb-l)", padding: "4px 10px", borderRadius: 8 }}>
-                              {selectedMap.batch ? "Migrated ↑" : "Graduated / Passout ✕"}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="promo-batch promo-batch-empty">
+                      <div className="promo-batch-year">{toYear}</div>
+                      <div className="promo-batch-name" style={{ color: "var(--ink3)" }}>No target chosen</div>
+                      <div className="promo-batch-meta">
+                        Create a Grade in {toYear} first, or mark as passout.
+                      </div>
                     </div>
                   )}
-                </>
-              )}
-            </div>
+
+                  {/* Actions */}
+                  <div className="promo-actions">
+                    <button className="btn btn-xs btn-s" onClick={() => openEditFor(source)}>
+                      {map ? "Edit" : "Set target"}
+                    </button>
+                    {map && (
+                      <button className="btn btn-xs btn-d" onClick={() => deleteMap(map.id)}>Remove</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* ═══════════ CREATE MAPPING MODAL ═══════════ */}
+      {/* ── Edit modal ── */}
       <Modal
-        open={!!promoModal}
-        onClose={() => { setPromoModal(null); setErrors({}); }}
-        title="Create Mapping Strip"
+        open={!!editingFor}
+        onClose={() => setEditingFor(null)}
+        title={editingFor ? `Promote ${editingFor.display_name || editingFor.name}` : "Promote batch"}
         footer={
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button className="btn btn-s" onClick={() => { setPromoModal(null); setErrors({}); }}>Cancel</button>
-            <button className="btn btn-p" onClick={savePromo} style={{ background: "#6b3ea8", border: "none" }}>Save Strip & Execute</button>
-          </div>
+          <>
+            <button className="btn btn-s btn-sm" onClick={() => setEditingFor(null)} disabled={working}>Cancel</button>
+            <button className="btn btn-p btn-sm" onClick={saveEdit} disabled={working}>
+              {working ? "Saving…" : "Save promotion"}
+            </button>
+          </>
         }
       >
-        <form className="form-gap" onSubmit={savePromo}>
-          <div className="fg">
-            <label className="flbl freq">Source Batch (Current Year)</label>
-            <div className={errors.source_batch ? "input-error" : ""}>
-              <SearchableSelect 
-                value={promoModal?.source_batch ? String(promoModal.source_batch) : ""} 
-                onChange={val => { setPromoModal({ ...promoModal, source_batch: val }); setErrors({ ...errors, source_batch: "" }); }}
-                placeholder="Select source batch..."
-                onSearch={searchBatches}
-                options={batches.map(b => ({ value: String(b.id), label: `${b.display_name || b.name} (${b.academic_year})` }))}
-              />
-            </div>
-            {errors.source_batch && <div className="f-error">{errors.source_batch}</div>}
-          </div>
-          <div className="fg" style={{ marginTop: 8, marginBottom: 8 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink2)", fontWeight: 500, cursor: "pointer" }}>
-              <input type="checkbox" checked={promoModal?.is_passout || false} onChange={e => setPromoModal({ ...promoModal, is_passout: e.target.checked, batch: "" })} style={{ accentColor: "#6b3ea8", width: 16, height: 16 }} />
-              Mark this entire cohort as Passout / Graduating
-            </label>
-          </div>
-          
-          {!promoModal?.is_passout && (
-            <div className="fg">
-              <label className="flbl freq">Target Batch (Next Year)</label>
-              <div className={errors.batch ? "input-error" : ""}>
-                <SearchableSelect 
-                  value={promoModal?.batch ? String(promoModal.batch) : ""} 
-                  onChange={val => { setPromoModal({ ...promoModal, batch: val }); setErrors({ ...errors, batch: "" }); }}
-                  placeholder="Select target batch..."
-                  onSearch={searchBatches}
-                  options={batches.map(b => ({ value: String(b.id), label: `${b.display_name || b.name} (${b.academic_year})` }))}
-                />
+        <div className="form-gap">
+          {editingFor && (
+            <div style={{ background: "var(--cr)", borderRadius: 10, padding: "10px 14px", fontSize: 12.5 }}>
+              <div style={{ color: "var(--ink3)", marginBottom: 2 }}>Promoting from</div>
+              <div style={{ fontWeight: 700, color: "var(--ink)" }}>{editingFor.display_name || editingFor.name}</div>
+              <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>
+                {editingFor.student_count} student{editingFor.student_count !== 1 ? "s" : ""} in {fromYear}
               </div>
-              {errors.batch && <div className="f-error">{errors.batch}</div>}
             </div>
           )}
-          <div className="fg">
-            <label className="flbl freq">Target Academic Year</label>
-            <input type="number" className={errors.academic_year ? "input-error" : ""} value={promoModal?.academic_year || ""} onChange={e => { setPromoModal({ ...promoModal, academic_year: e.target.value }); setErrors({ ...errors, academic_year: "" }); }} />
-            {errors.academic_year && <div className="f-error">{errors.academic_year}</div>}
-          </div>
-          
-          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 14px", borderRadius: 8, marginTop: 12, fontSize: 12, color: "#166534" }}>
-            <span style={{ fontWeight: 700 }}>Note:</span> This will instantly archive current enrollments and create new enrollments for the Target Academic Year.
-          </div>
-        </form>
-      </Modal>
 
-      <Toast open={!!alertModal?.open} message={alertModal?.message || ""} type={alertModal?.type || "success"} onClose={() => setAlertModal(null)} />
+          <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--ink2)", fontWeight: 500, cursor: "pointer", padding: "10px 12px", border: "1px solid var(--ln)", borderRadius: 10, background: editForm.isPassout ? "var(--tc-l)" : "#fff" }}>
+            <input
+              type="checkbox"
+              checked={editForm.isPassout}
+              onChange={e => setEditForm(f => ({ ...f, isPassout: e.target.checked, targetBatchId: e.target.checked ? "" : f.targetBatchId }))}
+              style={{ width: 16, height: 16 }}
+            />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, color: "var(--ink)" }}>🎓 Mark as graduating (Passout)</div>
+              <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 1 }}>
+                Use this for the highest grade — students are archived as alumni.
+              </div>
+            </div>
+          </label>
+
+          {!editForm.isPassout && (
+            <div>
+              <label className="flbl">Promote into ({toYear})</label>
+              <SearchSelect
+                value={editForm.targetBatchId}
+                onChange={v => setEditForm(f => ({ ...f, targetBatchId: v }))}
+                placeholder={targetBatches.length === 0 ? `No batches in ${toYear} yet` : "Select target batch…"}
+                disabled={targetBatches.length === 0}
+                options={targetBatches.map(b => ({
+                  value: String(b.id),
+                  label: b.display_name || b.name,
+                  sub: `${b.student_count} student${b.student_count !== 1 ? "s" : ""} · ${b.academic_year}`,
+                }))}
+              />
+              {targetBatches.length === 0 && (
+                <div className="hint" style={{ marginTop: 6 }}>
+                  Create a Grade in {toYear} from <Link href="/batches" style={{ color: "var(--tc)" }}>Batches</Link>, then return here.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{
+            background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 14px",
+            borderRadius: 10, fontSize: 11.5, color: "#166534", lineHeight: 1.5,
+          }}>
+            Saving runs the promotion immediately — current-year enrollments archive, and new enrollments are created in {toYear}.
+          </div>
+        </div>
+      </Modal>
     </PageShell>
   );
 }
