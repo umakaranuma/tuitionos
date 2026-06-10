@@ -8,7 +8,12 @@ import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
 
 type BatchSubject = { id?: number; subject: number; subject_name?: string; teacher: number | null; teacher_name?: string | null };
-type Batch = { id: number; name: string; label: string; subjects: BatchSubject[]; academic_year: number; monthly_fee: string; color: string; color_light: string; student_count: number; is_active: boolean };
+type Batch = {
+  id: number; grade: string; section: string; display_name: string;
+  name: string; label: string;
+  subjects: BatchSubject[]; academic_year: number; monthly_fee: string;
+  color: string; color_light: string; student_count: number; is_active: boolean;
+};
 type Subject = { id: number; name: string };
 type Teacher = { id: number; name: string; subject: string };
 
@@ -19,7 +24,7 @@ export default function BatchesPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Batch | null>(null);
-  const [form, setForm] = useState({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [] as { subject: string; teacher: string }[] });
+  const [form, setForm] = useState({ grade: "", section: "", academic_year: "2026", monthly_fee: "", subjects: [] as { subject: string; teacher: string }[] });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [user, setUser] = useState<any>(null);
@@ -60,23 +65,26 @@ export default function BatchesPage() {
 
   const openAdd = () => { 
     fetchSubjects();
-    setForm({ name: "", label: "", academic_year: "2026", monthly_fee: "", subjects: [{ subject: "", teacher: "" }] }); 
+    setForm({ grade: "", section: "", academic_year: "2026", monthly_fee: "", subjects: [{ subject: "", teacher: "" }] });
     setEditTarget(null); setImageFile(null); setModal("add"); 
   };
   const openEdit = (b: Batch) => { 
     fetchSubjects();
     b.subjects.forEach(s => { if (s.subject_name) fetchTeachers(s.subject_name); });
-    setForm({ 
-      name: b.name, label: b.label, academic_year: String(b.academic_year), monthly_fee: String(b.monthly_fee),
-      subjects: b.subjects.map(s => ({ subject: String(s.subject), teacher: s.teacher ? String(s.teacher) : "" }))
-    }); 
+    setForm({
+      grade: b.grade || b.label || b.name || "",
+      section: b.section || "",
+      academic_year: String(b.academic_year),
+      monthly_fee: String(b.monthly_fee),
+      subjects: b.subjects.map(s => ({ subject: String(s.subject), teacher: s.teacher ? String(s.teacher) : "" })),
+    });
     setEditTarget(b); setImageFile(null); setModal("edit"); 
   };
   const close = () => setModal(null);
 
   const save = async () => {
     const newErrors: Record<string, string> = {};
-    if (!form.name.trim()) newErrors.name = "Required";
+    if (!form.grade.trim()) newErrors.grade = "Required";
     if (!form.monthly_fee) newErrors.monthly_fee = "Required";
     if (!form.academic_year) newErrors.academic_year = "Required";
 
@@ -87,10 +95,10 @@ export default function BatchesPage() {
     setErrors({});
 
     const subjectsPayload = form.subjects.filter(s => s.subject).map(s => ({ subject: Number(s.subject), teacher: s.teacher ? Number(s.teacher) : null }));
-    
+
     const payload = new FormData();
-    payload.append("name", form.name);
-    payload.append("label", form.label);
+    payload.append("grade", form.grade.trim());
+    payload.append("section", form.section.trim());
     payload.append("academic_year", form.academic_year);
     payload.append("monthly_fee", form.monthly_fee);
     payload.append("subjects", JSON.stringify(subjectsPayload));
@@ -113,7 +121,7 @@ export default function BatchesPage() {
               <div key={b.id} className="card" style={{ borderLeft: `4px solid ${b.color || "var(--tc)"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{b.name}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{b.display_name || b.name}</div>
                     <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 4 }}>
                       {b.subjects?.length ? b.subjects.map((s, i) => (
                         <div key={i}>• {s.subject_name} {s.teacher_name && <span style={{ opacity: 0.7 }}>(by {s.teacher_name})</span>}</div>
@@ -136,15 +144,38 @@ export default function BatchesPage() {
         )}
       </div>
 
-      <Modal open={modal !== null} onClose={() => { close(); setErrors({}); }} title={modal === "add" ? "Add batch" : `Edit — ${editTarget?.name}`}
+      <Modal open={modal !== null} onClose={() => { close(); setErrors({}); }} title={modal === "add" ? "Add batch" : `Edit — ${editTarget?.display_name || editTarget?.name}`}
         footer={<><button className="btn btn-s btn-sm" onClick={() => { close(); setErrors({}); }}>Cancel</button><button className="btn btn-p btn-sm" onClick={save}>{modal === "add" ? "Create Batch" : "Save Changes"}</button></>}>
         <div className="form-gap">
-          <div className="fg">
-            <label className="flbl freq">Batch Name</label>
-            <input className={errors.name ? "input-error" : ""} value={form.name} onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setErrors(e => ({ ...e, name: "" })); }} autoFocus placeholder="e.g. Grade 7 — Batch A" />
-            {errors.name && <div className="f-error">{errors.name}</div>}
+          <div className="field-row">
+            <div className="fg">
+              <label className="flbl freq">Grade *</label>
+              <input
+                className={errors.grade ? "input-error" : ""}
+                value={form.grade}
+                onChange={e => { setForm(f => ({ ...f, grade: e.target.value })); setErrors(e => ({ ...e, grade: "" })); }}
+                autoFocus placeholder="e.g. Grade 11"
+              />
+              {errors.grade && <div className="f-error">{errors.grade}</div>}
+            </div>
+            <div className="fg">
+              <label className="flbl">Section / Stream</label>
+              <input
+                value={form.section}
+                onChange={e => setForm(f => ({ ...f, section: e.target.value }))}
+                placeholder="e.g. Science, Batch A, A/L Maths"
+              />
+              <div className="hint">Optional — leave blank if the grade has no sub-stream.</div>
+            </div>
           </div>
-          
+
+          {/* Live preview of the canonical display name */}
+          {(form.grade || form.section) && (
+            <div style={{ fontSize: 12, color: "var(--ink3)", padding: "8px 12px", background: "var(--cr)", borderRadius: 8 }}>
+              Display name: <strong style={{ color: "var(--ink)" }}>{form.grade}{form.section ? ` · ${form.section}` : ""}</strong>
+            </div>
+          )}
+
           <div className="field-row">
             <div className="fg">
               <label className="flbl freq">Monthly fee (LKR)</label>

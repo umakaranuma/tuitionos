@@ -7,7 +7,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
 
 type Fee = { id: number; student: number; student_name: string; batch: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null; collected_by: string };
-type Batch = { id: number; name: string };
+type Batch = { id: number; name: string; display_name?: string };
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = { paid: <span className="bdg b-paid">Paid</span>, pending: <span className="bdg b-due">Pending</span>, due: <span className="bdg b-due">Due</span>, overdue: <span className="bdg b-over">Overdue</span> };
@@ -68,7 +68,7 @@ export default function FeesPage() {
               onChange={val => handleBatchFilter(String(val))}
               placeholder="All batches"
               onSearch={searchBatches}
-              options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.name }))]}
+              options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.display_name || b.name }))]}
             />
           </div>
         } />

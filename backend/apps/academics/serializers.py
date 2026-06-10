@@ -40,14 +40,26 @@ class BatchSerializer(serializers.ModelSerializer):
     student_count = serializers.SerializerMethodField()
     teacher_config = BatchTeacherConfigSerializer(required=False)
     subjects = BatchSubjectSerializer(source='batch_subjects', many=True, read_only=True)
+    display_name = serializers.CharField(read_only=True)
+    # `name` is auto-synced from grade+section on save; keep it read-only.
+    name = serializers.CharField(read_only=True)
+    label = serializers.CharField(read_only=True)
 
     class Meta:
         model = Batch
         fields = [
-            'id', 'name', 'label', 'academic_year', 'monthly_fee',
+            'id', 'grade', 'section', 'display_name',
+            'name', 'label',
+            'academic_year', 'monthly_fee',
             'color', 'color_light', 'is_active', 'created_at',
             'teacher_config', 'student_count', 'subjects',
         ]
+
+    def validate(self, attrs):
+        # Require grade when creating; allow partial update without it.
+        if self.instance is None and not attrs.get('grade'):
+            raise serializers.ValidationError({'grade': 'Grade is required (e.g. "Grade 11").'})
+        return attrs
 
     def get_student_count(self, obj):
         return obj.enrollments.filter(status='active').count()

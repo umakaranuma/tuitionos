@@ -718,7 +718,7 @@ export default function TimetablePage() {
                     onChange={val => { setSlotModal({ ...slotModal, batch: val }); setErrors({ ...errors, batch: "" }); }}
                     placeholder="Select Batch..."
                     onSearch={searchBatches}
-                    options={batches.map(b => ({ value: String(b.id), label: b.name }))}
+                    options={batches.map(b => ({ value: String(b.id), label: b.grade || b.label || b.name }))}
                   />
                 </div>
                 {errors.batch && <div className="f-error">{errors.batch}</div>}
@@ -840,7 +840,7 @@ export default function TimetablePage() {
               <label className="flbl freq">Batch</label>
               <select className={examErrors.batchId ? "input-error" : ""} value={examModal?.batchId || ""} onChange={e => { setExamModal({ ...examModal, batchId: e.target.value }); setExamErrors({ ...examErrors, batchId: "" }); }}>
                 <option value="">Select batch...</option>
-                {BATCHES.map(b => <option key={b.id} value={b.id}>{b.label} — {b.name}</option>)}
+                {BATCHES.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
               </select>
               {examErrors.batchId && <div className="f-error">{examErrors.batchId}</div>}
             </div>

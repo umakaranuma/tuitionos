@@ -10,7 +10,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
 
 type Student = { id: number; name: string; initials: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; join_date: string };
-type Batch = { id: number; name: string };
+type Batch = { id: number; name: string; display_name?: string };
 
 const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"]];
 
@@ -137,7 +137,7 @@ export default function StudentsPage() {
               value={form.batch} 
               onChange={val => setForm(f => ({ ...f, batch: String(val) }))}
               placeholder="Select batch..."
-              options={batches.map(b => ({ value: b.name, label: b.name }))}
+              options={batches.map(b => ({ value: b.name, label: b.display_name || b.name }))}
               onSearch={searchBatches}
             />
           </div>

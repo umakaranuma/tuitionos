@@ -30,9 +30,20 @@ class Teacher(models.Model):
     def __str__(self): return self.name
 
 class Batch(models.Model):
+    """A class group at the institute. Structured as `grade` + `section` so the
+    display is consistent everywhere (no more 'Grade 11 - Grade 11 - Science').
+
+    - grade: the year level — "Grade 11", "Grade 7", "A/L Year 1", etc.
+    - section: optional sub-stream — "Science", "Commerce", "Batch A", etc.
+    - display_name: computed "{grade} · {section}" (or just grade when blank).
+    `name` and `label` are kept for backward compatibility but auto-sync from
+    grade/section on save so legacy callers still get the right values."""
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='batches')
-    name = models.CharField(max_length=200)
-    label = models.CharField(max_length=100, blank=True)
+    grade = models.CharField(max_length=80, blank=True, default='')
+    section = models.CharField(max_length=80, blank=True, default='')
+    # Legacy fields — auto-synced. Will be removed in a future migration.
+    name = models.CharField(max_length=200, blank=True, default='')
+    label = models.CharField(max_length=100, blank=True, default='')
     academic_year = models.PositiveIntegerField()
     monthly_fee = models.DecimalField(max_digits=10, decimal_places=2)
     color = models.CharField(max_length=30, blank=True)
@@ -40,9 +51,24 @@ class Batch(models.Model):
     image = models.ImageField(upload_to='batches/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         db_table = 'batches'
-    def __str__(self): return self.name
+
+    @property
+    def display_name(self) -> str:
+        return f'{self.grade} · {self.section}' if self.section else self.grade
+
+    def save(self, *args, **kwargs):
+        # Always derive name/label from grade/section so the display stays one
+        # canonical string no matter who edits the row.
+        if self.grade:
+            self.name = self.display_name
+            self.label = self.grade
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.display_name or self.name or f'Batch {self.pk}'
 
 class BatchSubject(models.Model):
     batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='batch_subjects')

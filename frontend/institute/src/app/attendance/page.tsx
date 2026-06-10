@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 
 type AttStatus = "present" | "absent";
 type AttRecord = Record<string, AttStatus>;
-type Batch = { id: number; name: string; color?: string; color_light?: string; label?: string };
+type Batch = { id: number; name: string; grade?: string; section?: string; display_name?: string; color?: string; color_light?: string; label?: string };
 type Student = { id: number; name: string; bg?: string; fg?: string; initials?: string; mobile?: string; attPct?: number };
 
 function todayLabel() {
@@ -63,7 +63,8 @@ export default function AttendancePage() {
             { c: "#6b3ea8", cl: "#ede8fc" }, { c: "#c07b1a", cl: "#fef3d7" }, { c: "#b83030", cl: "#fceaea" }
           ];
           const cs = colors[i % colors.length];
-          return { ...b, color: cs.c, color_light: cs.cl, label: b.name.split(" ")[0] + " " + b.name.split(" ")[1] };
+          // Prefer the API's `display_name` (canonical), fall back to short `grade` or `name`.
+          return { ...b, color: cs.c, color_light: cs.cl, label: b.display_name || b.grade || b.name };
         });
         setBatches(withColors);
         if (withColors.length > 0) setSelBatch(withColors[0].id);
