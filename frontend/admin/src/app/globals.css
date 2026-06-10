@@ -366,6 +366,64 @@ a { color: inherit; text-decoration: none; }
 }
 .sel-f:focus { border-color: var(--tc); box-shadow: 0 0 0 3px var(--tc-l); }
 
+/* ── SEARCH SELECT (combobox: trigger IS the search input) ── */
+.ss-root { position: relative; display: inline-block; width: 100%; }
+.ss-trigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; height: var(--ctl-h); padding: 0 12px 0 14px;
+  border-radius: var(--ctl-r); border: 1px solid var(--ln); background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.02);
+  transition: all 150ms ease;
+}
+.ss-trigger:hover:not(.disabled) { border-color: var(--ink3); }
+.ss-trigger:focus-within, .ss-trigger.open { border-color: var(--tc); box-shadow: 0 0 0 3px var(--tc-l); }
+.ss-trigger.disabled { opacity: .55; pointer-events: none; }
+.ss-trigger.compact { height: var(--ctl-h-sm); padding: 0 10px 0 12px; }
+
+.ss-input {
+  flex: 1; min-width: 0;
+  height: 100%; padding: 0; margin: 0;
+  border: none !important; background: transparent !important;
+  font-family: var(--font-body); font-size: 13.5px; font-weight: 500; color: var(--ink);
+  outline: none !important; box-shadow: none !important;
+  cursor: text;
+}
+.ss-input:read-only { cursor: pointer; }
+.ss-input::placeholder { color: var(--ink3); font-weight: 400; }
+.ss-trigger.compact .ss-input { font-size: 12.5px; }
+/* Counter the global form-input rules that try to give it an outline. */
+.ss-input:focus { border: none !important; box-shadow: none !important; }
+
+.ss-caret { color: var(--ink3); flex-shrink: 0; transition: transform 180ms ease; }
+.ss-trigger.open .ss-caret { transform: rotate(180deg); color: var(--tc); }
+
+.ss-pop {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 80;
+  background: #fff; border: 1px solid var(--ln); border-radius: var(--ctl-r);
+  box-shadow: 0 12px 28px -6px rgba(15,23,42,.16), 0 4px 10px rgba(15,23,42,.05);
+  overflow: hidden; animation: ssIn 160ms cubic-bezier(.16,1,.3,1) both;
+  min-width: 180px;
+}
+@keyframes ssIn {
+  from { opacity: 0; transform: translateY(-4px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ss-list { max-height: 260px; overflow-y: auto; padding: 4px; }
+.ss-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 8px 12px; border: none; border-radius: 6px; background: none;
+  font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--ink2);
+  cursor: pointer; text-align: left; transition: background 120ms ease;
+}
+.ss-item.hi, .ss-item:hover { background: var(--cr); color: var(--ink); }
+.ss-item.selected { color: var(--tc); font-weight: 600; }
+.ss-item.selected.hi { background: var(--tc-l); }
+.ss-item-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ss-item-label { line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-item-sub { font-size: 11px; font-weight: 400; color: var(--ink3); margin-top: 1px; }
+.ss-empty { padding: 18px 10px; text-align: center; font-size: 12px; color: var(--ink3); }
+
 /* ── CARDS ── */
 .card {
   background: #fff; border: 1px solid var(--ln);

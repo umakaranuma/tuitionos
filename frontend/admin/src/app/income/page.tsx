@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { MrrChart, TrendPoint } from "@/components/income/MrrChart";
 import { BreakdownTable, PlanBucket } from "@/components/income/BreakdownTable";
 import { InvoiceTable, PaymentRow } from "@/components/invoices/InvoiceTable";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
@@ -163,12 +164,14 @@ export default function IncomePage() {
           : "Monthly institute payments"}
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <select className="sel-f" value={year} onChange={e => { setYear(e.target.value); setPage(1); }}>
-              {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
-            </select>
-            <select className="sel-f" value={month} onChange={e => { setMonth(e.target.value); setPage(1); }}>
-              {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
+            <div style={{ width: 96 }}>
+              <SearchSelect value={year} onChange={v => { setYear(v); setPage(1); }}
+                options={yearOptions.map(y => ({ value: String(y), label: String(y) }))} searchable={false} />
+            </div>
+            <div style={{ width: 140 }}>
+              <SearchSelect value={month} onChange={v => { setMonth(v); setPage(1); }}
+                options={MONTHS.map(m => ({ value: m.value, label: m.label }))} />
+            </div>
             <button className="btn btn-s btn-sm" onClick={exportCsv} disabled={rows.length === 0}>Export CSV</button>
           </div>
         }

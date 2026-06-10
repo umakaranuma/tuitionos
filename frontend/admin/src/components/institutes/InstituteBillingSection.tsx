@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui/Modal";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
@@ -320,12 +321,14 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
           Billing &amp; Invoices
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <select className="sel-f" value={year} onChange={e => setYear(e.target.value)}>
-            {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
-          </select>
-          <select className="sel-f" value={month} onChange={e => setMonth(e.target.value)}>
-            {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+          <div style={{ width: 96 }}>
+            <SearchSelect value={year} onChange={setYear} searchable={false}
+              options={yearOptions.map(y => ({ value: String(y), label: String(y) }))} />
+          </div>
+          <div style={{ width: 140 }}>
+            <SearchSelect value={month} onChange={setMonth}
+              options={MONTHS.map(m => ({ value: m.value, label: m.label }))} />
+          </div>
           <button className="btn btn-s btn-sm" onClick={() => setShowAddModal(true)}>+ Add invoice</button>
         </div>
       </div>

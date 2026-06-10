@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 
 const districts = ["Jaffna", "Colombo", "Kandy", "Gampaha", "Vavuniya", "Kurunegala", "Matara", "Anuradhapura", "Southern", "Other"];
 const RESERVED = ["admin", "api", "www", "mail", "static", "media", "app", "login", "dashboard", "support"];
@@ -225,18 +226,25 @@ export default function AddInstitutePage() {
               </div>
               <div className="fg">
                 <label>District *</label>
-                <select value={form.district} onChange={(e) => handleChange("district", e.target.value)}>
-                  {districts.map((d) => <option key={d}>{d}</option>)}
-                </select>
+                <SearchSelect
+                  value={form.district}
+                  onChange={v => handleChange("district", v)}
+                  options={districts.map(d => ({ value: d, label: d }))}
+                />
               </div>
               <div className="fg">
                 <label>Subscription plan *</label>
-                <select value={form.plan} onChange={(e) => handleChange("plan", e.target.value)}>
-                  <option value="solo">Solo — LKR 1,500/mo</option>
-                  <option value="institute">Institute — LKR 3,000/mo</option>
-                  <option value="institute_pro">Institute Pro — LKR 6,000/mo</option>
-                  <option value="trial">14-day free trial</option>
-                </select>
+                <SearchSelect
+                  value={form.plan}
+                  onChange={v => handleChange("plan", v)}
+                  options={[
+                    { value: "solo", label: "Solo", sub: "LKR 1,500/mo" },
+                    { value: "institute", label: "Institute", sub: "LKR 3,000/mo" },
+                    { value: "institute_pro", label: "Institute Pro", sub: "LKR 6,000/mo" },
+                    { value: "trial", label: "14-day free trial", sub: "Full Pro features" },
+                  ]}
+                  searchable={false}
+                />
                 <div className="hint">{planInfo[form.plan].features}</div>
               </div>
             </div>

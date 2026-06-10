@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { InvoiceTable } from "@/components/invoices/InvoiceTable";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
@@ -290,24 +291,21 @@ export default function InvoicesPage() {
           : "Monthly institute billing"}
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <select
-              className="sel-f"
-              value={year}
-              onChange={e => { setYear(e.target.value); setPage(1); }}
-            >
-              {yearOptions.map(y => (
-                <option key={y} value={String(y)}>{y}</option>
-              ))}
-            </select>
-            <select
-              className="sel-f"
-              value={month}
-              onChange={e => { setMonth(e.target.value); setPage(1); }}
-            >
-              {MONTHS.map(m => (
-                <option key={m.value} value={m.value}>{m.label}</option>
-              ))}
-            </select>
+            <div style={{ width: 96 }}>
+              <SearchSelect
+                value={year}
+                onChange={v => { setYear(v); setPage(1); }}
+                options={yearOptions.map(y => ({ value: String(y), label: String(y) }))}
+                searchable={false}
+              />
+            </div>
+            <div style={{ width: 140 }}>
+              <SearchSelect
+                value={month}
+                onChange={v => { setMonth(v); setPage(1); }}
+                options={MONTHS.map(m => ({ value: m.value, label: m.label }))}
+              />
+            </div>
             <button className="btn btn-s btn-sm" onClick={handleGenerateMonthly} disabled={generating}>
               {generating ? "Generating..." : "Generate monthly"}
             </button>
@@ -433,26 +431,35 @@ export default function InvoicesPage() {
         <div className="form-gap">
           <div>
             <label className="flbl">Institute *</label>
-            <select value={addForm.institute} onChange={e => onPickInstitute(e.target.value)} autoFocus>
-              <option value="">Select an institute…</option>
-              {institutes.map(i => (
-                <option key={i.id} value={String(i.id)}>{i.name}</option>
-              ))}
-            </select>
+            <SearchSelect
+              value={addForm.institute}
+              onChange={onPickInstitute}
+              placeholder="Select an institute…"
+              options={institutes.map(i => ({
+                value: String(i.id),
+                label: i.name,
+                sub: i.plan === "institute_pro" ? "Pro" : i.plan === "institute" ? "Institution" : i.plan === "solo" ? "Solo" : i.plan,
+              }))}
+            />
           </div>
 
           <div className="field-row">
             <div>
               <label className="flbl">Billing year *</label>
-              <select value={addForm.year} onChange={e => setAddForm(f => ({ ...f, year: e.target.value }))}>
-                {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
-              </select>
+              <SearchSelect
+                value={addForm.year}
+                onChange={v => setAddForm(f => ({ ...f, year: v }))}
+                options={yearOptions.map(y => ({ value: String(y), label: String(y) }))}
+                searchable={false}
+              />
             </div>
             <div>
               <label className="flbl">Billing month *</label>
-              <select value={addForm.month} onChange={e => setAddForm(f => ({ ...f, month: e.target.value }))}>
-                {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
+              <SearchSelect
+                value={addForm.month}
+                onChange={v => setAddForm(f => ({ ...f, month: v }))}
+                options={MONTHS.map(m => ({ value: m.value, label: m.label }))}
+              />
             </div>
           </div>
 
