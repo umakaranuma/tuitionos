@@ -70,7 +70,8 @@ export function TopNav() {
                     All clear — no notifications
                   </div>
                 ) : (
-                  alerts.map(a => (
+                  // Show only the top 6 in the bell; full history lives on /alerts.
+                  alerts.slice(0, 6).map(a => (
                     <div
                       key={a.id}
                       className={`notif-row ${a.read ? "is-read" : ""}`}

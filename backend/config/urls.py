@@ -12,6 +12,7 @@ urlpatterns = [
         path('dashboard', AdminDashboardView.as_view(), name='admin-dashboard'),
         path('billing/', include('apps.billing.urls')),
         path('settings', include('apps.core.urls_settings')),
+        path('notifications/', include('apps.notifications.admin_urls')),
         path('institutes/<int:pk>', AdminInstituteDetailView.as_view(), name='admin-institute-detail'),
         path('institutes/<int:pk>/<str:action>', AdminInstituteDetailView.as_view(), name='admin-institute-action'),
     ])),

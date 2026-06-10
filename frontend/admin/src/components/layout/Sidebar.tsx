@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/lib/auth";
+import { useNotifications } from "@/lib/notifications";
 
 interface NavItem {
   label: string;
@@ -68,7 +69,8 @@ const sections: { title: string; items: NavItem[] }[] = [
     title: "Platform",
     items: [
       {
-        label: "Alerts", href: "/alerts", badge: "3",
+        // Badge is replaced at render time with the live unread count.
+        label: "Alerts", href: "/alerts",
         icon: (
           <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
             <path d="M8 2a4 4 0 014 4v3l1.5 2.5h-11L4 9V6a4 4 0 014-4z"/>
@@ -100,6 +102,11 @@ const sections: { title: string; items: NavItem[] }[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { unreadCount } = useNotifications();
+  const badgeFor = (href: string): string | undefined => {
+    if (href === "/alerts" && unreadCount > 0) return unreadCount > 9 ? "9+" : String(unreadCount);
+    return undefined;
+  };
 
   return (
     <aside className="sb">
@@ -117,11 +124,12 @@ export function Sidebar() {
             <div className="sb-sec">{section.title}</div>
             {section.items.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/institutes/add" && pathname.startsWith(`${item.href}/`));
+              const liveBadge = badgeFor(item.href) ?? item.badge;
               return (
                 <Link key={item.href} href={item.href} className={`sb-item ${isActive ? "on" : ""}`}>
                   {item.icon}
                   <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.badge && <span className="sb-badge">{item.badge}</span>}
+                  {liveBadge && <span className="sb-badge">{liveBadge}</span>}
                 </Link>
               );
             })}
