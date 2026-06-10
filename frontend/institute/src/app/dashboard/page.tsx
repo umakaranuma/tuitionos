@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { BATCHES, ALL_STUDENTS, INIT_FEE_STATE, TEACHERS, INIT_TEACHER_PAYMENTS } from "@/lib/batchData";
 import { api } from "@/lib/api";
 
@@ -97,52 +98,48 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle="Institute Operational Overview"
         right={
-          <div style={{ display: "flex", gap: 8 }}>
-            <select 
-              value={year} 
-              onChange={e => setYear(e.target.value)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
-            >
-              <option value="all">All Years</option>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-              <option value="2024">2024</option>
-            </select>
-            <select 
-              value={month} 
-              onChange={e => setMonth(e.target.value)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--ln)", outline: "none", fontSize: 13 }}
-              disabled={year === "all"}
-            >
-              <option value="all">All Months</option>
-              <option value="1">January</option>
-              <option value="2">February</option>
-              <option value="3">March</option>
-              <option value="4">April</option>
-              <option value="5">May</option>
-              <option value="6">June</option>
-              <option value="7">July</option>
-              <option value="8">August</option>
-              <option value="9">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
-            </select>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ width: 110 }}>
+              <SearchSelect
+                value={year}
+                onChange={setYear}
+                searchable={false}
+                options={[
+                  { value: "all", label: "All years" },
+                  { value: "2026", label: "2026" },
+                  { value: "2025", label: "2025" },
+                  { value: "2024", label: "2024" },
+                ]}
+              />
+            </div>
+            <div style={{ width: 140 }}>
+              <SearchSelect
+                value={month}
+                onChange={setMonth}
+                disabled={year === "all"}
+                options={[
+                  { value: "all", label: "All months" },
+                  ...["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => ({ value: String(i + 1), label: m })),
+                ]}
+              />
+            </div>
             <button className="btn btn-s btn-sm">Download report</button>
           </div>
         }
       />
-      <div style={{ background: "linear-gradient(90deg, #1a5040, #133a2e)", color: "#fff", padding: "10px 24px", fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 10, fontWeight: 800, background: "#2d7a5a", padding: "2px 8px", borderRadius: 4, letterSpacing: ".05em" }}>TUITION-OS PRO</span>
-          <span>Package automatically activated on <strong>March 1, 2026</strong>. Custom fee engines enabled.</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span>Next scheduled renewal: <strong style={{ color: "#d4ede3" }}>May 1, 2026</strong></span>
-          <Link href="/settings" style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }}>Manage Billing →</Link>
-        </div>
-      </div>
+
       <div className="pb fi">
+        {/* Plan banner — proper card-style with spacing, matches the system look */}
+        <div className="plan-banner">
+          <div className="plan-banner-left">
+            <span className="plan-banner-tag">TUITION-OS PRO</span>
+            <span>Package activated on <strong>March 1, 2026</strong>. Custom fee engines enabled.</span>
+          </div>
+          <div className="plan-banner-right">
+            <span style={{ color: "var(--ink3)" }}>Renews <strong style={{ color: "var(--ink)" }}>May 1, 2026</strong></span>
+            <Link href="/settings" className="btn btn-s btn-sm">Manage billing →</Link>
+          </div>
+        </div>
         <div className="g4" style={{ marginBottom: 18 }}>
           <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
             <div className="kpi-lbl">Total Students</div>
@@ -210,30 +207,33 @@ export default function DashboardPage() {
 
           <div>
             <div className="sec-hdr"><span className="sec-title">Recent automated alerts</span></div>
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="card" style={{ padding: 6 }}>
               {alerts.length === 0 ? (
-                <div style={{ padding: 30, textAlign: "center", color: "var(--ink3)", fontSize: 13 }}>No alerts sent today.</div>
+                <div style={{ padding: 32, textAlign: "center", color: "var(--ink3)", fontSize: 13 }}>
+                  No alerts sent today.
+                </div>
               ) : alerts.map((a, i) => (
-                <div key={i} className="notif-r">
-                  <div className="notif-ic" style={{ background: a.type === "absent" ? "var(--rb-l)" : "#fff0db" }}>
+                <div key={i} className="notif-row">
+                  <span className="notif-row-ic" style={{ background: a.type === "absent" ? "var(--rb-l)" : "var(--ac-l)" }}>
                     {a.type === "absent" ? (
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="var(--rb)" strokeWidth="1.75">
+                      <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="var(--rb)" strokeWidth="1.75">
                         <circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v4M7.5 10.5h.01"/>
                       </svg>
                     ) : (
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#c07b1a" strokeWidth="1.75">
+                      <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="var(--ac)" strokeWidth="1.75">
                         <path d="M2 8l4 4 7-7"/>
                       </svg>
                     )}
-                  </div>
-                  <div>
-                    <div className="notif-tl">{a.name}</div>
-                    <div className="notif-sb">{a.sub}</div>
-                    <div className="notif-time">{a.time}</div>
-                  </div>
-                  <div className="notif-cost">
-                    <span className="bdg b-wa">{a.channel}</span>
-                    <div style={{ marginTop: 3 }}>{a.cost}</div>
+                  </span>
+                  <span className="notif-row-body">
+                    <span className="notif-row-title">{a.name}</span>
+                    <span className="notif-row-sub">{a.sub} · {a.time}</span>
+                  </span>
+                  <div className="notif-row-side">
+                    <span className="bdg" style={{ background: a.channel === "WA" ? "#dcfce7" : "var(--tc-l)", color: a.channel === "WA" ? "#15803d" : "var(--tc-d)" }}>
+                      {a.channel}
+                    </span>
+                    <span className="notif-row-time">{a.cost}</span>
                   </div>
                 </div>
               ))}
@@ -241,14 +241,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Teacher Payroll — Full Width Section ── */}
-        <hr className="dv" style={{ margin: "24px 0" }} />
-        <div style={{ maxWidth: "50%" }}>
+        {/* ── Teacher Payroll — half-width column under the main grid ── */}
+        <div style={{ marginTop: 24 }}>
           <div className="sec-hdr">
             <span className="sec-title">Teacher payroll engine</span>
             <a href="/teachers/salary"><button className="btn btn-g btn-sm">Payouts →</button></a>
           </div>
-          <div className="card" style={{ marginBottom: 0 }}>
+          <div className="card" style={{ maxWidth: 560, marginBottom: 0 }}>
             <div className="prog-w">
               <div className="prog-hdr"><span className="prog-lbl">Salaries cleared</span><span className="prog-val">{payrollPaidCount} / {teacherCount}</span></div>
               <div className="prog-tr"><div className="prog-fi" style={{ width: `${Math.max(5, (payrollPaidCount / Math.max(1, teacherCount)) * 100)}%`, background: "var(--tc)" }} /></div>

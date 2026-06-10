@@ -164,31 +164,72 @@ class MeView(APIView):
         return Response(data)
 
 class ChangePlanView(APIView):
-    """Allows an institute admin to change their active plan."""
+    """Allows an institute admin to change their active plan.
+
+    Downgrades are rejected when the institute is already over the target plan's
+    student/batch limits — keeps data integrity and prevents a silent over-limit
+    state. The error response includes the offending counts so the UI can
+    explain exactly what needs to be reduced first.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         user = request.user
         new_plan = request.data.get("plan")
-        
+
         if not new_plan or new_plan not in ['solo', 'institute', 'institute_pro']:
             return Response({"error": "Invalid plan specified"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         try:
             profile = user.institute_profile
-            if profile.role != 'admin':
-                return Response({"error": "Only admins can change the plan"}, status=status.HTTP_403_FORBIDDEN)
-                
-            inst = profile.institute
-            inst.plan = new_plan
-            inst.save()
-            
-            return Response({
-                "message": f"Successfully changed plan to {new_plan}",
-                "plan": new_plan
-            })
-        except Exception as e:
+        except Exception:
             return Response({"error": "Institute not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.role != 'admin':
+            return Response({"error": "Only admins can change the plan"}, status=status.HTTP_403_FORBIDDEN)
+
+        inst = profile.institute
+        if inst.plan == new_plan:
+            return Response({"message": "Already on this plan", "plan": new_plan})
+
+        # Validate downgrades against the destination plan's limits.
+        from apps.core.plan_config import PLAN_LIMITS
+        from apps.students.models import Student
+        from apps.academics.models import Batch
+
+        target_limits = PLAN_LIMITS.get(new_plan, {})
+        student_count = Student.objects.filter(institute=inst, is_active=True).count()
+        batch_count = Batch.objects.filter(institute=inst, is_active=True).count()
+        overflows = []
+        max_students = target_limits.get('students', float('inf'))
+        max_batches = target_limits.get('batches', float('inf'))
+        if student_count > max_students:
+            overflows.append({
+                'limit': 'students', 'current': student_count, 'allowed': max_students,
+                'message': f'You have {student_count} students but {new_plan} allows {max_students}.',
+            })
+        if batch_count > max_batches:
+            overflows.append({
+                'limit': 'batches', 'current': batch_count, 'allowed': max_batches,
+                'message': f'You have {batch_count} batches but {new_plan} allows {max_batches}.',
+            })
+        if overflows:
+            return Response({
+                "error": "Downgrade would exceed the target plan's limits. Reduce the counts first.",
+                "overflows": overflows,
+                "current_plan": inst.plan,
+                "target_plan": new_plan,
+            }, status=status.HTTP_409_CONFLICT)
+
+        old_plan = inst.plan
+        inst.plan = new_plan
+        inst.save(update_fields=['plan'])
+
+        return Response({
+            "message": f"Plan changed from {old_plan} to {new_plan}",
+            "plan": new_plan,
+            "previous_plan": old_plan,
+        })
 
 class RequestPasswordResetView(APIView):
     permission_classes = []

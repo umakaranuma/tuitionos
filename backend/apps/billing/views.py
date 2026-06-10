@@ -506,6 +506,27 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 rows.append(row)
         return rows
 
+    @action(detail=False, methods=['get'], url_path='my_billing')
+    def my_billing(self, request):
+        """Tenant-scoped billing view — the institute admin sees only their own
+        platform invoices. Reuses institute_billing's row builder."""
+        inst = getattr(request, 'institute', None)
+        if not inst:
+            return Response({'error': 'Institute context required'}, status=400)
+        year = int(request.query_params.get('year') or timezone.now().year)
+        month_str = request.query_params.get('month')
+        rows = self._build_institute_billing_rows(inst, year, int(month_str) if month_str else None)
+        stats = _compute_billing_stats(rows)
+        stats['institute_count'] = 1
+        return Response({
+            'results': rows,
+            'stats': stats,
+            'period': {
+                'year': year, 'month': int(month_str) if month_str else None,
+                'label': billing_month_label(year, int(month_str)) if month_str else str(year),
+            },
+        })
+
     @action(detail=False, methods=['get'], url_path='institute_billing')
     def institute_billing(self, request):
         institute_id = request.query_params.get('institute')

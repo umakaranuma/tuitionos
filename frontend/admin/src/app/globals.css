@@ -532,6 +532,12 @@ a { color: inherit; text-decoration: none; }
 .b-due { background: var(--sf-l); color: var(--sf); }
 .b-over { background: var(--rb-l); color: var(--rb); }
 .b-trial { background: var(--cr-d); color: var(--ink3); border: 1px solid var(--ln); }
+.b-present { background: #dcfce7; color: #15803d; }
+.b-absent { background: var(--rb-l); color: var(--rb); }
+.b-wa { background: #dcfce7; color: #15803d; }
+.b-upcoming { background: var(--cr-d); color: var(--ink3); border: 1px solid var(--ln); }
+.b-ongoing { background: var(--sf-l); color: var(--sf); }
+.b-completed { background: #dcfce7; color: #15803d; }
 
 /* ── PAGINATION ── */
 .pagination {

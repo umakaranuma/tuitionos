@@ -6,8 +6,21 @@ class AdminOnly(BasePermission):
         return getattr(request, 'is_admin', False)
 
 class InstituteOnly(BasePermission):
+    """Tenant-scoped access. Blocks suspended/deactivated institutes from any
+    write/read action via the API — the institute admin will see a clear
+    "account suspended" response and the UI can redirect them appropriately."""
+    BLOCKED_STATUSES = {'suspended', 'deactivated'}
+
     def has_permission(self, request, view):
-        return getattr(request, 'institute', None) is not None
+        inst = getattr(request, 'institute', None)
+        if inst is None:
+            return False
+        if getattr(inst, 'status', None) in self.BLOCKED_STATUSES:
+            self.message = (
+                f"This institute is {inst.status}. Please contact platform support."
+            )
+            return False
+        return True
 
 class RequiresTimetableFeature(BasePermission):
     message = "Your current package does not include Timetable management. Please upgrade to Institute Pro."

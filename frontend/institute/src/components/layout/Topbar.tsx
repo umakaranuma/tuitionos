@@ -1,51 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 
 interface TopbarProps {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
 }
 
-export function Topbar({ title, subtitle, right }: TopbarProps) {
-  const [academicYear, setAcademicYear] = useState<number>(new Date().getFullYear());
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("academic_year");
-      if (stored) setAcademicYear(parseInt(stored, 10));
-    }
-  }, []);
-
-  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const year = parseInt(e.target.value, 10);
-    setAcademicYear(year);
-    localStorage.setItem("academic_year", year.toString());
-    window.location.reload();
-  };
-
-  const years = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
-
+export function Topbar({ title, subtitle, right, onBack, backLabel = "Back" }: TopbarProps) {
   return (
-    <div className="topbar">
-      <div>
-        <div className="topbar-title">{title}</div>
-        {subtitle && <div className="topbar-sub">{subtitle}</div>}
-      </div>
-      <div className="tb-right" style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f8fafc", padding: "4px 10px", borderRadius: "8px", border: "1px solid var(--ln)" }}>
-          <span style={{ fontSize: "12px", color: "var(--ink2)", fontWeight: 500 }}>Academic Year</span>
-          <select 
-            value={academicYear} 
-            onChange={handleYearChange}
-            style={{ 
-              background: "transparent", border: "none", outline: "none", 
-              fontSize: "13px", fontWeight: 700, color: "var(--ink)", cursor: "pointer" 
-            }}
-          >
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+    <div>
+      {onBack && (
+        <div className="breadcrumb">
+          <button className="tb-back" onClick={onBack} aria-label={backLabel}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 14 14">
+              <path d="M8.5 3L4.5 7l4 4"/>
+            </svg>
+            <span>{backLabel}</span>
+          </button>
         </div>
-        {right && <div>{right}</div>}
+      )}
+      <div className="topbar">
+        <div>
+          <div className="topbar-title">{title}</div>
+          {subtitle && <div className="topbar-sub">{subtitle}</div>}
+        </div>
+        {right && <div className="tb-right">{right}</div>}
       </div>
     </div>
   );
