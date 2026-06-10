@@ -16,6 +16,7 @@ type BillingRow = {
   reference_note?: string | null;
   due_date: string;
   payment_count?: number;
+  is_prorated?: boolean;
   has_invoice: boolean;
 };
 
@@ -367,7 +368,14 @@ export function InstituteBillingSection({ instituteId, onBillingChange }: Props)
               {rows.map(row => (
                 <tr key={row.month}>
                   <td style={{ fontWeight: 600 }}>{rowMonthLabel(row)}</td>
-                  <td className="mono">{Number(row.amount).toLocaleString()}</td>
+                  <td className="mono">
+                    {Number(row.amount).toLocaleString()}
+                    {row.is_prorated && (
+                      <span className="bdg b-trial" style={{ marginLeft: 6, fontSize: 9.5 }} title="Prorated for the join month (charged only for the days the institute was active).">
+                        prorated
+                      </span>
+                    )}
+                  </td>
                   <td className="mono" style={{ color: "var(--ink3)" }}>{row.due_date}</td>
                   <td>
                     {statusBadge(row.status)}

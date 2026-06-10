@@ -116,11 +116,38 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             return request.build_absolute_uri(invoice.payment_slip.url)
         return invoice.payment_slip.url
 
+    # ── Proration + due-date policy ──
+    # Join month is prorated by remaining days; every later month is the full
+    # plan fee. Due date follows the join day each month (clamped to month len).
+    def _join_date(self, institute):
+        c = institute.created_at
+        return c.date() if hasattr(c, 'date') else c
+
+    def _proration_factor(self, institute, billing_month):
+        join = self._join_date(institute)
+        if join.year == billing_month.year and join.month == billing_month.month and join.day > 1:
+            days_in_month = monthrange(billing_month.year, billing_month.month)[1]
+            days_active = days_in_month - join.day + 1
+            return Decimal(days_active) / Decimal(days_in_month)
+        return Decimal('1')
+
+    def _expected_amount(self, institute, billing_month, settings_obj):
+        base = Decimal(str(_plan_amount(institute, settings_obj)))
+        return (base * self._proration_factor(institute, billing_month)).quantize(Decimal('1'))
+
+    def _anchored_due_date(self, institute, billing_month):
+        join = self._join_date(institute)
+        days_in_month = monthrange(billing_month.year, billing_month.month)[1]
+        day = min(join.day, days_in_month)
+        return datetime.date(billing_month.year, billing_month.month, day)
+
     def _serialize_invoice_row(self, institute, billing_month, invoice, settings_obj, request=None):
-        amount = invoice.amount if invoice else _plan_amount(institute, settings_obj)
+        amount = invoice.amount if invoice else self._expected_amount(institute, billing_month, settings_obj)
         paid_amount = invoice.paid_amount if invoice else Decimal('0')
         raw_status = invoice.status if invoice else Invoice.STATUS_PENDING
         status = self._resolve_payment_status(raw_status, billing_month, paid_amount, amount)
+        # Prorated indicator for the join month, used by the UI to explain the partial fee.
+        is_prorated = self._proration_factor(institute, billing_month) < Decimal('1')
         return {
             'institute': institute.id,
             'institute_name': institute.name,
@@ -133,9 +160,10 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             'status': status,
             'paid_at': invoice.paid_at.isoformat() if invoice and invoice.paid_at else None,
             'reference_note': invoice.reference_note if invoice else None,
-            'due_date': invoice.due_date.isoformat() if invoice else (billing_month + datetime.timedelta(days=7)).isoformat(),
+            'due_date': invoice.due_date.isoformat() if invoice else self._anchored_due_date(institute, billing_month).isoformat(),
             'payment_slip_url': self._payment_slip_url(invoice, request),
             'payment_count': invoice.payments.count() if invoice else 0,
+            'is_prorated': is_prorated,
             'has_invoice': invoice is not None,
         }
 
@@ -165,6 +193,19 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             is_advance=is_advance,
             source_month=source_month,
         )
+
+    def _activate_institute_if_trial(self, invoice):
+        """Trial/pending institutes auto-promote to Active when their invoice
+        is fully paid. Wired into every payment path via _sync_invoice_status."""
+        inst = invoice.institute
+        if inst.status in (Institute.STATUS_TRIAL, Institute.STATUS_PENDING):
+            old = inst.status
+            inst.status = Institute.STATUS_ACTIVE
+            inst.save(update_fields=['status'])
+            self._log_activity(
+                invoice, InvoiceActivity.ACTION_STATUS_CHANGED,
+                f'Institute activated ({old} -> active) after paying {invoice.month.strftime("%B %Y")}',
+            )
 
     def _recompute_invoice_from_payments(self, invoice):
         """After editing/removing payment rows, set paid_amount to their sum and
@@ -261,12 +302,12 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         })
 
     def _get_or_create_invoice(self, institute, billing_month, settings_obj):
-        due_date = billing_month + datetime.timedelta(days=7)
+        due_date = self._anchored_due_date(institute, billing_month)
         invoice, created = Invoice.objects.get_or_create(
             institute=institute,
             month=billing_month,
             defaults={
-                'amount': _plan_amount(institute, settings_obj),
+                'amount': self._expected_amount(institute, billing_month, settings_obj),
                 'status': Invoice.STATUS_PENDING,
                 'due_date': due_date,
             },
@@ -298,6 +339,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
         if old_status != Invoice.STATUS_PAID and invoice.status == Invoice.STATUS_PAID:
             self._create_platform_fee_transaction(invoice)
+            self._activate_institute_if_trial(invoice)
         elif old_status == Invoice.STATUS_PAID and invoice.status != Invoice.STATUS_PAID:
             self._remove_platform_fee_transaction(invoice)
 
@@ -403,6 +445,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 invoice, InvoiceActivity.ACTION_MARKED_PAID,
                 f'Marked paid — LKR {invoice.amount}{note}',
             )
+            self._activate_institute_if_trial(invoice)
         elif new_status in (Invoice.STATUS_PENDING, Invoice.STATUS_OVERDUE):
             invoice.paid_at = None
             invoice.save(update_fields=['paid_at'])
@@ -718,15 +761,13 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             settings_obj = PlatformSettings.objects.create()
 
         billing_month = datetime.date(year, month, 1)
-        due_date = billing_month + datetime.timedelta(days=7)
-
         invoice, _ = Invoice.objects.get_or_create(
             institute=institute,
             month=billing_month,
             defaults={
-                'amount': _plan_amount(institute, settings_obj),
+                'amount': self._expected_amount(institute, billing_month, settings_obj),
                 'status': Invoice.STATUS_PENDING,
-                'due_date': due_date,
+                'due_date': self._anchored_due_date(institute, billing_month),
             },
         )
 
@@ -946,7 +987,6 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             
         current_date = timezone.now().date()
         first_day_of_month = current_date.replace(day=1)
-        due_date = current_date + datetime.timedelta(days=7)
 
         active_institutes = Institute.objects.filter(status=Institute.STATUS_ACTIVE)
         generated_count = 0
@@ -954,11 +994,10 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         for institute in active_institutes:
             # Check if invoice for this month already exists
             if not Invoice.objects.filter(institute=institute, month=first_day_of_month).exists():
-                if institute.plan == 'solo': amount = settings_obj.monthly_fee_solo
-                elif institute.plan == 'institute': amount = settings_obj.monthly_fee_institute
-                elif institute.plan == 'institute_pro': amount = settings_obj.monthly_fee_institute_pro
-                else: amount = settings_obj.monthly_fee_institute
-
+                # Prorate the join month; full fee otherwise. Due date follows
+                # the join day each month (clamped to the month length).
+                amount = self._expected_amount(institute, first_day_of_month, settings_obj)
+                due_date = self._anchored_due_date(institute, first_day_of_month)
                 invoice = Invoice.objects.create(
                     institute=institute,
                     amount=amount,
