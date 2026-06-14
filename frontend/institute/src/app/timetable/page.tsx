@@ -10,7 +10,42 @@ import { Toast } from "@/components/ui/Toast";
 import { INIT_EXAMS, BATCHES } from "@/lib/batchData";
 
 type Slot = { id: number; batch: number; batch_name: string; subject: number; subject_name: string; teacher: number; teacher_name: string; day_of_week: string; start_time: string; end_time: string; notes: string };
-type Exam = typeof INIT_EXAMS[number];
+// Local exam shape — keeps the existing camelCase UI, transformed to/from the
+// backend's snake_case `Exam` + `ExamScheduleItem` resources.
+type ExamScheduleEntry = { date: string; subject: string; startTime: string; endTime: string };
+type Exam = {
+  id: number; name: string; year: number; batchId: number | string;
+  startDate: string; endDate: string; status: "upcoming" | "ongoing" | "completed";
+  maxMarks: number; schedule: ExamScheduleEntry[];
+};
+type ApiExam = {
+  id: number; name: string; year: number; batch: number; batch_name: string;
+  start_date: string; end_date: string; status: "upcoming" | "ongoing" | "completed";
+  max_marks: number;
+  schedule: { id: number; date: string; subject: string; start_time: string; end_time: string }[];
+};
+const examFromApi = (e: ApiExam): Exam => ({
+  id: e.id, name: e.name, year: e.year, batchId: e.batch,
+  startDate: e.start_date, endDate: e.end_date,
+  status: e.status, maxMarks: e.max_marks,
+  schedule: (e.schedule || []).map(s => ({
+    date: s.date, subject: s.subject, startTime: s.start_time, endTime: s.end_time,
+  })),
+});
+const examToApi = (e: Partial<Exam>) => ({
+  ...(e.name !== undefined ? { name: e.name } : {}),
+  ...(e.year !== undefined ? { year: e.year } : {}),
+  ...(e.batchId !== undefined ? { batch: Number(e.batchId) } : {}),
+  ...(e.startDate !== undefined ? { start_date: e.startDate } : {}),
+  ...(e.endDate !== undefined ? { end_date: e.endDate } : {}),
+  ...(e.status !== undefined ? { status: e.status } : {}),
+  ...(e.maxMarks !== undefined ? { max_marks: e.maxMarks } : {}),
+  ...(e.schedule !== undefined ? {
+    schedule: e.schedule.map(s => ({
+      date: s.date, subject: s.subject, start_time: s.startTime, end_time: s.endTime,
+    })),
+  } : {}),
+});
 
 // ── Time Block = a reusable time range definition ──
 type TimeBlock = { id: number; label: string; startTime: string; endTime: string };
@@ -87,10 +122,10 @@ export default function TimetablePage() {
   const [publishModal, setPublishModal] = useState(false);
   const [publishTarget, setPublishTarget] = useState<"all" | "current">("all");
 
-  // ── Exam state ──
-  const [exams, setExams] = useState<Exam[]>(INIT_EXAMS);
+  // ── Exam state — fetched from the backend (year-scoped by header) ──
+  const [exams, setExams] = useState<Exam[]>([]);
   const [examFilter, setExamFilter] = useState<string>("all");
-  const [examModal, setExamModal] = useState<any>(null);
+  const [examModal, setExamModal] = useState<{ id?: number; name: string; batchId: string | number; startDate: string; endDate: string; maxMarks: number; timeBlockId: string | number } | null>(null);
   const [examErrors, setExamErrors] = useState<Record<string, string>>({});
 
   const LEAVE_COLORS = [
@@ -108,24 +143,50 @@ export default function TimetablePage() {
       setIsLocked(true);
       return;
     }
+    const yearParam = (typeof window !== "undefined"
+      ? (localStorage.getItem("academic_year") || String(new Date().getFullYear()))
+      : String(new Date().getFullYear()));
     Promise.all([
       api.get("/api/timetable/"),
-      api.get("/api/academics/batches"),
+      // Pass academic_year explicitly so the batch list always reflects the
+      // year selector in the topbar — no stale cross-year leakage.
+      api.get(`/api/academics/batches?academic_year=${yearParam}`),
       api.get("/api/academics/subjects"),
-      api.get("/api/academics/teachers")
-    ]).then(([resT, resB, resS, resTea]) => {
+      api.get("/api/academics/teachers"),
+      api.get("/api/academics/exams"),
+    ]).then(([resT, resB, resS, resTea, resExams]) => {
       setSlots(Array.isArray(resT.data) ? resT.data : resT.data.results || []);
       setBatches(Array.isArray(resB.data) ? resB.data : resB.data.results || []);
       setSubjects(Array.isArray(resS.data) ? resS.data : resS.data.results || []);
       setTeachers(Array.isArray(resTea.data) ? resTea.data : resTea.data.results || []);
+      const examData: ApiExam[] = Array.isArray(resExams.data) ? resExams.data : resExams.data.results || [];
+      setExams(examData.map(examFromApi));
       setLoading(false);
     }).catch(() => setLoading(false));
+  };
+
+  const reloadExams = async () => {
+    try {
+      const r = await api.get("/api/academics/exams");
+      const data: ApiExam[] = Array.isArray(r.data) ? r.data : r.data.results || [];
+      setExams(data.map(examFromApi));
+    } catch { /* keep existing */ }
   };
   
   useEffect(() => { loadData(); }, []);
 
+  // Resolve the current academic year from the topbar selector. Always pass it
+  // explicitly so a search query (which replaces the `batches` state) can never
+  // leak batches from another year — belt-and-suspenders with the header.
+  const currentAcademicYear = (typeof window !== "undefined"
+    ? (localStorage.getItem("academic_year") || String(new Date().getFullYear()))
+    : String(new Date().getFullYear()));
+
   const searchBatches = async (q: string) => {
-    try { const r = await api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`); setBatches(Array.isArray(r.data) ? r.data : r.data.results || []); } catch (e) {}
+    try {
+      const r = await api.get(`/api/academics/batches?academic_year=${currentAcademicYear}&search=${encodeURIComponent(q)}`);
+      setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
+    } catch { /* keep current */ }
   };
   const searchSubjects = async (q: string) => {
     try { const r = await api.get(`/api/academics/subjects?search=${encodeURIComponent(q)}`); setSubjects(Array.isArray(r.data) ? r.data : r.data.results || []); } catch (e) {}
@@ -244,57 +305,152 @@ export default function TimetablePage() {
   }, [filteredSlots, timeBlocks]);
 
   // ── Exam helpers ──
+  // Sort priority puts ongoing first, upcoming next, completed at the bottom so
+  // the operator's attention lands on what's happening now / about to happen.
+  // Within a status group, sort by start date (soonest first for upcoming/ongoing,
+  // most-recent first for completed).
+  const STATUS_ORDER: Record<string, number> = { ongoing: 0, upcoming: 1, completed: 2 };
+  const sortExams = (list: typeof exams) =>
+    [...list].sort((a, b) => {
+      const oa = STATUS_ORDER[a.status] ?? 9;
+      const ob = STATUS_ORDER[b.status] ?? 9;
+      if (oa !== ob) return oa - ob;
+      const da = new Date(a.startDate).getTime();
+      const db = new Date(b.startDate).getTime();
+      return a.status === "completed" ? db - da : da - db;
+    });
+
   const filteredExams = useMemo(() => {
-    if (examFilter === "all") return exams;
-    return exams.filter(e => e.status === examFilter);
+    const base = examFilter === "all" ? exams : exams.filter(e => e.status === examFilter);
+    return sortExams(base);
   }, [exams, examFilter]);
 
-  const saveExam = (e: React.FormEvent) => {
+  // Group by status when "all" filter is selected so completed exams visually
+  // separate from the active ones with a clear section header above.
+  const examGroups = useMemo(() => {
+    if (examFilter !== "all") return [{ status: examFilter, label: "", items: filteredExams }];
+    const groups: { status: string; label: string; items: typeof exams }[] = [];
+    const ongoing = filteredExams.filter(e => e.status === "ongoing");
+    const upcoming = filteredExams.filter(e => e.status === "upcoming");
+    const completed = filteredExams.filter(e => e.status === "completed");
+    if (ongoing.length) groups.push({ status: "ongoing", label: "Ongoing", items: ongoing });
+    if (upcoming.length) groups.push({ status: "upcoming", label: "Upcoming", items: upcoming });
+    if (completed.length) groups.push({ status: "completed", label: "Completed", items: completed });
+    return groups;
+  }, [filteredExams, examFilter]);
+
+  const openEditExam = (ex: Exam) => {
+    setExamModal({
+      id: ex.id,
+      name: ex.name,
+      batchId: ex.batchId,
+      startDate: ex.startDate,
+      endDate: ex.endDate,
+      maxMarks: ex.maxMarks,
+      timeBlockId: "",
+    });
+    setExamErrors({});
+  };
+
+  const saveExam = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!examModal) return;
     const ne: Record<string, string> = {};
     if (!examModal.name) ne.name = "Required";
     if (!examModal.batchId) ne.batchId = "Required";
     if (!examModal.startDate) ne.startDate = "Required";
     if (!examModal.endDate) ne.endDate = "Required";
     if (!examModal.maxMarks) ne.maxMarks = "Required";
-    if (!examModal.timeBlockId) ne.timeBlockId = "Select a time block";
+    // Time block is only needed when creating a fresh exam (we auto-generate
+    // the per-subject schedule from it). Editing keeps the existing schedule.
+    if (!examModal.id && !examModal.timeBlockId) ne.timeBlockId = "Select a time block";
     if (Object.keys(ne).length > 0) { setExamErrors(ne); return; }
     setExamErrors({});
 
-    const batch = BATCHES.find(b => b.id === examModal.batchId);
-    if (!batch) return;
-
-    const block = timeBlocks.find(b => b.id === Number(examModal.timeBlockId));
-    const start = new Date(examModal.startDate);
-    const schedule = batch.subjects.map((subj, i) => {
-      const d = new Date(start); d.setDate(d.getDate() + i);
-      return {
-        date: d.toISOString().slice(0, 10),
-        subject: subj,
-        startTime: block?.startTime || "09:00",
-        endTime: block?.endTime || "11:00",
-      };
-    });
-
-    const newExam: Exam = {
-      id: Math.max(...exams.map(x => x.id), 0) + 1,
-      name: examModal.name, year: new Date().getFullYear(),
-      batchId: examModal.batchId,
-      startDate: examModal.startDate, endDate: examModal.endDate,
-      status: "upcoming", maxMarks: Number(examModal.maxMarks), schedule,
-    };
-    setExams(prev => [...prev, newExam]);
-    setExamModal(null); setExamErrors({});
-    setAlertModal({ open: true, message: "Exam created.", type: "success" });
+    try {
+      if (examModal.id) {
+        // Edit — patch the metadata only; keep the existing schedule intact.
+        await api.patch(`/api/academics/exams/${examModal.id}`, examToApi({
+          name: examModal.name,
+          batchId: Number(examModal.batchId),
+          startDate: examModal.startDate,
+          endDate: examModal.endDate,
+          maxMarks: Number(examModal.maxMarks),
+        }));
+        setAlertModal({ open: true, message: "Exam updated.", type: "success" });
+      } else {
+        // Create — generate the per-subject schedule from the chosen time block
+        // and the selected batch's subjects.
+        const batchId = Number(examModal.batchId);
+        const liveBatch = batches.find(b => b.id === batchId);
+        const subjectNames: string[] = liveBatch?.subjects?.map((bs: { subject_name?: string }) => bs.subject_name || "").filter(Boolean)
+          || BATCHES.find(b => b.id === examModal.batchId)?.subjects as unknown as string[]
+          || [];
+        const block = timeBlocks.find(b => b.id === Number(examModal.timeBlockId));
+        const start = new Date(examModal.startDate);
+        const schedule: ExamScheduleEntry[] = subjectNames.map((subj, i) => {
+          const d = new Date(start); d.setDate(d.getDate() + i);
+          return {
+            date: d.toISOString().slice(0, 10),
+            subject: subj,
+            startTime: block?.startTime || "09:00",
+            endTime: block?.endTime || "11:00",
+          };
+        });
+        await api.post(`/api/academics/exams`, examToApi({
+          name: examModal.name,
+          year: new Date().getFullYear(),
+          batchId,
+          startDate: examModal.startDate,
+          endDate: examModal.endDate,
+          status: "upcoming",
+          maxMarks: Number(examModal.maxMarks),
+          schedule,
+        }));
+        setAlertModal({ open: true, message: "Exam created.", type: "success" });
+      }
+      setExamModal(null); setExamErrors({});
+      reloadExams();
+    } catch {
+      setAlertModal({ open: true, message: "Couldn't save the exam. Please try again.", type: "error" });
+    }
   };
 
-  const removeExamSlot = (examId: number, si: number) => {
-    setExams(prev => prev.map(ex => ex.id !== examId ? ex : { ...ex, schedule: ex.schedule.filter((_, i) => i !== si) }));
+  const removeExamSlot = async (examId: number, si: number) => {
+    const ex = exams.find(e => e.id === examId);
+    if (!ex) return;
+    const nextSchedule = ex.schedule.filter((_, i) => i !== si);
+    try {
+      await api.patch(`/api/academics/exams/${examId}`, examToApi({ schedule: nextSchedule }));
+      setAlertModal({ open: true, message: "Schedule entry removed.", type: "success" });
+      reloadExams();
+    } catch {
+      setAlertModal({ open: true, message: "Couldn't remove the schedule entry.", type: "error" });
+    }
   };
 
-  const deleteExam = (examId: number) => {
-    setExams(prev => prev.filter(ex => ex.id !== examId));
-    setAlertModal({ open: true, message: "Exam removed.", type: "success" });
+  const deleteExam = async (examId: number) => {
+    try {
+      await api.delete(`/api/academics/exams/${examId}`);
+      setExams(prev => prev.filter(ex => ex.id !== examId));
+      setAlertModal({ open: true, message: "Exam deleted.", type: "success" });
+    } catch {
+      setAlertModal({ open: true, message: "Couldn't delete the exam.", type: "error" });
+    }
+  };
+
+  const setExamStatus = async (examId: number, status: Exam["status"]) => {
+    try {
+      await api.patch(`/api/academics/exams/${examId}`, examToApi({ status }));
+      setExams(prev => prev.map(ex => ex.id !== examId ? ex : { ...ex, status }));
+      setAlertModal({
+        open: true,
+        type: "success",
+        message: status === "completed" ? "Marked as completed." : status === "ongoing" ? "Marked as ongoing." : "Reopened as upcoming.",
+      });
+    } catch {
+      setAlertModal({ open: true, type: "error", message: "Couldn't update exam status." });
+    }
   };
 
   const handlePublish = () => {
@@ -567,44 +723,80 @@ export default function TimetablePage() {
                     <button className="btn btn-p btn-sm" onClick={() => setExamModal({ name: "", batchId: "", startDate: "", endDate: "", maxMarks: 100, timeBlockId: "" })}>+ Create Exam</button>
                   </div>
                 ) : (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                    {filteredExams.map(exam => {
-                      const sc = STATUS_CONFIG[exam.status];
-                      const batch = BATCHES.find(b => b.id === exam.batchId);
-                      return (
-                        <div key={exam.id} className="exam-card">
-                          <div className="exam-card-stripe" style={{ background: sc.stripe }} />
-                          <div className="exam-card-body">
-                            <div className="exam-card-hdr">
-                              <div className="exam-card-title">{exam.name}</div>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <span className={`bdg b-${exam.status}`}>{sc.label}</span>
-                                <button onClick={() => deleteExam(exam.id)} style={{ background: "none", border: "none", color: "var(--rb)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✕</button>
-                              </div>
-                            </div>
-                            <div className="exam-card-meta">
-                              <span style={{ fontWeight: 600, color: "var(--ink2)" }}>{batch?.label || exam.batchId}</span>
-                              <span>·</span>
-                              <span style={{ fontFamily: "var(--font-mono)" }}>{formatDate(exam.startDate)} — {formatDate(exam.endDate)}</span>
-                              <span>·</span>
-                              <span>Max {exam.maxMarks} marks</span>
-                            </div>
-                            <div className="exam-card-subjects">
-                              {exam.schedule.map((slot, si) => (
-                                <div key={si} className="exam-subj-row">
-                                  <span className="exam-subj-name">{slot.subject}</span>
-                                  <span className="exam-subj-date">{formatDate(slot.date)}</span>
-                                  <span className="exam-subj-time">{formatTime12(slot.startTime)} – {formatTime12(slot.endTime)}</span>
-                                  {exam.status === "upcoming" && (
-                                    <button onClick={() => removeExamSlot(exam.id, si)} style={{ background: "none", border: "none", color: "var(--rb)", fontSize: 10, cursor: "pointer", padding: "2px 4px" }}>✕</button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+                    {examGroups.map(group => (
+                      <div key={group.status}>
+                        {/* Section header only when showing all groups together */}
+                        {group.label && (
+                          <div className="exam-group-hdr">
+                            <span className={`exam-group-dot exam-group-dot-${group.status}`} />
+                            <span className="exam-group-lbl">{group.label}</span>
+                            <span className="exam-group-ct">{group.items.length}</span>
                           </div>
+                        )}
+                        <div style={{
+                          display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16,
+                          opacity: group.status === "completed" ? 0.78 : 1,
+                        }}>
+                          {group.items.map(exam => {
+                            const sc = STATUS_CONFIG[exam.status];
+                            // Prefer the live batch from API (with display_name); fall back to the seed.
+                            const liveBatch = batches.find(b => b.id === Number(exam.batchId));
+                            const batchLabel = liveBatch?.grade || liveBatch?.display_name || liveBatch?.name
+                              || BATCHES.find(b => b.id === exam.batchId)?.label
+                              || String(exam.batchId);
+                            return (
+                              <div key={exam.id} className={`exam-card exam-card-${exam.status}`}>
+                                <div className="exam-card-stripe" style={{ background: sc.stripe }} />
+                                <div className="exam-card-body">
+                                  <div className="exam-card-hdr">
+                                    <div className="exam-card-title">{exam.name}</div>
+                                    <span className={`bdg b-${exam.status}`}>{sc.label}</span>
+                                  </div>
+                                  <div className="exam-card-meta">
+                                    <span style={{ fontWeight: 600, color: "var(--ink2)" }}>{batchLabel}</span>
+                                    <span>·</span>
+                                    <span style={{ fontFamily: "var(--font-mono)" }}>{formatDate(exam.startDate)} — {formatDate(exam.endDate)}</span>
+                                    <span>·</span>
+                                    <span>Max {exam.maxMarks} marks</span>
+                                  </div>
+                                  <div className="exam-card-subjects">
+                                    {exam.schedule.map((slot, si) => (
+                                      <div key={si} className="exam-subj-row">
+                                        <span className="exam-subj-name">{slot.subject}</span>
+                                        <span className="exam-subj-date">{formatDate(slot.date)}</span>
+                                        <span className="exam-subj-time">{formatTime12(slot.startTime)} – {formatTime12(slot.endTime)}</span>
+                                        {exam.status === "upcoming" && (
+                                          <button onClick={() => removeExamSlot(exam.id, si)} style={{ background: "none", border: "none", color: "var(--rb)", fontSize: 10, cursor: "pointer", padding: "2px 4px" }} title="Remove this paper">✕</button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Action footer — Edit, status change, Delete */}
+                                  <div className="exam-card-actions">
+                                    <button className="btn btn-xs btn-s" onClick={() => openEditExam(exam)}>Edit</button>
+                                    {exam.status === "upcoming" && (
+                                      <button className="btn btn-xs btn-s" onClick={() => setExamStatus(exam.id, "ongoing")}>Start exam</button>
+                                    )}
+                                    {exam.status === "ongoing" && (
+                                      <button className="btn btn-xs btn-ok" onClick={() => setExamStatus(exam.id, "completed")}>Mark completed</button>
+                                    )}
+                                    {exam.status === "completed" && (
+                                      <button className="btn btn-xs btn-s" onClick={() => setExamStatus(exam.id, "upcoming")}>Reopen</button>
+                                    )}
+                                    {exam.status === "upcoming" && (
+                                      <button className="btn btn-xs btn-ok" onClick={() => setExamStatus(exam.id, "completed")}>Mark completed</button>
+                                    )}
+                                    <button className="btn btn-xs btn-d" style={{ marginLeft: "auto" }} onClick={() => deleteExam(exam.id)}>Delete</button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
@@ -713,12 +905,20 @@ export default function TimetablePage() {
               <div className="fg">
                 <label className="flbl freq">Batch</label>
                 <div className={errors.batch ? "input-error" : ""}>
-                  <SearchableSelect 
-                    value={slotModal?.batch ? String(slotModal.batch) : ""} 
+                  <SearchableSelect
+                    value={slotModal?.batch ? String(slotModal.batch) : ""}
                     onChange={val => { setSlotModal({ ...slotModal, batch: val }); setErrors({ ...errors, batch: "" }); }}
-                    placeholder="Select Batch..."
+                    placeholder={`Select Batch for ${currentAcademicYear}…`}
                     onSearch={searchBatches}
-                    options={batches.map(b => ({ value: String(b.id), label: b.grade || b.label || b.name }))}
+                    // Client-side guard — only show batches whose academic_year
+                    // matches the topbar selector, so even a stale/over-broad
+                    // server response can't surface other years' batches.
+                    options={batches
+                      .filter(b => String(b.academic_year) === currentAcademicYear)
+                      .map(b => ({
+                        value: String(b.id),
+                        label: `${b.grade || b.label || b.name} · ${b.academic_year}`,
+                      }))}
                   />
                 </div>
                 {errors.batch && <div className="f-error">{errors.batch}</div>}
@@ -820,33 +1020,39 @@ export default function TimetablePage() {
       <Modal
         open={!!examModal}
         onClose={() => { setExamModal(null); setExamErrors({}); }}
-        title="Create Exam"
+        title={examModal?.id ? "Edit exam" : "Create exam"}
         wide
         footer={
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <button className="btn btn-s" onClick={() => { setExamModal(null); setExamErrors({}); }}>Cancel</button>
-            <button className="btn btn-p" onClick={saveExam}>Create Exam</button>
+            <button className="btn btn-p" onClick={saveExam}>{examModal?.id ? "Save changes" : "Create exam"}</button>
           </div>
         }
       >
         <form className="form-gap" onSubmit={saveExam}>
           <div className="fg">
             <label className="flbl freq">Exam Name</label>
-            <input className={examErrors.name ? "input-error" : ""} placeholder="e.g. Term 1 Exam" value={examModal?.name || ""} onChange={e => { setExamModal({ ...examModal, name: e.target.value }); setExamErrors({ ...examErrors, name: "" }); }} />
+            <input className={examErrors.name ? "input-error" : ""} placeholder="e.g. Term 1 Exam" value={examModal?.name || ""} onChange={e => { setExamModal({ ...examModal!, name: e.target.value }); setExamErrors({ ...examErrors, name: "" }); }} />
             {examErrors.name && <div className="f-error">{examErrors.name}</div>}
           </div>
           <div className="field-row">
             <div className="fg">
               <label className="flbl freq">Batch</label>
-              <select className={examErrors.batchId ? "input-error" : ""} value={examModal?.batchId || ""} onChange={e => { setExamModal({ ...examModal, batchId: e.target.value }); setExamErrors({ ...examErrors, batchId: "" }); }}>
-                <option value="">Select batch...</option>
-                {BATCHES.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+              <select className={examErrors.batchId ? "input-error" : ""} value={examModal?.batchId || ""} onChange={e => { setExamModal({ ...examModal!, batchId: e.target.value }); setExamErrors({ ...examErrors, batchId: "" }); }}>
+                <option value="">Select batch for {currentAcademicYear}…</option>
+                {batches
+                  .filter(b => String(b.academic_year) === currentAcademicYear)
+                  .map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.grade || b.display_name || b.name} · {b.academic_year}
+                    </option>
+                  ))}
               </select>
               {examErrors.batchId && <div className="f-error">{examErrors.batchId}</div>}
             </div>
             <div className="fg">
               <label className="flbl freq">Max Marks</label>
-              <input type="number" className={examErrors.maxMarks ? "input-error" : ""} value={examModal?.maxMarks || ""} onChange={e => { setExamModal({ ...examModal, maxMarks: e.target.value }); setExamErrors({ ...examErrors, maxMarks: "" }); }} />
+              <input type="number" className={examErrors.maxMarks ? "input-error" : ""} value={examModal?.maxMarks || ""} onChange={e => { setExamModal({ ...examModal!, maxMarks: Number(e.target.value) }); setExamErrors({ ...examErrors, maxMarks: "" }); }} />
               {examErrors.maxMarks && <div className="f-error">{examErrors.maxMarks}</div>}
             </div>
           </div>
@@ -854,7 +1060,7 @@ export default function TimetablePage() {
           {/* Time block for exams */}
           <div className="fg">
             <label className="flbl freq">Exam Time Block</label>
-            <select className={examErrors.timeBlockId ? "input-error" : ""} value={examModal?.timeBlockId || ""} onChange={e => { setExamModal({ ...examModal, timeBlockId: e.target.value }); setExamErrors({ ...examErrors, timeBlockId: "" }); }}>
+            <select className={examErrors.timeBlockId ? "input-error" : ""} value={examModal?.timeBlockId || ""} onChange={e => { setExamModal({ ...examModal!, timeBlockId: e.target.value }); setExamErrors({ ...examErrors, timeBlockId: "" }); }}>
               <option value="">Select time block...</option>
               {timeBlocks.map(tb => (
                 <option key={tb.id} value={tb.id}>{formatTime12(tb.startTime)} – {formatTime12(tb.endTime)}{tb.label ? ` (${tb.label})` : ""}</option>
@@ -867,12 +1073,12 @@ export default function TimetablePage() {
           <div className="field-row">
             <div className="fg">
               <label className="flbl freq">Start Date</label>
-              <input type="date" className={examErrors.startDate ? "input-error" : ""} value={examModal?.startDate || ""} onChange={e => { setExamModal({ ...examModal, startDate: e.target.value }); setExamErrors({ ...examErrors, startDate: "" }); }} />
+              <input type="date" className={examErrors.startDate ? "input-error" : ""} value={examModal?.startDate || ""} onChange={e => { setExamModal({ ...examModal!, startDate: e.target.value }); setExamErrors({ ...examErrors, startDate: "" }); }} />
               {examErrors.startDate && <div className="f-error">{examErrors.startDate}</div>}
             </div>
             <div className="fg">
               <label className="flbl freq">End Date</label>
-              <input type="date" className={examErrors.endDate ? "input-error" : ""} value={examModal?.endDate || ""} onChange={e => { setExamModal({ ...examModal, endDate: e.target.value }); setExamErrors({ ...examErrors, endDate: "" }); }} />
+              <input type="date" className={examErrors.endDate ? "input-error" : ""} value={examModal?.endDate || ""} onChange={e => { setExamModal({ ...examModal!, endDate: e.target.value }); setExamErrors({ ...examErrors, endDate: "" }); }} />
               {examErrors.endDate && <div className="f-error">{examErrors.endDate}</div>}
             </div>
           </div>

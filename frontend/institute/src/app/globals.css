@@ -769,6 +769,32 @@ a { color: inherit; text-decoration: none; }
 .exam-subj-date { font-family: var(--font-mono); font-size: 11px; color: var(--ink3); }
 .exam-subj-time { font-family: var(--font-mono); font-size: 11px; color: var(--ink2); }
 
+/* Exam status grouping — header strip above each cluster of cards */
+.exam-group-hdr {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 4px 10px; margin-bottom: 2px;
+}
+.exam-group-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.exam-group-dot-ongoing { background: var(--sf); }
+.exam-group-dot-upcoming { background: var(--tc); }
+.exam-group-dot-completed { background: #15803d; }
+.exam-group-lbl {
+  font-size: 11.5px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink);
+}
+.exam-group-ct {
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+  background: var(--cr-d); color: var(--ink3);
+}
+/* Completed cards lean back — desaturated stripe so they read as resolved */
+.exam-card-completed .exam-card-stripe { opacity: .55; }
+.exam-card-completed .exam-card-title { color: var(--ink2); }
+.exam-card-actions {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--ln);
+  flex-wrap: wrap;
+}
+
 /* ── PAGINATION ── */
 .pagination {
   display: flex; align-items: center; gap: 4px;

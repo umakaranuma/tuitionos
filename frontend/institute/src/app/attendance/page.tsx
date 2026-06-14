@@ -10,6 +10,9 @@ type AttStatus = "present" | "absent";
 type AttRecord = Record<string, AttStatus>;
 type Batch = { id: number; name: string; grade?: string; section?: string; display_name?: string; color?: string; color_light?: string; label?: string };
 type Student = { id: number; name: string; bg?: string; fg?: string; initials?: string; mobile?: string; attPct?: number };
+type TimetableSlot = { id: number; batch: number; subject: number | null; subject_name: string; teacher: number | null; teacher_name: string; day_of_week: string; start_time: string; end_time: string; room: string };
+// Backend stores day_of_week as "0".."6" (Mon..Sun). The page uses 3-letter short codes.
+const DAY_SHORT_TO_NUM: Record<string, string> = { Mon: "0", Tue: "1", Wed: "2", Thu: "3", Fri: "4", Sat: "5", Sun: "6" };
 
 function todayLabel() {
   return new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -41,6 +44,7 @@ export default function AttendancePage() {
   
   const [batches, setBatches] = useState<Batch[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [slots, setSlots] = useState<TimetableSlot[]>([]);
   
   const [selBatch, setSelBatch] = useState<number | null>(null);
   const [selSubject, setSelSubject] = useState<string | null>(null);
@@ -72,14 +76,17 @@ export default function AttendancePage() {
       .catch(console.error);
   }, []);
 
-  // Load students & attendance when batch or day changes
+  // Load students, attendance, and the real timetable for this batch.
   useEffect(() => {
     if (!selBatch) return;
-    
+
     Promise.all([
       api.get(`/api/students/students?batch=${selBatch}`).then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
       api.get(`/api/attendance?batch=${selBatch}&date=${dbDate}`).then(r => Array.isArray(r.data) ? r.data : r.data.results || []),
-    ]).then(([st, attRecords]) => {
+      // Real timetable from the API (year-scoped via the X-Academic-Year header).
+      api.get(`/api/timetable/?batch=${selBatch}`).then(r => Array.isArray(r.data) ? r.data : r.data.results || []).catch(() => []),
+    ]).then(([st, attRecords, ts]) => {
+      setSlots(ts);
       // Add UI mock fields to students
       const styledStudents = st.map((s: any, i: number) => {
         const cs = [
@@ -103,20 +110,29 @@ export default function AttendancePage() {
 
   const batch = batches.find(b => b.id === selBatch);
 
-  // Get subjects scheduled for the selected day for this batch
-  const scheduledSubjects = useMemo(
-    () => {
-      // Using mock timetable mapping since backend timetable integration isn't fully complete yet
-      // This preserves the beautiful UI flow while we integrate APIs
-      return batch ? getScheduledSubjects(batch.name as any || "g10", selectedDay) : [];
-    },
-    [batch, selectedDay]
-  );
+  // Real subjects scheduled for the selected day, sourced from /api/timetable/.
+  // Falls back to mock-only when a batch genuinely has no timetable yet — that
+  // way the page still works but doesn't lie about classes that don't exist.
+  const scheduledSubjects = useMemo(() => {
+    if (!batch) return [] as string[];
+    const dayNum = DAY_SHORT_TO_NUM[selectedDay];
+    const todaysSlots = slots.filter(s => s.day_of_week === dayNum);
+    const subjects = Array.from(new Set(todaysSlots.map(s => s.subject_name).filter(Boolean)));
+    // If no real slots exist for this batch at all, fall back to the seed mock
+    // so the UI still shows something sensible until timetable is configured.
+    if (slots.length === 0) return getScheduledSubjects(batch.name as any || "g10", selectedDay);
+    return subjects;
+  }, [batch, selectedDay, slots]);
 
   const getTeacherForSubject = (subj: string) => {
     if (!batch) return null;
+    const dayNum = DAY_SHORT_TO_NUM[selectedDay];
+    const realSlot = slots.find(s => s.day_of_week === dayNum && s.subject_name === subj);
+    if (realSlot && realSlot.teacher_name) {
+      return { name: realSlot.teacher_name, id: realSlot.teacher ?? 0 };
+    }
     const session = INIT_TIMETABLE.find(
-      s => s.batchId === batch.name as any && s.day === selectedDay && s.subject === subj
+      s => s.batchId === batch.name as any && s.day === selectedDay && s.subject === subj,
     );
     if (!session) return null;
     return TEACHERS.find(t => t.id === session.teacherId) || null;
