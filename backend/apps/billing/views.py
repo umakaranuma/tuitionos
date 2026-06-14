@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.core.paginator import Paginator
 from django.db.models import Sum
 from django.utils import timezone
-from rest_framework import viewsets
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -1043,9 +1043,46 @@ def billing_month_label(year, month):
 
 
 class InstituteTransactionViewSet(viewsets.ModelViewSet):
-    """Institute-facing: Income/expense transactions for the Accounts page."""
+    """Institute-facing: Income/expense transactions for the Accounts page.
+
+    Manually-added entries are fully editable. Rows in the `platform_fee`
+    category are written by the admin's billing flow and represent the
+    institute's monthly tuition platform fee — those are read-only here so
+    the books stay in sync with what the platform actually charged."""
     serializer_class = InstituteTransactionSerializer
     permission_classes = [IsAuthenticated, InstituteOnly]
+
+    SYSTEM_CATEGORIES = {'platform_fee'}
+
+    def _is_system_row(self, obj) -> bool:
+        return obj.category in self.SYSTEM_CATEGORIES
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if self._is_system_row(instance):
+            return Response(
+                {'error': 'Platform fee entries are managed by billing and cannot be edited here.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if self._is_system_row(instance):
+            return Response(
+                {'error': 'Platform fee entries are managed by billing and cannot be edited here.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if self._is_system_row(instance):
+            return Response(
+                {'error': 'Platform fee entries are managed by billing and cannot be deleted here.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         qs = InstituteTransaction.objects.filter(institute=self.request.institute)
