@@ -3,9 +3,12 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { Modal } from "@/components/ui/Modal";
+import { QRCard } from "@/components/ui/QRCard";
+import { getStoredUser } from "@/lib/auth";
 import { api } from "@/lib/api";
 
-type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean };
+type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean; qr_token: string };
 type Payment = { id: number; month: string; amount: string; status: string; paid_date: string | null; method: string };
 
 export default function TeacherDetailPage() {
@@ -16,6 +19,7 @@ export default function TeacherDetailPage() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showQR, setShowQR] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -29,8 +33,20 @@ export default function TeacherDetailPage() {
 
   return (
     <PageShell>
-      <Topbar title={teacher.name} subtitle={teacher.subject}
-        right={<button className="btn btn-g btn-sm" onClick={() => router.back()}>← Back</button>} />
+      <Topbar
+        title={teacher.name}
+        subtitle={teacher.subject}
+        onBack={() => router.back()}
+        backLabel="Back"
+        right={
+          <button className="btn btn-p btn-sm" onClick={() => setShowQR(true)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" style={{ marginRight: 4 }}>
+              <rect x="1" y="1" width="4" height="4" rx=".5"/><rect x="9" y="1" width="4" height="4" rx=".5"/>
+              <rect x="1" y="9" width="4" height="4" rx=".5"/><path d="M9 9h4M9 11h2M11 13h2"/>
+            </svg>
+            Staff ID / QR
+          </button>
+        } />
       <div className="pb fi">
         <div className="card" style={{ marginBottom: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
@@ -69,6 +85,25 @@ export default function TeacherDetailPage() {
           </div>
         ) : <div className="card" style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No payment records</div>}
       </div>
+
+      <Modal open={showQR} onClose={() => setShowQR(false)} title="Staff ID card">
+        <div style={{ padding: "8px 0 14px", display: "flex", justifyContent: "center" }}>
+          {teacher.qr_token ? (
+            <QRCard
+              kind="teacher"
+              token={teacher.qr_token}
+              name={teacher.name}
+              subtitle={teacher.subject || "Teacher"}
+              code={`STF-${String(teacher.id).padStart(5, "0")}`}
+              institute={getStoredUser()?.institute?.name}
+            />
+          ) : (
+            <div style={{ color: "var(--ink3)", padding: 24, fontSize: 13 }}>
+              QR token not generated yet. Save this teacher record once and reopen this dialog.
+            </div>
+          )}
+        </div>
+      </Modal>
     </PageShell>
   );
 }

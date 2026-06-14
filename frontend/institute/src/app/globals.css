@@ -675,6 +675,65 @@ a { color: inherit; text-decoration: none; }
   .promo-flow { transform: rotate(90deg); justify-self: center; }
 }
 
+/* ── QR / ID CARD (printable PVC look) ── */
+.qr-card {
+  width: 320px; background: #fff; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--ln); box-shadow: 0 4px 12px rgba(15,23,42,.06);
+  font-family: var(--font-body);
+}
+.qr-card-stripe {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, var(--tc), var(--tc-d));
+  color: #fff;
+}
+.qr-card-stripe-tag {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .14em;
+}
+.qr-card-stripe-inst {
+  font-size: 10.5px; font-weight: 600; opacity: .9;
+  max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.qr-card-body { padding: 18px 16px 14px; }
+.qr-card-photo {
+  width: 64px; height: 64px; border-radius: 50%;
+  margin: -36px auto 10px; border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(15,23,42,.12);
+  background: var(--tc-l); display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.qr-card-photo img { width: 100%; height: 100%; object-fit: cover; }
+.qr-card-initials {
+  font-family: var(--font-display); font-size: 24px; font-weight: 800;
+  color: var(--tc-d); letter-spacing: -.02em;
+}
+.qr-card-id { text-align: center; margin-bottom: 14px; }
+.qr-card-name {
+  font-family: var(--font-display); font-size: 17px; font-weight: 800;
+  color: var(--ink); letter-spacing: -.025em; line-height: 1.2;
+}
+.qr-card-subtitle {
+  font-size: 11.5px; color: var(--ink3); margin-top: 3px; font-weight: 500;
+}
+.qr-card-code {
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink2);
+  margin-top: 4px; letter-spacing: .04em;
+}
+.qr-card-qr {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px; background: var(--cr); border-radius: 12px; margin-bottom: 12px;
+}
+.qr-card-qr-hint {
+  font-size: 10px; font-weight: 600; color: var(--ink3);
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.qr-card-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 8px; border-top: 1px dashed var(--ln);
+  font-size: 9.5px; color: var(--ink3); letter-spacing: .04em;
+  text-transform: uppercase; font-weight: 600;
+}
+
 /* ── EXAM CARDS (timetable / exams) ── */
 .exam-card {
   position: relative; background: #fff; border: 1px solid var(--ln);

@@ -17,7 +17,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Teacher
-        fields = ['id', 'name', 'mobile', 'email', 'subject', 'monthly_salary', 'is_active', 'created_at']
+        fields = ['id', 'name', 'mobile', 'email', 'subject', 'monthly_salary', 'is_active', 'qr_token', 'created_at']
 
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute

@@ -15,6 +15,11 @@ class Subject(models.Model):
         db_table = 'subjects'
     def __str__(self): return f'{self.name} (Batch {self.batch})'
 
+def _gen_teacher_token() -> str:
+    import uuid
+    return uuid.uuid4().hex
+
+
 class Teacher(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='teachers')
     name = models.CharField(max_length=200)
@@ -23,6 +28,8 @@ class Teacher(models.Model):
     subject = models.CharField(max_length=200, blank=True)
     image = models.ImageField(upload_to='teachers/', null=True, blank=True)
     monthly_salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Stable token for the printed QR / ID card — never rewritten on edits.
+    qr_token = models.CharField(max_length=32, unique=True, db_index=True, default=_gen_teacher_token)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:

@@ -17,6 +17,9 @@ urlpatterns = [
         path('institutes/<int:pk>/<str:action>', AdminInstituteDetailView.as_view(), name='admin-institute-action'),
     ])),
 
+    # ── QR scan (tenant-scoped; resolves a printed token to student/teacher info) ──
+    path('api/qr/<str:token>', __import__('apps.students.views_qr', fromlist=['scan_qr']).scan_qr, name='qr-scan'),
+
     # ── Institute endpoints (tenant-scoped) ──
     path('api/', include([
         path('dashboard', InstituteDashboardView.as_view(), name='institute-dashboard'),

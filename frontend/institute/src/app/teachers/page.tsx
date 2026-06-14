@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
@@ -15,6 +16,7 @@ const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(
 const initials = (n: string) => n.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
 export default function TeachersPage() {
+  const router = useRouter();
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,19 +93,32 @@ export default function TeachersPage() {
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           <div className="tw">
             <table>
-              <thead><tr><th>Teacher</th><th>Subject</th><th>Mobile</th><th>Email</th><th>Salary (LKR)</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Teacher</th><th>Subject</th><th>Mobile</th><th>Salary (LKR)</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {teachers.map((t, idx) => {
                   const [bg, fg] = P[idx % P.length];
                   return (
-                    <tr key={t.id}>
-                      <td><div className="td-nm"><div className="ava" style={{ background: bg, color: fg }}>{initials(t.name)}</div>{t.name}</div></td>
+                    <tr
+                      key={t.id}
+                      onClick={() => router.push(`/teachers/${t.id}`)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      <td>
+                        <div className="td-nm">
+                          <div className="ava" style={{ background: bg, color: fg }}>{initials(t.name)}</div>
+                          <div>
+                            <div className="td-nm-main">{t.name}</div>
+                            {t.email && <div className="td-nm-sub">{t.email}</div>}
+                          </div>
+                        </div>
+                      </td>
                       <td style={{ color: "var(--ink3)" }}>{t.subject || "—"}</td>
                       <td className="mono">{t.mobile}</td>
-                      <td style={{ color: "var(--ink3)" }}>{t.email || "—"}</td>
                       <td className="mono">{Number(t.monthly_salary).toLocaleString()}</td>
-                      <td>
+                      <td>{t.is_active ? <span className="dot-st dot-active">Active</span> : <span className="dot-st dot-paused">Inactive</span>}</td>
+                      <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn btn-xs btn-s" onClick={() => router.push(`/teachers/${t.id}`)}>View</button>
                           <button className="btn btn-xs btn-s" onClick={() => openEdit(t)}>Edit</button>
                           <button className="btn btn-xs btn-d" onClick={() => remove(t.id)}>Delete</button>
                         </div>

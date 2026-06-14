@@ -1,6 +1,12 @@
+import uuid
 from django.db import models
 from apps.institutes.models import Institute
 from apps.academics.models import Batch
+
+
+def _gen_token() -> str:
+    return uuid.uuid4().hex
+
 
 class Student(models.Model):
     institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='students')
@@ -12,6 +18,9 @@ class Student(models.Model):
     is_free = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     join_date = models.DateField(null=True, blank=True)
+    # Stable opaque token used by the QR / ID card. Generated once on save and
+    # never rewritten — keeps printed cards valid forever.
+    qr_token = models.CharField(max_length=32, unique=True, db_index=True, default=_gen_token)
     created_at = models.DateTimeField(auto_now_add=True)
     class Meta:
         db_table = 'students'

@@ -9,7 +9,7 @@ class StudentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'initials', 'parent_name', 'parent_mobile',
             'has_whatsapp', 'batch_code', 'is_free', 'is_active',
-            'join_date', 'created_at',
+            'join_date', 'qr_token', 'created_at',
         ]
 
     def get_initials(self, obj):
