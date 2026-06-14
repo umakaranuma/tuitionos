@@ -1,119 +1,305 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { SearchSelect } from "@/components/ui/SearchSelect";
+import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
-import { SearchableSelect } from "@/components/ui/SearchableSelect";
-import { Pagination } from "@/components/ui/Pagination";
 
-type Fee = { id: number; student: number; student_name: string; batch: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null; collected_by: string };
-type Batch = { id: number; name: string; display_name?: string };
-
-const statusBadge = (s: string) => {
-  const map: Record<string, JSX.Element> = { paid: <span className="bdg b-paid">Paid</span>, pending: <span className="bdg b-due">Pending</span>, due: <span className="bdg b-due">Due</span>, overdue: <span className="bdg b-over">Overdue</span> };
-  return map[s] || <span className="bdg b-due">{s}</span>;
+type Fee = {
+  id: number; student: number; batch: number; month: string;
+  amount: string; status: string; paid_at: string | null; collected_by: string;
 };
+type Batch = { id: number; name: string; display_name?: string; grade?: string; academic_year?: number; monthly_fee: string };
+type Student = { id: number; name: string; parent_name?: string; parent_mobile?: string; is_free?: boolean };
+
+const MONTHS = [
+  { value: "01", label: "January" }, { value: "02", label: "February" },
+  { value: "03", label: "March" }, { value: "04", label: "April" },
+  { value: "05", label: "May" }, { value: "06", label: "June" },
+  { value: "07", label: "July" }, { value: "08", label: "August" },
+  { value: "09", label: "September" }, { value: "10", label: "October" },
+  { value: "11", label: "November" }, { value: "12", label: "December" },
+];
+
+const initials = (n: string) =>
+  n.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+
+const AV_COLORS: [string, string][] = [
+  ["#e0e7ff", "#4338ca"], ["#dcfce7", "#15803d"], ["#fef3c7", "#92400e"],
+  ["#fee2e2", "#b91c1c"], ["#dbeafe", "#1e40af"],
+];
 
 export default function FeesPage() {
-  const [fees, setFees] = useState<Fee[]>([]);
+  const toast = useToast();
+  const now = new Date();
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedBatch, setSelectedBatch] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(25);
-  const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
+  const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState(String(now.getMonth() + 1).padStart(2, "0"));
+  const [students, setStudents] = useState<Student[]>([]);
+  const [fees, setFees] = useState<Fee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
 
-  const load = (batchId?: string) => {
+  const monthIso = `${selectedYear}-${selectedMonth}-01`;
+
+  // Load batches once.
+  useEffect(() => {
+    api.get("/api/academics/batches")
+      .then(r => {
+        const list: Batch[] = Array.isArray(r.data) ? r.data : r.data.results || [];
+        setBatches(list);
+        if (list.length > 0 && !selectedBatch) setSelectedBatch(String(list[0].id));
+      })
+      .catch(() => { /* ignore */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload students + fees when the selection changes.
+  const load = useCallback(() => {
+    if (!selectedBatch) { setStudents([]); setFees([]); setLoading(false); return; }
     setLoading(true);
-    const params: Record<string, string | number> = { page, limit };
-    if (batchId !== undefined ? batchId : selectedBatch) params.batch = batchId !== undefined ? batchId : selectedBatch;
-    
     Promise.all([
-      api.get("/api/fees/", { params }).then(r => { 
-        const d = r.data; 
-        if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
-        return Array.isArray(d) ? d : d.results || []; 
-      }),
-      api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; }),
-    ]).then(([f, b]) => { setFees(f); setBatches(b); setLoading(false); });
-  };
-  useEffect(() => load(), [page, limit]);
+      api.get(`/api/students/students`, { params: { batch: selectedBatch, student_status: "active" } })
+        .then(r => (Array.isArray(r.data) ? r.data : r.data.results || []) as Student[])
+        .catch(() => []),
+      api.get(`/api/fees/`, { params: { batch: selectedBatch, month: monthIso } })
+        .then(r => (Array.isArray(r.data) ? r.data : r.data.results || []) as Fee[])
+        .catch(() => []),
+    ]).then(([st, f]) => {
+      setStudents(st);
+      setFees(f);
+      setLoading(false);
+    });
+  }, [selectedBatch, monthIso]);
 
-  const searchBatches = async (q: string) => {
+  useEffect(() => { load(); }, [load]);
+
+  const batch = batches.find(b => String(b.id) === selectedBatch);
+  const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || "";
+  const monthlyFee = batch ? Number(batch.monthly_fee || 0) : 0;
+
+  // Map: studentId → fee row for the selected month (if any).
+  const feeByStudent: Record<number, Fee> = {};
+  fees.forEach(f => { feeByStudent[f.student] = f; });
+
+  // Stats derived from the rendered list.
+  const paidCount = students.filter(s => feeByStudent[s.id]?.status === "paid").length;
+  const dueCount = students.filter(s => !s.is_free && feeByStudent[s.id]?.status !== "paid").length;
+  const totalCollected = students.reduce((sum, s) => {
+    const f = feeByStudent[s.id];
+    return sum + (f?.status === "paid" ? Number(f.amount) : 0);
+  }, 0);
+  const totalOutstanding = students.reduce((sum, s) => {
+    if (s.is_free) return sum;
+    const f = feeByStudent[s.id];
+    if (f && f.status === "paid") return sum;
+    return sum + (f ? Number(f.amount) : monthlyFee);
+  }, 0);
+
+  const togglePaid = async (student: Student) => {
+    if (!selectedBatch) return;
+    if (student.is_free) {
+      toast.info?.("This student is marked free — no fee to record.");
+      return;
+    }
+    const existing = feeByStudent[student.id];
+    const wantPaid = !(existing?.status === "paid");
+    setBusyIds(prev => new Set(prev).add(student.id));
     try {
-      const r = await api.get(`/api/academics/batches?search=${encodeURIComponent(q)}`);
-      setBatches(Array.isArray(r.data) ? r.data : r.data.results || []);
-    } catch (e) {}
+      await api.post(`/api/fees/quick_mark`, {
+        student: student.id,
+        batch: Number(selectedBatch),
+        month: monthIso,
+        paid: wantPaid,
+      });
+      toast.success(wantPaid ? `${student.name} marked paid.` : `${student.name} reverted to pending.`);
+      load();
+    } catch {
+      toast.error("Couldn't update fee status.");
+    } finally {
+      setBusyIds(prev => { const n = new Set(prev); n.delete(student.id); return n; });
+    }
   };
 
-  const handleBatchFilter = (bid: string) => { setSelectedBatch(bid); setPage(1); load(bid); };
-
-  const markPaid = async (id: number) => {
-    await api.post(`/api/fees/${id}/mark_paid`);
-    load(selectedBatch);
-  };
-
-  const paidCount = fees.filter(f => f.status === "paid").length;
-  const pendingCount = fees.filter(f => f.status !== "paid").length;
-  const totalCollected = fees.filter(f => f.status === "paid").reduce((s, f) => s + Number(f.amount), 0);
-  const totalOutstanding = fees.filter(f => f.status !== "paid").reduce((s, f) => s + Number(f.amount), 0);
+  const yearOptions = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
 
   return (
     <PageShell>
-      <Topbar title="Fee Tracking" subtitle={`${paidCount} paid · ${pendingCount} pending`}
+      <Topbar
+        title="Fee Tracking"
+        subtitle={batch
+          ? `${batch.grade || batch.display_name || batch.name} · ${monthLabel} ${selectedYear} · ${paidCount}/${students.length} paid`
+          : "Select a batch to see students"}
         right={
-          <div style={{ minWidth: 180 }}>
-            <SearchableSelect 
-              value={selectedBatch} 
-              onChange={val => handleBatchFilter(String(val))}
-              placeholder="All batches"
-              onSearch={searchBatches}
-              options={[{ value: "", label: "All batches" }, ...batches.map(b => ({ value: b.id, label: b.display_name || b.name }))]}
-            />
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ width: 110 }}>
+              <SearchSelect
+                value={selectedYear}
+                onChange={setSelectedYear}
+                searchable={false}
+                options={yearOptions.map(y => ({ value: String(y), label: String(y) }))}
+              />
+            </div>
+            <div style={{ width: 130 }}>
+              <SearchSelect
+                value={selectedMonth}
+                onChange={setSelectedMonth}
+                options={MONTHS}
+              />
+            </div>
+            <div style={{ width: 200 }}>
+              <SearchSelect
+                value={selectedBatch}
+                onChange={setSelectedBatch}
+                placeholder="Pick a batch"
+                options={batches.map(b => ({
+                  value: String(b.id),
+                  label: b.grade || b.display_name || b.name,
+                  sub: b.academic_year ? `${b.academic_year}` : undefined,
+                }))}
+              />
+            </div>
           </div>
-        } />
+        }
+      />
+
       <div className="pb fi">
-        {/* KPIs */}
+        {/* Persistent "what am I marking?" banner so users always know which
+            batch + month a Mark paid click will affect. */}
+        {batch && (
+          <div className="card" style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "14px 18px", marginBottom: 14, gap: 12, flexWrap: "wrap",
+            borderLeft: "4px solid var(--tc)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <span style={{
+                fontSize: 10.5, fontWeight: 800, color: "var(--tc-d)",
+                background: "var(--tc-l)", padding: "3px 9px", borderRadius: 99,
+                letterSpacing: ".08em",
+              }}>MARKING FEES FOR</span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800, color: "var(--ink)", letterSpacing: "-.02em" }}>
+                {batch.grade || batch.display_name || batch.name}
+              </span>
+              <span style={{ fontSize: 13, color: "var(--ink3)" }}>·</span>
+              <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800, color: "var(--ink)", letterSpacing: "-.02em" }}>
+                {monthLabel} {selectedYear}
+              </span>
+            </div>
+            <span style={{ fontSize: 12, color: "var(--ink3)" }}>
+              Click <strong>Mark paid</strong> on any student to record this month's payment, or <strong>Unmark</strong> to revert.
+            </span>
+          </div>
+        )}
+
         <div className="g4" style={{ marginBottom: 18 }}>
-          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}><div className="kpi-lbl">Collected</div><div className="kpi-val">{Math.round(totalCollected / 1000)}K</div><div className="kpi-tr up">{paidCount} students</div></div>
-          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}><div className="kpi-lbl">Outstanding</div><div className="kpi-val">{Math.round(totalOutstanding / 1000)}K</div><div className="kpi-tr dn">{pendingCount} students</div></div>
-          <div className="kpi" style={{ "--kc": "var(--jd)" } as any}><div className="kpi-lbl">Collection Rate</div><div className="kpi-val">{fees.length > 0 ? Math.round((paidCount / fees.length) * 100) : 0}%</div><div className="kpi-tr nt">This month</div></div>
-          <div className="kpi" style={{ "--kc": "var(--sf)" } as any}><div className="kpi-lbl">Total Records</div><div className="kpi-val">{fees.length}</div><div className="kpi-tr nt">All fees</div></div>
+          <div className="kpi" style={{ "--kc": "var(--tc)" } as React.CSSProperties}>
+            <div className="kpi-lbl">Students</div>
+            <div className="kpi-val">{students.length}</div>
+            <div className="kpi-tr nt">{batch?.grade || batch?.name || "—"}</div>
+          </div>
+          <div className="kpi" style={{ "--kc": "var(--jd)" } as React.CSSProperties}>
+            <div className="kpi-lbl">Collected</div>
+            <div className="kpi-val">LKR {totalCollected.toLocaleString()}</div>
+            <div className="kpi-tr up">{paidCount} paid</div>
+          </div>
+          <div className="kpi" style={{ "--kc": "var(--rb)" } as React.CSSProperties}>
+            <div className="kpi-lbl">Outstanding</div>
+            <div className="kpi-val">LKR {totalOutstanding.toLocaleString()}</div>
+            <div className="kpi-tr dn">{dueCount} due</div>
+          </div>
+          <div className="kpi" style={{ "--kc": "var(--sf)" } as React.CSSProperties}>
+            <div className="kpi-lbl">Monthly fee</div>
+            <div className="kpi-val">LKR {monthlyFee.toLocaleString()}</div>
+            <div className="kpi-tr nt">{monthLabel} {selectedYear}</div>
+          </div>
         </div>
 
-        {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
+        {!selectedBatch ? (
+          <div className="card" style={{ textAlign: "center", padding: "40px 20px", color: "var(--ink3)" }}>
+            Choose a batch from the top right to start tracking fees.
+          </div>
+        ) : loading ? (
+          <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading…</div>
+        ) : students.length === 0 ? (
+          <div className="card" style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ fontSize: 28, marginBottom: 10 }}>👥</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", marginBottom: 6 }}>
+              No active students in {batch?.grade || batch?.name}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink3)", lineHeight: 1.5 }}>
+              Enroll students into this batch from the <strong>Attendance</strong> screen or the Students list — then refresh.
+            </div>
+          </div>
+        ) : (
           <div className="tw">
             <table>
-              <thead><tr><th>Student</th><th>Batch</th><th>Month</th><th>Amount (LKR)</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Parent</th>
+                  <th>Amount (LKR)</th>
+                  <th>Status</th>
+                  <th>Paid at</th>
+                  <th></th>
+                </tr>
+              </thead>
               <tbody>
-                {fees.map(f => (
-                  <tr key={f.id}>
-                    <td style={{ fontWeight: 600 }}>{f.student_name}</td>
-                    <td style={{ color: "var(--ink3)" }}>{f.batch_name}</td>
-                    <td className="mono">{f.month}</td>
-                    <td className="mono">{Number(f.amount).toLocaleString()}</td>
-                    <td>{statusBadge(f.status)}</td>
-                    <td>
-                      {f.status !== "paid" ? (
-                        <button className="btn btn-xs btn-ok" onClick={() => markPaid(f.id)}>Mark paid</button>
-                      ) : (
-                        <span style={{ fontSize: 10.5, color: "var(--ink3)" }}>{f.collected_by}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {fees.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No fee records found</td></tr>}
+                {students.map((s, i) => {
+                  const f = feeByStudent[s.id];
+                  const paid = f?.status === "paid";
+                  const amount = f ? Number(f.amount) : monthlyFee;
+                  const busy = busyIds.has(s.id);
+                  const [bg, fg] = AV_COLORS[i % AV_COLORS.length];
+                  return (
+                    <tr key={s.id}>
+                      <td>
+                        <Link href={`/students/${s.id}`} className="td-nm" style={{ textDecoration: "none", color: "inherit" }}>
+                          <div className="ava" style={{ background: bg, color: fg }}>{initials(s.name)}</div>
+                          <div>
+                            <div className="td-nm-main" style={{ color: "var(--tc-d)" }}>{s.name}</div>
+                            <div className="td-nm-sub" style={{ color: "var(--ink3)" }}>
+                              {s.is_free ? "Free student" : "View full payment history →"}
+                            </div>
+                          </div>
+                        </Link>
+                      </td>
+                      <td style={{ fontSize: 12.5, color: "var(--ink3)" }}>
+                        {s.parent_name || "—"}
+                        {s.parent_mobile && <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>{s.parent_mobile}</div>}
+                      </td>
+                      <td className="mono">{amount.toLocaleString()}</td>
+                      <td>
+                        {s.is_free
+                          ? <span className="bdg b-trial">Free</span>
+                          : paid
+                            ? <span className="bdg b-paid">Paid</span>
+                            : <span className="bdg b-due">Pending</span>}
+                      </td>
+                      <td className="mono" style={{ color: "var(--ink3)", fontSize: 11 }}>
+                        {f?.paid_at ? new Date(f.paid_at).toLocaleDateString() : "—"}
+                      </td>
+                      <td>
+                        {s.is_free ? (
+                          <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
+                        ) : paid ? (
+                          <button className="btn btn-xs btn-s" onClick={() => togglePaid(s)} disabled={busy}>
+                            {busy ? "…" : "Unmark"}
+                          </button>
+                        ) : (
+                          <button className="btn btn-xs btn-ok" onClick={() => togglePaid(s)} disabled={busy}>
+                            {busy ? "…" : "Mark paid"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-            <Pagination 
-              page={page} 
-              limit={limit} 
-              totalCount={meta.total_count} 
-              totalPages={meta.total_pages} 
-              onPageChange={setPage} 
-              onLimitChange={l => { setLimit(l); setPage(1); }} 
-              itemName="fee records" 
-            />
           </div>
         )}
       </div>

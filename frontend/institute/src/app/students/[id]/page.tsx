@@ -109,6 +109,49 @@ export default function StudentDetailPage() {
   DAYS.forEach((_, i) => { slotsByDay[String(i)] = []; });
   slots.forEach(s => { (slotsByDay[s.day_of_week] = slotsByDay[s.day_of_week] || []).push(s); });
 
+  const toggleFee = async (feeId: number, paid: boolean) => {
+    try {
+      await api.post(`/api/fees/${feeId}/${paid ? "mark_unpaid" : "mark_paid"}`);
+      toast.success(paid ? "Reverted to pending." : "Marked as paid.");
+      load();
+    } catch { toast.error("Couldn't update fee status."); }
+  };
+
+  // ── Add / edit fee for a specific month ─────────────────────────────────
+  type FeeEdit = { id?: number; batch: string; month: string; amount: string; status: string };
+  const [feeEdit, setFeeEdit] = useState<FeeEdit | null>(null);
+  const [feeBusy, setFeeBusy] = useState(false);
+
+  const openAddFee = () => {
+    const activeEnrollment = enrollments.find(en => en.status === "active");
+    setFeeEdit({
+      batch: activeEnrollment ? String(activeEnrollment.batch) : "",
+      month: new Date().toISOString().slice(0, 7) + "-01",
+      amount: "",
+      status: "pending",
+    });
+  };
+  const openEditFee = (f: Fee) => {
+    setFeeEdit({ id: f.id, batch: String((f as Fee & { batch?: number }).batch ?? ""), month: f.month, amount: String(f.amount), status: f.status });
+  };
+  const saveFeeEdit = async () => {
+    if (!feeEdit) return;
+    if (!feeEdit.batch) { toast.error("This student has no active batch enrollment."); return; }
+    setFeeBusy(true);
+    try {
+      await api.patch("/api/fees/upsert", {
+        student: Number(id),
+        batch: Number(feeEdit.batch),
+        month: feeEdit.month,
+        amount: feeEdit.amount || undefined,
+        status: feeEdit.status,
+      });
+      toast.success(feeEdit.id ? "Fee updated." : "Fee added.");
+      setFeeEdit(null); load();
+    } catch { toast.error("Couldn't save the fee."); }
+    finally { setFeeBusy(false); }
+  };
+
   const openMarkAttendance = () => {
     if (activeBatches.length === 0) { toast.error("No active batches to mark attendance against."); return; }
     setMarkForm(f => ({ ...f, batch: String(activeBatches[0].batch), date: new Date().toISOString().slice(0, 10), is_present: true }));
@@ -226,26 +269,44 @@ export default function StudentDetailPage() {
 
         {/* FEES */}
         {tab === "fees" && (
-          fees.length === 0 ? (
-            <div className="card" style={{ textAlign: "center", color: "var(--ink3)", padding: 28 }}>No fee records.</div>
-          ) : (
-            <div className="tw">
-              <table>
-                <thead><tr><th>Batch</th><th>Month</th><th>Amount</th><th>Status</th><th>Paid</th></tr></thead>
-                <tbody>
-                  {fees.map(f => (
-                    <tr key={f.id}>
-                      <td>{f.batch_name}</td>
-                      <td className="mono">{f.month}</td>
-                      <td className="mono">{fmt(f.amount)}</td>
-                      <td>{f.status === "paid" ? <span className="bdg b-paid">Paid</span> : <span className="bdg b-due">{f.status}</span>}</td>
-                      <td className="mono" style={{ color: "var(--ink3)", fontSize: 11 }}>{f.paid_at || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+              <button className="btn btn-p btn-sm" onClick={openAddFee}>+ Add fee record</button>
             </div>
-          )
+            {fees.length === 0 ? (
+              <div className="card" style={{ textAlign: "center", color: "var(--ink3)", padding: 28 }}>
+                No fee records yet. Click <strong>+ Add fee record</strong> to enter this student's monthly fee for any month.
+              </div>
+            ) : (
+              <div className="tw">
+                <table>
+                  <thead><tr><th>Batch</th><th>Month</th><th>Amount</th><th>Status</th><th>Paid</th><th></th></tr></thead>
+                  <tbody>
+                    {fees.map(f => {
+                      const isPaid = f.status === "paid";
+                      return (
+                        <tr key={f.id}>
+                          <td>{f.batch_name}</td>
+                          <td className="mono">{f.month}</td>
+                          <td className="mono">{fmt(f.amount)}</td>
+                          <td>{isPaid ? <span className="bdg b-paid">Paid</span> : <span className="bdg b-due">{f.status}</span>}</td>
+                          <td className="mono" style={{ color: "var(--ink3)", fontSize: 11 }}>{f.paid_at || "—"}</td>
+                          <td>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <button className="btn btn-xs btn-s" onClick={() => openEditFee(f)}>Edit</button>
+                              {isPaid
+                                ? <button className="btn btn-xs btn-s" onClick={() => toggleFee(f.id, true)}>Unmark</button>
+                                : <button className="btn btn-xs btn-ok" onClick={() => toggleFee(f.id, false)}>Mark paid</button>}
+                            </div>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
 
         {/* ATTENDANCE */}
@@ -396,6 +457,80 @@ export default function StudentDetailPage() {
             </div>
           </div>
         </div>
+      </Modal>
+
+      {/* Add / Edit fee modal */}
+      <Modal
+        open={!!feeEdit}
+        onClose={() => setFeeEdit(null)}
+        title={feeEdit?.id ? "Edit fee record" : "Add fee record"}
+        footer={<>
+          <button className="btn btn-s btn-sm" onClick={() => setFeeEdit(null)} disabled={feeBusy}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={saveFeeEdit} disabled={feeBusy}>
+            {feeBusy ? "Saving…" : feeEdit?.id ? "Save changes" : "Add fee"}
+          </button>
+        </>}
+      >
+        {feeEdit && (
+          <div className="form-gap">
+            <div>
+              <label className="flbl">Batch</label>
+              <select
+                value={feeEdit.batch}
+                onChange={e => setFeeEdit(f => f ? { ...f, batch: e.target.value } : f)}
+                disabled={!!feeEdit.id}
+              >
+                <option value="">Pick a batch…</option>
+                {enrollments.map(en => (
+                  <option key={en.batch} value={String(en.batch)}>
+                    {en.batch_name} · {en.academic_year} {en.status !== "active" && `(${en.status})`}
+                  </option>
+                ))}
+              </select>
+              {enrollments.length === 0 && (
+                <div className="hint" style={{ color: "var(--rb)" }}>
+                  This student has no enrollments. Enroll them in a batch first from the Attendance screen.
+                </div>
+              )}
+            </div>
+            <div className="field-row">
+              <div className="fg">
+                <label className="flbl">Month</label>
+                <input
+                  type="month"
+                  value={feeEdit.month.slice(0, 7)}
+                  onChange={e => setFeeEdit(f => f ? { ...f, month: `${e.target.value}-01` } : f)}
+                  disabled={!!feeEdit.id}
+                />
+              </div>
+              <div className="fg">
+                <label className="flbl">Amount (LKR)</label>
+                <input
+                  type="number"
+                  value={feeEdit.amount}
+                  onChange={e => setFeeEdit(f => f ? { ...f, amount: e.target.value } : f)}
+                  placeholder="Defaults to batch monthly fee"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="flbl">Status</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {["pending", "paid"].map(s => (
+                  <button
+                    type="button"
+                    key={s}
+                    className={`btn btn-sm ${feeEdit.status === s ? (s === "paid" ? "btn-ok" : "btn-p") : "btn-s"}`}
+                    style={{ flex: 1 }}
+                    onClick={() => setFeeEdit(f => f ? { ...f, status: s } : f)}
+                  >
+                    {s === "paid" ? "Paid" : "Pending"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </PageShell>
   );

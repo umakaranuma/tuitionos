@@ -7,6 +7,7 @@ import { getStoredUser } from "@/lib/auth";
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Toast } from "@/components/ui/Toast";
+import { ExamMarksModal } from "@/components/academics/ExamMarksModal";
 import { INIT_EXAMS, BATCHES } from "@/lib/batchData";
 
 type Slot = { id: number; batch: number; batch_name: string; subject: number; subject_name: string; teacher: number; teacher_name: string; day_of_week: string; start_time: string; end_time: string; notes: string };
@@ -127,6 +128,8 @@ export default function TimetablePage() {
   const [examFilter, setExamFilter] = useState<string>("all");
   const [examModal, setExamModal] = useState<{ id?: number; name: string; batchId: string | number; startDate: string; endDate: string; maxMarks: number; timeBlockId: string | number } | null>(null);
   const [examErrors, setExamErrors] = useState<Record<string, string>>({});
+  // Marks-entry modal — opens the per-student × per-subject grid for an exam.
+  const [marksExam, setMarksExam] = useState<{ id: number; name: string; batch: number | string; batchLabel: string; maxMarks: number; subjects: string[] } | null>(null);
 
   const LEAVE_COLORS = [
     { color: "#ef4444", label: "Red" },
@@ -253,7 +256,7 @@ export default function TimetablePage() {
       };
 
       if (slotModal.id) {
-        await api.put(`/api/timetable/${slotModal.id}/`, payload);
+        await api.put(`/api/timetable/${slotModal.id}`, payload);
         setAlertModal({ open: true, message: "Session updated.", type: "success" });
       } else {
         await api.post("/api/timetable/", payload);
@@ -267,7 +270,7 @@ export default function TimetablePage() {
 
   const deleteSlot = async (id: number) => {
     try {
-      await api.delete(`/api/timetable/${id}/`);
+      await api.delete(`/api/timetable/${id}`);
       setAlertModal({ open: true, message: "Session deleted.", type: "success" });
       setSlotModal(null); loadData();
     } catch (err) {
@@ -775,6 +778,15 @@ export default function TimetablePage() {
 
                                   {/* Action footer — Edit, status change, Delete */}
                                   <div className="exam-card-actions">
+                                    <button className="btn btn-xs btn-p" onClick={() => {
+                                      const subjects = Array.from(new Set(exam.schedule.map(s => s.subject).filter(Boolean)));
+                                      setMarksExam({
+                                        id: exam.id, name: exam.name,
+                                        batch: exam.batchId,
+                                        batchLabel: String(batchLabel),
+                                        maxMarks: exam.maxMarks, subjects,
+                                      });
+                                    }}>Marks</button>
                                     <button className="btn btn-xs btn-s" onClick={() => openEditExam(exam)}>Edit</button>
                                     {exam.status === "upcoming" && (
                                       <button className="btn btn-xs btn-s" onClick={() => setExamStatus(exam.id, "ongoing")}>Start exam</button>
@@ -1116,6 +1128,13 @@ export default function TimetablePage() {
       </Modal>
 
       <Toast open={!!alertModal?.open} message={alertModal?.message || ""} type={alertModal?.type || "success"} onClose={() => setAlertModal(null)} />
+
+      {/* ═══════════ EXAM MARKS GRID ═══════════ */}
+      <ExamMarksModal
+        open={!!marksExam}
+        onClose={() => setMarksExam(null)}
+        exam={marksExam}
+      />
     </PageShell>
   );
 }

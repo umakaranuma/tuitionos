@@ -40,11 +40,19 @@ class StudentViewSet(viewsets.ModelViewSet):
         # 2. Legacy / unenrolled students who just have a batch_code
         legacy_qs = qs.exclude(id__in=enrolled_ids)
         if batch_id:
-            mapped_codes = BatchPromotionMap.objects.filter(
+            mapped_codes = list(BatchPromotionMap.objects.filter(
                 institute=self.request.institute,
                 academic_year=academic_year,
                 batch_id=batch_id
-            ).values_list('batch_code', flat=True)
+            ).values_list('batch_code', flat=True))
+            # Also match by the batch's own identifying strings so students
+            # whose batch_code is just the batch grade/name still show up even
+            # without an explicit promotion mapping.
+            if batch_obj:
+                extras = {batch_obj.name, batch_obj.label, batch_obj.grade, batch_obj.display_name, str(batch_obj.id)}
+                extras.discard('')
+                extras.discard(None)
+                mapped_codes.extend([c for c in extras if c])
             legacy_qs = legacy_qs.filter(batch_code__in=mapped_codes)
             
         legacy_ids = list(legacy_qs.values_list('id', flat=True))
@@ -155,6 +163,50 @@ class StudentViewSet(viewsets.ModelViewSet):
         if not created:
             return Response({"error": "Already enrolled"}, status=status.HTTP_400_BAD_REQUEST)
         return Response(StudentBatchEnrollmentSerializer(enrollment).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='bulk_enroll')
+    def bulk_enroll(self, request):
+        """Enroll many students into a batch in one shot. Used by the attendance
+        & fees screens when the user picks a batch that has no active members
+        yet. Idempotent: existing active enrollments are left alone."""
+        from apps.academics.models import Batch as BatchModel
+        student_ids = request.data.get('student_ids') or []
+        batch_id = request.data.get('batch')
+        academic_year = request.data.get('academic_year') or request.academic_year
+        if not student_ids or not batch_id:
+            return Response({'error': 'student_ids and batch are required'}, status=400)
+        try:
+            batch = BatchModel.objects.get(id=batch_id, institute=request.institute)
+        except BatchModel.DoesNotExist:
+            return Response({'error': 'Batch not found'}, status=404)
+
+        created_n = activated_n = 0
+        for sid in student_ids:
+            try:
+                stu = Student.objects.get(id=sid, institute=request.institute)
+            except Student.DoesNotExist:
+                continue
+            enr, was_created = StudentBatchEnrollment.objects.get_or_create(
+                student=stu, batch=batch, academic_year=academic_year,
+                defaults={'status': 'active', 'batch_code': stu.batch_code or batch.name},
+            )
+            if was_created:
+                created_n += 1
+            elif enr.status != 'active':
+                # Re-activate a previously archived enrollment.
+                enr.status = 'active'
+                enr.save(update_fields=['status'])
+                activated_n += 1
+            # Also stamp the student's batch_code so it shows in legacy queries.
+            if stu.batch_code in ('', 'DEFAULT', None):
+                stu.batch_code = batch.name
+                stu.save(update_fields=['batch_code'])
+        return Response({
+            'created': created_n,
+            'reactivated': activated_n,
+            'total': created_n + activated_n,
+            'message': f'Enrolled {created_n + activated_n} student(s) in {batch.name}.',
+        })
 
 
 class StudentBatchEnrollmentViewSet(viewsets.ReadOnlyModelViewSet):

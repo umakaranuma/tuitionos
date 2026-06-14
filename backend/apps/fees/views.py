@@ -36,6 +36,86 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
         fee.save()
         return Response(FeePaymentSerializer(fee).data)
 
+    @action(detail=True, methods=['post'])
+    def mark_unpaid(self, request, pk=None):
+        """Reverse a paid record — toggling a row back to pending. Useful when a
+        payment was recorded by mistake or refunded later."""
+        fee = self.get_object()
+        fee.status = 'pending'
+        fee.paid_at = None
+        fee.collected_by = ''
+        fee.save()
+        return Response(FeePaymentSerializer(fee).data)
+
+    @action(detail=False, methods=['patch'], url_path='upsert')
+    def upsert_fee(self, request):
+        """Create or update a fee row keyed by student+batch+month. Used by the
+        student single view's fees tab when staff want to set a custom amount
+        or backfill an entry for a month that wasn't auto-generated."""
+        from apps.academics.models import Batch
+        student_id = request.data.get('student')
+        batch_id = request.data.get('batch')
+        month = request.data.get('month')
+        amount = request.data.get('amount')
+        status_in = request.data.get('status')
+        if not all([student_id, batch_id, month]):
+            return Response({'error': 'student, batch, month are required'}, status=400)
+        try:
+            batch = Batch.objects.get(id=batch_id, institute=request.institute)
+        except Batch.DoesNotExist:
+            return Response({'error': 'Batch not found'}, status=404)
+
+        defaults = {'amount': amount if amount not in (None, '') else batch.monthly_fee, 'status': 'pending'}
+        fee, created = FeePayment.objects.get_or_create(
+            student_id=student_id, batch=batch, month=month, defaults=defaults,
+        )
+        if not created:
+            if amount not in (None, ''):
+                fee.amount = amount
+            if status_in:
+                fee.status = status_in
+                if status_in == 'paid' and not fee.paid_at:
+                    fee.paid_at = timezone.now()
+                    fee.collected_by = request.user.get_full_name() or request.user.username
+                elif status_in != 'paid':
+                    fee.paid_at = None
+                    fee.collected_by = ''
+            fee.save()
+        return Response(FeePaymentSerializer(fee).data)
+
+    @action(detail=False, methods=['post'])
+    def quick_mark(self, request):
+        """One-call upsert + status toggle keyed by student+batch+month. Lets the
+        fees screen show a student list (not a fee-record list) and let staff tap
+        each row to flip paid ↔ unpaid without first generating fee records.
+        Accepts `paid: true|false` to set state explicitly."""
+        from apps.academics.models import Batch
+        student_id = request.data.get('student')
+        batch_id = request.data.get('batch')
+        month = request.data.get('month')  # YYYY-MM-01
+        paid = bool(request.data.get('paid'))
+        if not all([student_id, batch_id, month]):
+            return Response({'error': 'student, batch, month are required'}, status=400)
+        try:
+            batch = Batch.objects.get(id=batch_id, institute=request.institute)
+        except Batch.DoesNotExist:
+            return Response({'error': 'Batch not found'}, status=404)
+
+        fee, _ = FeePayment.objects.get_or_create(
+            student_id=student_id, batch=batch, month=month,
+            defaults={'amount': batch.monthly_fee, 'status': 'pending'},
+        )
+        if paid:
+            fee.status = 'paid'
+            fee.paid_at = timezone.now()
+            fee.collected_by = request.user.get_full_name() or request.user.username
+        else:
+            fee.status = 'pending'
+            fee.paid_at = None
+            fee.collected_by = ''
+        fee.save()
+        return Response(FeePaymentSerializer(fee).data)
+
     @action(detail=False, methods=['post'])
     def generate(self, request):
         """Generate fee records for all active students in a batch for a given month."""
