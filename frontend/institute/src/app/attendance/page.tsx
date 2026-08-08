@@ -161,6 +161,7 @@ export default function AttendancePage() {
 
   const attKey = (studentId: number) => `${selBatch}::${selSubject || "General"}::${studentId}`;
   const getAtt = (sid: number): AttStatus => att[attKey(sid)] ?? "present";
+  const isAttMarked = (sid: number): boolean => attKey(sid) in att;
 
   const setStudentAtt = (sid: number, val: AttStatus) => {
     setAtt(prev => ({ ...prev, [attKey(sid)]: val }));
@@ -610,7 +611,11 @@ export default function AttendancePage() {
             }}>
               {filteredStudents.map((s, si) => {
                 const val = getAtt(s.id);
-                const isAbsent = val === "absent";
+                const marked = isAttMarked(s.id);
+                const isPresentSelected = marked && val === "present";
+                const isAbsentSelected = marked && val === "absent";
+
+                const indicatorColor = isPresentSelected ? "#69bf96" : isAbsentSelected ? "#ef8a8a" : "transparent";
 
                 return (
                   <div
@@ -619,8 +624,9 @@ export default function AttendancePage() {
                       display: "flex", alignItems: "center", gap: 12,
                       padding: "10px 16px",
                       borderTop: si > 0 ? "1px solid var(--ln)" : "none",
-                      background: isAbsent ? "#fffbeb" : "#fff",
-                      transition: "background 200ms",
+                      borderLeft: `3px solid ${indicatorColor}`,
+                      background: isAbsentSelected ? "#fffbeb" : "#fff",
+                      transition: "background 200ms, border-color 150ms",
                     }}
                   >
                     <div
@@ -649,9 +655,9 @@ export default function AttendancePage() {
                         onClick={() => setStudentAtt(s.id, "present")}
                         style={{
                           padding: "7px 16px", borderRadius: 8, border: "1.5px solid",
-                          borderColor: val === "present" ? "#69bf96" : "var(--ln)",
-                          background: val === "present" ? "#d4ede3" : "transparent",
-                          color: val === "present" ? "#1a5040" : "var(--ink3)",
+                          borderColor: isPresentSelected ? "#69bf96" : "var(--ln)",
+                          background: isPresentSelected ? "#d4ede3" : "transparent",
+                          color: isPresentSelected ? "#1a5040" : "var(--ink3)",
                           fontWeight: 700, fontSize: 11.5, cursor: "pointer",
                           transition: "all 150ms", display: "flex", alignItems: "center", gap: 5,
                         }}
@@ -663,9 +669,9 @@ export default function AttendancePage() {
                         onClick={() => setStudentAtt(s.id, "absent")}
                         style={{
                           padding: "7px 16px", borderRadius: 8, border: "1.5px solid",
-                          borderColor: val === "absent" ? "#ef8a8a" : "var(--ln)",
-                          background: val === "absent" ? "#fceaea" : "transparent",
-                          color: val === "absent" ? "#b83030" : "var(--ink3)",
+                          borderColor: isAbsentSelected ? "#ef8a8a" : "var(--ln)",
+                          background: isAbsentSelected ? "#fceaea" : "transparent",
+                          color: isAbsentSelected ? "#b83030" : "var(--ink3)",
                           fontWeight: 700, fontSize: 11.5, cursor: "pointer",
                           transition: "all 150ms", display: "flex", alignItems: "center", gap: 5,
                         }}
