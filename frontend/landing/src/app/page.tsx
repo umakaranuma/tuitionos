@@ -164,8 +164,10 @@ export default function LandingPage() {
             </div>
 
             <FeatureInteractive />
+          </div>
+        </section>
 
-                {/* Pricing Section */}
+        {/* Pricing Section */}
         <section id="pricing" className="py-16 lg:py-20 px-6 bg-[var(--cr)]">
           <div className="max-w-7xl mx-auto text-center mb-12">
             <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[var(--ink)] mb-4">Simple, transparent pricing</h2>

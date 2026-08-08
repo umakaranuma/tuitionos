@@ -13,3 +13,4 @@ environs==11.0.0
 supabase==2.3.5
 stripe==9.4.0
 requests==2.31.0
+pyotp==2.10.0
