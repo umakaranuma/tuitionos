@@ -173,7 +173,7 @@ class Command(BaseCommand):
                 institute=inst, name=sname, parent_mobile=mobile,
                 defaults={
                     'parent_name': pname, 'has_whatsapp': True,
-                    'batch': grade, 'is_active': True,
+                    'batch_code': grade, 'is_active': True,
                     'join_date': date(2025, 1, 6),
                 }
             )
@@ -320,13 +320,6 @@ class Command(BaseCommand):
                         'paid_at': inv_month + timedelta(days=5) if is_paid else None,
                     }
                 )
-
-        # ── Promotion Maps ──
-        if 'g7a' in batches and 'g8a' in batches:
-            BatchPromotionMap.objects.get_or_create(
-                source_batch=batches['g7a'], academic_year=2026,
-                defaults={'target_batch': batches['g8a'], 'is_confirmed': False}
-            )
 
         self.stdout.write(self.style.SUCCESS('Database seeded successfully!'))
         self.stdout.write(f'   Institutes: {Institute.objects.count()}')

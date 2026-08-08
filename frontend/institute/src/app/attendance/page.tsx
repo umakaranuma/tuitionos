@@ -58,8 +58,9 @@ export default function AttendancePage() {
   const [selBatch, setSelBatch] = useState<number | null>(null);
   const [selSubject, setSelSubject] = useState<string | null>(null);
   const [att, setAtt] = useState<AttRecord>({});
-  const [saved, setSaved] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [sendingAlerts, setSendingAlerts] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDay, setSelectedDay] = useState(getTodayShort());
   const [dbDate, setDbDate] = useState(new Date().toISOString().split("T")[0]);
@@ -159,13 +160,30 @@ export default function AttendancePage() {
     return TEACHERS.find(t => t.id === session.teacherId) || null;
   };
 
+  // The backend's Attendance.subject is a real FK id, not a name — resolve the
+  // currently selected subject *name* back to its id via today's timetable slots.
+  // "General" (a batch with no schedule for the day) has no backing Subject row,
+  // so it resolves to null and is saved as a general/unscheduled-day record.
+  const selSubjectId = useMemo(() => {
+    if (!selSubject || selSubject === "General") return null;
+    const dayNum = DAY_SHORT_TO_NUM[selectedDay];
+    const slot = slots.find(s => s.day_of_week === dayNum && s.subject_name === selSubject);
+    return slot?.subject ?? null;
+  }, [selSubject, selectedDay, slots]);
+
   const attKey = (studentId: number) => `${selBatch}::${selSubject || "General"}::${studentId}`;
   const getAtt = (sid: number): AttStatus => att[attKey(sid)] ?? "present";
   const isAttMarked = (sid: number): boolean => attKey(sid) in att;
 
+  // Marking a student writes straight to the DB — no separate Save step.
   const setStudentAtt = (sid: number, val: AttStatus) => {
     setAtt(prev => ({ ...prev, [attKey(sid)]: val }));
-    setSaved(false);
+    setCompleted(false);
+    if (!selBatch) return;
+    api.post("/api/attendance/mark", {
+      batch: selBatch, date: dbDate, subject: selSubjectId,
+      records: [{ student: sid, is_present: val === "present" }],
+    }).catch(e => { console.error(e); toast.error("Couldn't save that student's attendance."); });
   };
 
   const bulkMark = (val: AttStatus) => {
@@ -174,13 +192,18 @@ export default function AttendancePage() {
       students.forEach(s => { next[attKey(s.id)] = val; });
       return next;
     });
-    setSaved(false);
+    setCompleted(false);
+    if (!selBatch || students.length === 0) return;
+    api.post("/api/attendance/mark", {
+      batch: selBatch, date: dbDate, subject: selSubjectId,
+      records: students.map(s => ({ student: s.id, is_present: val === "present" })),
+    }).catch(e => { console.error(e); toast.error("Couldn't save bulk attendance."); });
   };
 
   const changeBatch = (id: number) => {
     setSelBatch(id);
     setSelSubject(null);
-    setSaved(false);
+    setCompleted(false);
     setSearchQuery("");
   };
 
@@ -194,31 +217,62 @@ export default function AttendancePage() {
     const diff = targetIdx - currentIdx;
     d.setDate(d.getDate() + diff);
     setDbDate(d.toISOString().split("T")[0]);
-    
+
     setSelSubject(null);
-    setSaved(false);
+    setCompleted(false);
   };
 
-  const saveAttendance = async () => {
+  // Any student the teacher never tapped is finalized as Absent — they can
+  // still be flipped back to Present individually afterwards.
+  const completeAttendance = async () => {
     if (!selBatch || !selSubject) return;
-    setSaving(true);
-    const records = students.map(s => ({
-      student: s.id,
-      is_present: getAtt(s.id) === "present"
-    }));
-    
+    const unmarked = students.filter(s => !isAttMarked(s.id));
+    setCompleting(true);
     try {
-      await api.post("/api/attendance/mark", {
-        batch: selBatch,
-        date: dbDate,
-        subject: selSubject,
-        records
-      });
-      setSaved(true);
+      if (unmarked.length > 0) {
+        setAtt(prev => {
+          const next = { ...prev };
+          unmarked.forEach(s => { next[attKey(s.id)] = "absent"; });
+          return next;
+        });
+        await api.post("/api/attendance/mark", {
+          batch: selBatch, date: dbDate, subject: selSubjectId,
+          records: unmarked.map(s => ({ student: s.id, is_present: false })),
+        });
+      }
+      setCompleted(true);
     } catch (e) {
       console.error(e);
+      toast.error("Couldn't finalize attendance.");
     } finally {
-      setSaving(false);
+      setCompleting(false);
+    }
+  };
+
+  // Separate from marking/completing — explicitly notifies parents of
+  // whoever is currently marked absent for this batch/date/subject.
+  const sendAbsentAlerts = async () => {
+    if (!selBatch || !selSubject) return;
+    setSendingAlerts(true);
+    try {
+      const res = await api.post("/api/attendance/notify_absentees", {
+        batch: selBatch, date: dbDate, subject: selSubjectId,
+      });
+      const { sent, failed } = res.data;
+      if (sent === 0 && failed === 0) {
+        toast.info("No absent students to notify.");
+      } else if (failed > 0 && sent === 0) {
+        toast.error(`Couldn't send any alerts (${failed} failed).`);
+      } else if (failed > 0) {
+        toast.info(`Sent ${sent} alert${sent !== 1 ? "s" : ""}, ${failed} failed.`);
+      } else {
+        toast.success(`Sent ${sent} absent alert${sent !== 1 ? "s" : ""} to parents.`);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't send absent alerts.");
+    } finally {
+      setSendingAlerts(false);
     }
   };
 
@@ -313,12 +367,19 @@ export default function AttendancePage() {
           selSubject ? (
             <div style={{ display: "flex", gap: 8 }}>
               <button
-                className="btn btn-p btn-sm"
-                onClick={saveAttendance}
-                disabled={saving}
-                style={{ background: saved ? "var(--tc-d)" : undefined }}
+                className="btn btn-s btn-sm"
+                onClick={sendAbsentAlerts}
+                disabled={sendingAlerts || absentCount === 0}
               >
-                {saving ? "Saving..." : saved ? "✓ Saved" : "Save & send alerts"}
+                {sendingAlerts ? "Sending..." : "Send WhatsApp alerts"}
+              </button>
+              <button
+                className="btn btn-p btn-sm"
+                onClick={completeAttendance}
+                disabled={completing}
+                style={{ background: completed ? "var(--tc-d)" : undefined }}
+              >
+                {completing ? "Finalizing..." : completed ? "✓ Completed" : "Mark complete"}
               </button>
             </div>
           ) : undefined
@@ -442,7 +503,7 @@ export default function AttendancePage() {
                 return (
                   <button
                     key={subj}
-                    onClick={() => { setSelSubject(isSelected ? null : subj); setSaved(false); setSearchQuery(""); }}
+                    onClick={() => { setSelSubject(isSelected ? null : subj); setCompleted(false); setSearchQuery(""); }}
                     style={{
                       background: isSelected ? sc.bg : "#fff",
                       border: `2px solid ${isSelected ? sc.border : "var(--ln)"}`,
@@ -511,7 +572,7 @@ export default function AttendancePage() {
               Mark Attendance
             </div>
 
-            {saved ? (
+            {completed ? (
               <div style={{
                 background: "var(--tc-l)", border: "1px solid #b8ddd0", borderRadius: 10,
                 padding: "12px 16px", marginBottom: 14, fontSize: 12, color: "var(--tc-d)",
@@ -519,14 +580,7 @@ export default function AttendancePage() {
               }}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M2 7l3 3 7-7"/></svg>
                 <div style={{ flex: 1 }}>
-                  Attendance saved for <strong>{selSubject}</strong> · {absentCount} absent alert{absentCount !== 1 ? "s" : ""} queued
-                </div>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "4px 10px",
-                  background: "rgba(255,255,255,.6)", borderRadius: 6, fontSize: 11, fontWeight: 700,
-                }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 0a7 7 0 107 7A7 7 0 007 0zm3.14 10.14a5.82 5.82 0 01-4 1.62h0A5.84 5.84 0 012.67 11l-.23-.14.66-2.42-.15-.24A5.83 5.83 0 017 1.17 5.84 5.84 0 0112.83 7a5.79 5.79 0 01-1.69 4.14z" fill="#25D366"/><path d="M10.08 8.53c-.17-.08-1-.5-1.16-.55s-.27-.08-.38.08-.44.55-.54.67-.2.13-.37 0a4.67 4.67 0 01-1.37-.85 5.15 5.15 0 01-.95-1.18c-.1-.17 0-.26.08-.35s.17-.2.26-.3a1.15 1.15 0 00.17-.29.32.32 0 000-.3c0-.08-.38-.92-.52-1.26s-.28-.29-.38-.29h-.33a.63.63 0 00-.46.22 1.93 1.93 0 00-.6 1.44 3.35 3.35 0 00.7 1.78 7.69 7.69 0 003 2.64 3.44 3.44 0 001.05.39 2.52 2.52 0 001.16-.07 1.78 1.78 0 001.17-.82 1.43 1.43 0 00.1-.82c-.04-.09-.15-.13-.32-.22z" fill="#25D366"/></svg>
-                  6:00 PM digest
+                  Attendance completed for <strong>{selSubject}</strong> — any unmarked students were set to Absent. Use "Send WhatsApp alerts" to notify parents.
                 </div>
               </div>
             ) : (
@@ -536,7 +590,7 @@ export default function AttendancePage() {
                 display: "flex", alignItems: "center", gap: 8,
               }}>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.75"><circle cx="7" cy="7" r="6"/><path d="M7 4.5v3.5l2 1"/></svg>
-                All students default to <strong>Present</strong>. Toggle individually or use bulk actions below.
+                Each tap saves immediately. Unmarked students count as Present for now — tap <strong>Mark complete</strong> to set anyone still unmarked to Absent automatically.
               </div>
             )}
 
@@ -715,18 +769,24 @@ export default function AttendancePage() {
             }}>
               <div style={{ fontSize: 12, color: "var(--ink3)" }}>
                 {presentCount} present · {absentCount} absent
-                {absentCount > 0 && (
-                  <span style={{ color: "var(--rb)", fontWeight: 600 }}> · {absentCount} alert{absentCount !== 1 ? "s" : ""} will be sent at 6:00 PM</span>
-                )}
               </div>
-              <button
-                className="btn btn-p"
-                onClick={saveAttendance}
-                disabled={saving}
-                style={{ background: saved ? "var(--tc-d)" : undefined }}
-              >
-                {saving ? "Saving..." : saved ? "✓ Saved successfully" : "Save & send alerts"}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="btn btn-s"
+                  onClick={sendAbsentAlerts}
+                  disabled={sendingAlerts || absentCount === 0}
+                >
+                  {sendingAlerts ? "Sending..." : "Send WhatsApp alerts"}
+                </button>
+                <button
+                  className="btn btn-p"
+                  onClick={completeAttendance}
+                  disabled={completing}
+                  style={{ background: completed ? "var(--tc-d)" : undefined }}
+                >
+                  {completing ? "Finalizing..." : completed ? "✓ Completed" : "Mark complete"}
+                </button>
+              </div>
             </div>
           </div>
         )}
