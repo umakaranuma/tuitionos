@@ -72,23 +72,24 @@ export const PLAN_DEFINITIONS: Record<string, PlanDefinition> = {
 export const PLAN_FEATURES: PlanFeature[] = [
   // Core
   { id: "enrollment",     label: "Student enrollment & management",     category: "core",          solo: true, institute: true,  institute_pro: true },
-  { id: "subjects",       label: "Subject & teacher management",        category: "core",          solo: false, institute: true,  institute_pro: true },
+  { id: "subjects",       label: "Subject & teacher management",        category: "core",          solo: true, institute: true,  institute_pro: true },
   { id: "batches",        label: "Batch creation & scheduling",         category: "core",          solo: true, institute: true,  institute_pro: true },
   { id: "attendance",     label: "Attendance tracking (per-subject)",   category: "core",          solo: true, institute: true,  institute_pro: true },
   { id: "fees",           label: "Fee collection, receipts & ledger",   category: "core",          solo: true, institute: true,  institute_pro: true },
   { id: "salary",         label: "Teacher salary management",           category: "core",          solo: false, institute: true,  institute_pro: true },
   { id: "accounts",       label: "Financial accounts dashboard",        category: "core",          solo: false, institute: true,  institute_pro: true },
   { id: "dashboard",      label: "Dashboard with KPIs & analytics",     category: "core",          solo: true, institute: true,  institute_pro: true },
-  // Notifications
+  { id: "qr_cards",       label: "QR ID cards for students & teachers", category: "core",          solo: true, institute: true,  institute_pro: true },
+  // Scheduling — available on every plan
+  { id: "timetable",      label: "Timetable management & editing",     category: "scheduling",    solo: true, institute: true,  institute_pro: true },
+  { id: "tt_pdf",         label: "Timetable PDF generation",           category: "scheduling",    solo: true, institute: true,  institute_pro: true },
+  { id: "tt_blast",       label: "Annual timetable PDF blast",         category: "scheduling",    solo: true, institute: true,  institute_pro: true },
+  // Notifications — Institute Pro exclusive
   { id: "wa_notif",       label: "WhatsApp notifications (automated)",  category: "notifications", solo: false, institute: false, institute_pro: true },
   { id: "fee_remind",     label: "Fee due reminders (1st of month)",    category: "notifications", solo: false, institute: false, institute_pro: true },
   { id: "absent_digest",  label: "Daily absent digest (6:00 PM)",       category: "notifications", solo: false, institute: false, institute_pro: true },
   { id: "fee_confirm",    label: "Fee paid confirmation alerts",        category: "notifications", solo: false, institute: false, institute_pro: true },
-  // Scheduling
-  { id: "timetable",      label: "Timetable management & editing",     category: "scheduling",    solo: false, institute: false, institute_pro: true },
-  { id: "tt_pdf",         label: "Timetable PDF generation",           category: "scheduling",    solo: false, institute: false, institute_pro: true },
-  { id: "tt_blast",       label: "Annual timetable PDF blast",         category: "scheduling",    solo: false, institute: false, institute_pro: true },
-  // Advanced
+  // Advanced — Institute Pro exclusive
   { id: "promo_auto",     label: "Year-end promotion (automated)",     category: "advanced",      solo: false, institute: false, institute_pro: true },
   { id: "promo_notif",    label: "Promotion notifications to parents", category: "advanced",      solo: false, institute: false, institute_pro: true },
   { id: "priority_sup",   label: "Priority WhatsApp support",          category: "advanced",      solo: false, institute: false, institute_pro: true },
@@ -96,9 +97,10 @@ export const PLAN_FEATURES: PlanFeature[] = [
 
 // ── PLAN LIMITS ── //
 export const PLAN_LIMITS: PlanLimit[] = [
-  { id: "students", label: "Students",     solo: "75", institute: "200",       institute_pro: "Unlimited" },
-  { id: "batches",  label: "Batches",      solo: "3", institute: "10",        institute_pro: "Unlimited" },
-  { id: "storage",  label: "Storage",      solo: "1 GB", institute: "5 GB",      institute_pro: "10 GB" },
+  { id: "students", label: "Students / year", solo: "200", institute: "200",       institute_pro: "Unlimited" },
+  { id: "subjects", label: "Subjects",        solo: "1",   institute: "Unlimited", institute_pro: "Unlimited" },
+  { id: "batches",  label: "Batches",         solo: "Unlimited", institute: "Unlimited", institute_pro: "Unlimited" },
+  { id: "storage",  label: "Storage",         solo: "1 GB", institute: "5 GB",     institute_pro: "10 GB" },
 ];
 
 // ── TRIAL CONFIG ── //

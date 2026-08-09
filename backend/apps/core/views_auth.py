@@ -194,24 +194,35 @@ class ChangePlanView(APIView):
 
         # Validate downgrades against the destination plan's limits.
         from apps.core.plan_config import PLAN_LIMITS
-        from apps.students.models import Student
-        from apps.academics.models import Batch
+        from apps.students.models import Student, StudentBatchEnrollment
+        from apps.academics.models import Batch, Subject
 
         target_limits = PLAN_LIMITS.get(new_plan, {})
-        student_count = Student.objects.filter(institute=inst, is_active=True).count()
+        current_academic_year = getattr(request, 'academic_year', 2026)
+        student_count = StudentBatchEnrollment.objects.filter(
+            student__institute=inst, academic_year=current_academic_year,
+            status__in=['active', 'archived'],
+        ).values('student_id').distinct().count()
         batch_count = Batch.objects.filter(institute=inst, is_active=True).count()
+        subject_count = Subject.objects.filter(institute=inst).count()
         overflows = []
         max_students = target_limits.get('students', float('inf'))
         max_batches = target_limits.get('batches', float('inf'))
+        max_subjects = target_limits.get('subjects', float('inf'))
         if student_count > max_students:
             overflows.append({
                 'limit': 'students', 'current': student_count, 'allowed': max_students,
-                'message': f'You have {student_count} students but {new_plan} allows {max_students}.',
+                'message': f'You have {student_count} students enrolled this year but {new_plan} allows {max_students}.',
             })
         if batch_count > max_batches:
             overflows.append({
                 'limit': 'batches', 'current': batch_count, 'allowed': max_batches,
                 'message': f'You have {batch_count} batches but {new_plan} allows {max_batches}.',
+            })
+        if subject_count > max_subjects:
+            overflows.append({
+                'limit': 'subjects', 'current': subject_count, 'allowed': max_subjects,
+                'message': f'You have {subject_count} subjects but {new_plan} allows {max_subjects}.',
             })
         if overflows:
             return Response({

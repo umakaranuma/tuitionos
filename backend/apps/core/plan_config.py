@@ -1,14 +1,19 @@
-# Define limits and features for each plan type
+# Define limits and features for each plan type.
+# 'students' is enforced per academic year (see StudentViewSet.create) — a
+# solo teacher or growing institute can take on a fresh 200 each year without
+# students from prior years (graduated/inactive) eating into the cap forever.
 PLAN_LIMITS = {
-    'solo': {'students': 75, 'batches': 3},
-    'institute': {'students': 200, 'batches': 10},
-    'institute_pro': {'students': float('inf'), 'batches': float('inf')}
+    'solo': {'students': 200, 'batches': float('inf'), 'subjects': 1},
+    'institute': {'students': 200, 'batches': float('inf'), 'subjects': float('inf')},
+    'institute_pro': {'students': float('inf'), 'batches': float('inf'), 'subjects': float('inf')}
 }
 
+# Timetable and QR ID cards are available on every plan. WhatsApp
+# notifications and Year-end Promotion remain Institute Pro exclusives.
 PLAN_FEATURES = {
-    'solo': ['basic_reporting'],
-    'institute': ['basic_reporting', 'pdf_gen'],
-    'institute_pro': ['basic_reporting', 'pdf_gen', 'whatsapp', 'timetable', 'promotion', 'custom_domain']
+    'solo': ['basic_reporting', 'timetable'],
+    'institute': ['basic_reporting', 'pdf_gen', 'timetable'],
+    'institute_pro': ['basic_reporting', 'pdf_gen', 'timetable', 'whatsapp', 'promotion', 'custom_domain']
 }
 
 def check_feature_access(institute, feature_key):

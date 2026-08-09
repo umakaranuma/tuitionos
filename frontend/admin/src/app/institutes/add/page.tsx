@@ -55,9 +55,9 @@ export default function AddInstitutePage() {
     && form.subdomain.length >= 3 && !subdomainError;
 
   const planInfo = {
-    solo: { label: "Solo", price: "LKR 1,500/mo", features: "Max 75 students · 3 batches · Basic reporting" },
-    institute: { label: "Institute", price: "LKR 3,000/mo", features: "Max 200 students · 10 batches · PDF exports" },
-    institute_pro: { label: "Institute Pro", price: "LKR 6,000/mo", features: "Unlimited students · Notifications · Timetable" },
+    solo: { label: "Solo", price: "LKR 1,500/mo", features: "200 students/yr · 1 subject · Unlimited batches" },
+    institute: { label: "Institute", price: "LKR 3,000/mo", features: "200 students/yr · Unlimited subjects & batches" },
+    institute_pro: { label: "Institute Pro", price: "LKR 6,000/mo", features: "Unlimited everything · Notifications · Promotion" },
     trial: { label: "14-day Trial", price: "Free for 14 days", features: "Full Pro features during trial period" },
   };
 

@@ -103,10 +103,18 @@ class StudentViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         from apps.core.plan_config import check_limit_access
-        current_count = Student.objects.filter(institute=request.institute).count()
+        # Scoped to the current academic year — a student enrolled (or
+        # archived/promoted) in a prior year shouldn't permanently consume
+        # this year's quota once they've graduated or moved on.
+        academic_year = getattr(request, 'academic_year', 2026)
+        current_count = StudentBatchEnrollment.objects.filter(
+            student__institute=request.institute,
+            academic_year=academic_year,
+            status__in=['active', 'archived'],
+        ).values('student_id').distinct().count()
         if not check_limit_access(request.institute, 'students', current_count):
             return Response(
-                {"error": "Student limit reached. Please upgrade your package to add more students."},
+                {"error": "Student limit reached for this academic year. Please upgrade your package to add more students."},
                 status=status.HTTP_403_FORBIDDEN
             )
         response = super().create(request, *args, **kwargs)

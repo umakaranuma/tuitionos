@@ -67,7 +67,7 @@ export default function PricingPage() {
                       onChange={e => setSettings({...settings, monthly_fee_solo: Number(e.target.value)})} 
                     />
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For single teachers. Includes up to 75 students and 1 subject.</div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For single teachers. Up to 200 students per year, 1 subject.</div>
                 </div>
               </div>
 
@@ -82,7 +82,7 @@ export default function PricingPage() {
                       onChange={e => setSettings({...settings, monthly_fee_institute: Number(e.target.value)})} 
                     />
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For growing institutes. Includes up to 200 students.</div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For growing institutes. Up to 200 students per year, unlimited subjects & batches.</div>
                 </div>
               </div>
 

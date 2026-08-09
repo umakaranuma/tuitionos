@@ -251,9 +251,9 @@ export default function InstituteDetailPage() {
       }>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {([
-            { key: "solo", label: "Solo", price: getPlanPrice("solo"), desc: "Max 75 students · 3 batches · Basic fee tracking", color: "#475569" },
-            { key: "institute", label: "Institute", price: getPlanPrice("institute"), desc: "Max 200 students · 10 batches · Attendance + fees", color: "#2a5fa8" },
-            { key: "institute_pro", label: "Institute Pro", price: getPlanPrice("institute_pro"), desc: "Unlimited · Notifications · Timetable · Promotion", color: "#9b5e35" },
+            { key: "solo", label: "Solo", price: getPlanPrice("solo"), desc: "200 students/yr · 1 subject · Unlimited batches", color: "#475569" },
+            { key: "institute", label: "Institute", price: getPlanPrice("institute"), desc: "200 students/yr · Unlimited subjects & batches", color: "#2a5fa8" },
+            { key: "institute_pro", label: "Institute Pro", price: getPlanPrice("institute_pro"), desc: "Unlimited · Notifications · Promotion", color: "#9b5e35" },
           ] as const).map(p => (
             <div key={p.key} onClick={() => setPlan(p.key)} style={{
               border: `2px solid ${plan === p.key ? p.color : "var(--ln)"}`,

@@ -76,7 +76,7 @@ const ALL_FEATURES: {
     id: "timetable", title: "Timetable Scheduling",
     desc: "Conflict-free scheduling for teachers, batches, and classrooms using an easy visual drag-and-drop interface.",
     icon: "📅", img: "/screens/timetable.png", route: "app.tuitionos.lk/timetable",
-    plans: ["pro"],
+    plans: ["solo", "institute", "pro"],
     hotspots: [
       { x: 50, y: 25, label: "Reusable time blocks — set once, reuse across every batch" },
       { x: 40, y: 55, label: "The full week at a glance, filterable by batch or teacher" },
@@ -411,8 +411,9 @@ export default function LandingPage() {
               <div className="flex-1">
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 75 Students</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 3 Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 200 Students / year</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> 1 Subject</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> <strong>Unlimited</strong> Batches</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> 1 GB Storage</li>
                 </ul>
 
@@ -423,12 +424,14 @@ export default function LandingPage() {
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Attendance tracking</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Fee collection</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Dashboard analytics</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Timetable scheduling</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> QR ID cards</li>
                 </ul>
 
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Advanced</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink3)] font-medium text-[13.5px] opacity-60">
                   <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> WhatsApp notifications</li>
-                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Timetable management</li>
+                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Year-end promotion</li>
                 </ul>
               </div>
             </div>
@@ -446,8 +449,9 @@ export default function LandingPage() {
               <div className="flex-1">
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 200 Students</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 10 Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 200 Students / year</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> <strong>Unlimited</strong> Subjects</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> <strong>Unlimited</strong> Batches</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> 5 GB Storage</li>
                 </ul>
 
@@ -457,12 +461,14 @@ export default function LandingPage() {
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Teacher salary tracking</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Attendance & fees</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Financial accounts</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Timetable scheduling</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> QR ID cards</li>
                 </ul>
 
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Advanced</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink3)] font-medium text-[13.5px] opacity-60">
                   <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> WhatsApp notifications</li>
-                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Timetable management</li>
+                  <li className="flex items-start gap-3"><span className="mt-0.5">✕</span> Year-end promotion</li>
                 </ul>
               </div>
             </div>
@@ -482,6 +488,7 @@ export default function LandingPage() {
                 <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Limits</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
                   <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Students</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Subjects</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> <strong>Unlimited</strong> Batches</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> 10 GB Storage</li>
                 </ul>
@@ -492,10 +499,9 @@ export default function LandingPage() {
                   <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Advanced financial reporting</li>
                 </ul>
 
-                <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Advanced Features</div>
+                <div className="text-xs font-bold text-[var(--tc)] tracking-wider uppercase mb-3">Exclusive to Pro</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
                   <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> WhatsApp notifications</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Timetable management</li>
                   <li className="flex items-start gap-3"><span className="text-[var(--tc)] mt-0.5">✓</span> Year-end promotion</li>
                 </ul>
               </div>

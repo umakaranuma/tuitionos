@@ -31,6 +31,16 @@ class SubjectViewSet(InstituteBaseViewSet):
     queryset = Subject.objects.all()
     serializer_class = SubjectSerializer
 
+    def create(self, request, *args, **kwargs):
+        from apps.core.plan_config import check_limit_access
+        current_count = Subject.objects.filter(institute=request.institute).count()
+        if not check_limit_access(request.institute, 'subjects', current_count):
+            return Response(
+                {"error": "Subject limit reached. Please upgrade your package to add more subjects."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+
 
 class TeacherViewSet(InstituteBaseViewSet):
     queryset = Teacher.objects.all()

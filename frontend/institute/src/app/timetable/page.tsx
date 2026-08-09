@@ -3,7 +3,6 @@ import { useState, useMemo, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { api } from "@/lib/api";
-import { getStoredUser } from "@/lib/auth";
 import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Toast } from "@/components/ui/Toast";
@@ -98,7 +97,6 @@ export default function TimetablePage() {
   const [viewMode, setViewMode] = useState<"class" | "exam">("class");
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isLocked, setIsLocked] = useState(false);
   const [batches, setBatches] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -139,13 +137,8 @@ export default function TimetablePage() {
     { color: "#6b7280", label: "Grey" },
   ];
 
-  // ── Data loading ──
+  // ── Data loading ── (Timetable is available on every plan, no gate here.)
   const loadData = () => {
-    const user = getStoredUser();
-    if (user?.institute?.plan !== "institute_pro") {
-      setIsLocked(true);
-      return;
-    }
     const yearParam = (typeof window !== "undefined"
       ? (localStorage.getItem("academic_year") || String(new Date().getFullYear()))
       : String(new Date().getFullYear()));
@@ -466,22 +459,6 @@ export default function TimetablePage() {
     const sTime = slot.start_time.substring(0, 5);
     return timeBlocks.find(tb => tb.startTime === sTime)?.id;
   };
-
-  // ── LOCKED STATE ──
-  if (isLocked) {
-    return (
-      <PageShell>
-        <Topbar title="Timetable" />
-        <div className="pb fi" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 80 }}>
-          <div style={{ background: "var(--tc)", color: "white", padding: "4px 12px", borderRadius: 12, fontSize: 12, fontWeight: 700, marginBottom: 16 }}>PRO FEATURE</div>
-          <h2 style={{ fontSize: 24, color: "var(--ink)", fontWeight: 700, marginBottom: 12 }}>Timetable Locked</h2>
-          <p style={{ color: "var(--ink2)", textAlign: "center", maxWidth: 400, lineHeight: 1.5 }}>
-            Timetable management is an Institute Pro feature. Please upgrade your package in Settings.
-          </p>
-        </div>
-      </PageShell>
-    );
-  }
 
   return (
     <PageShell>
