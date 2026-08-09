@@ -31,7 +31,7 @@ function FeatureInteractive() {
               onClick={() => setActiveIdx(i)}
               className={`p-3.5 rounded-xl cursor-pointer transition-all duration-300 border ${
                 isActive 
-                  ? "bg-white border-[var(--tc)] shadow-lg shadow-[rgba(45,122,90,0.08)] transform translate-x-1" 
+                  ? "bg-white border-[var(--tc)] shadow-lg shadow-[rgba(79,70,229,0.08)] transform translate-x-1" 
                   : "bg-transparent border-transparent hover:bg-white/50 hover:border-[var(--ln)]"
               }`}
             >
@@ -129,7 +129,7 @@ export default function LandingPage() {
             <div className="flex-1 text-center lg:text-left z-10">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--tc-l)] text-[var(--tc-d)] font-semibold text-xs tracking-wide uppercase mb-6">
                 <span className="w-2 h-2 rounded-full bg-[var(--tc)] animate-pulse" />
-                Version 2.0 Now Live
+                Built for Tuition Institutes in Sri Lanka
               </div>
               <h1 className="font-serif text-5xl lg:text-6xl font-bold leading-[1.05] text-[var(--ink)] mb-6">
                 The Operating System for <span className="text-[var(--tc)] italic">Modern Institutes</span>
@@ -186,18 +186,18 @@ export default function LandingPage() {
               <div className="flex-1">
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 75 Students</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 3 Batches</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> 1 GB Storage</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 75 Students</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 3 Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> 1 GB Storage</li>
                 </ul>
 
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Core Features</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Student enrollment</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Batch scheduling</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Attendance tracking</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Fee collection</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Dashboard analytics</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Student enrollment</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Batch scheduling</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Attendance tracking</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Fee collection</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Dashboard analytics</li>
                 </ul>
 
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Advanced</div>
@@ -220,17 +220,17 @@ export default function LandingPage() {
               <div className="flex-1">
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Limits</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 200 Students</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Up to 10 Batches</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> 5 GB Storage</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 200 Students</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Up to 10 Batches</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> 5 GB Storage</li>
                 </ul>
 
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Core Features</div>
                 <ul className="flex flex-col gap-3 text-[var(--ink2)] font-medium text-[13.5px] mb-6">
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Subject management</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Teacher salary tracking</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Attendance & fees</li>
-                  <li className="flex items-start gap-3"><span className="text-[var(--sp)] mt-0.5">✓</span> Financial accounts</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Subject management</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Teacher salary tracking</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Attendance & fees</li>
+                  <li className="flex items-start gap-3"><span className="text-[var(--ok)] mt-0.5">✓</span> Financial accounts</li>
                 </ul>
 
                 <div className="text-xs font-bold text-[var(--ink3)] tracking-wider uppercase mb-3">Advanced</div>
@@ -319,7 +319,7 @@ export default function LandingPage() {
                   </div>
                 )}
 
-                <button type="submit" disabled={isSubmitting} className={`btn btn-p w-full py-4 text-lg mt-2 shadow-lg shadow-[rgba(45,122,90,0.2)] ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}>
+                <button type="submit" disabled={isSubmitting} className={`btn btn-p w-full py-4 text-lg mt-2 shadow-lg shadow-[rgba(79,70,229,0.2)] ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}>
                   {isSubmitting ? "Sending..." : "Book Demo Call"}
                 </button>
                 <p className="text-center text-xs text-[var(--ink3)] mt-2">By submitting this form, you agree to our Terms of Service and Privacy Policy.</p>

@@ -9,7 +9,13 @@ import { api } from "@/lib/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
 
-type Student = { id: number; name: string; initials: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; join_date: string };
+type Student = { id: number; name: string; initials: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; status: "active" | "passout" | "inactive"; join_date: string };
+
+const STATUS_STYLE: Record<Student["status"], { bg: string; fg: string; label: string }> = {
+  active: { bg: "#dcfce7", fg: "#15803d", label: "Active" },
+  passout: { bg: "var(--sp-l)", fg: "var(--sp)", label: "Passout" },
+  inactive: { bg: "var(--rb-l)", fg: "var(--rb)", label: "Inactive" },
+};
 type Batch = { id: number; name: string; display_name?: string };
 
 const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"]];
@@ -93,21 +99,23 @@ export default function StudentsPage() {
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           <div className="tw">
             <table>
-              <thead><tr><th>Student</th><th>Batch</th><th>Parent</th><th>Mobile</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Student</th><th>Batch</th><th>Status</th><th>Parent</th><th>Mobile</th><th>Actions</th></tr></thead>
               <tbody>
                 {filtered.map((s, idx) => {
                   const [bg, fg] = P[idx % P.length];
+                  const st = STATUS_STYLE[s.status] ?? STATUS_STYLE.inactive;
                   return (
                     <tr key={s.id}>
                       <td><div className="td-nm"><div className="ava" style={{ background: bg, color: fg }}>{s.initials}</div>{s.name}</div></td>
                       <td style={{ color: "var(--ink3)" }}>{s.batch}</td>
+                      <td><span className="bdg" style={{ background: st.bg, color: st.fg }}>{st.label}</span></td>
                       <td>{s.parent_name || "—"}</td>
                       <td className="mono">{s.parent_mobile}{s.has_whatsapp && " (WA)"}</td>
                       <td><Link href={`/students/${s.id}`}><button className="btn btn-xs btn-s">View</button></Link></td>
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No students found</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>No students found</td></tr>}
               </tbody>
             </table>
             <Pagination 

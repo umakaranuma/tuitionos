@@ -16,7 +16,7 @@ from apps.fees.models import FeePayment
 from apps.attendance.models import Attendance
 from apps.timetable.models import TimetableSlot
 from apps.billing.models import Invoice, InstituteTransaction
-from apps.notifications.models import NotificationLog
+from apps.notifications.models import NotificationLog, Broadcast
 from apps.promotion.models import BatchPromotionMap
 from rest_framework.authtoken.models import Token
 from datetime import date, timedelta, time
@@ -114,14 +114,32 @@ class Command(BaseCommand):
             ('g10', 'Grade 10 — O/L Batch', 'Grade 10', 'Mathematics', 1, 2026, 5500, '#c07b1a', '#fef3d7'),
             ('g11', 'Grade 11 — A/L Science', 'Grade 11', 'Physics', 2, 2026, 7000, '#b83030', '#fceaea'),
         ]
+        # Next academic year's batches — no subjects/enrollments yet, they just
+        # need to exist so the Year-end Promotion screen has real "promote into"
+        # targets to suggest (Grade 11 deliberately has no 2027 peer, so it
+        # demonstrates the passout/graduation path too).
+        next_year_batch_data = [
+            ('g8a27', 'Grade 8 — Batch A', 2027, 3000, '#2d7a5a', '#d4ede3'),
+            ('g9a27', 'Grade 9 — Batch A', 2027, 4500, '#6b3ea8', '#ede8fc'),
+            ('g10_27', 'Grade 10 — O/L Batch', 2027, 5500, '#c07b1a', '#fef3d7'),
+            ('g11_27', 'Grade 11 — A/L Science', 2027, 7000, '#b83030', '#fceaea'),
+        ]
         batches = {}
         from apps.academics.models import BatchSubject
+
+        def split_grade_section(display_name):
+            if ' — ' in display_name:
+                grade, section = display_name.split(' — ', 1)
+                return grade, section
+            return display_name, ''
+
         for bid, name, label, subj_name, teacher_id, year, fee, color, colorl in batch_data:
+            grade, section = split_grade_section(name)
             b, _ = Batch.objects.get_or_create(
-                institute=inst, name=name,
+                institute=inst, name=name, academic_year=year,
                 defaults={
-                    'label': label,
-                    'academic_year': year, 'monthly_fee': fee,
+                    'label': label, 'grade': grade, 'section': section,
+                    'monthly_fee': fee,
                     'color': color, 'color_light': colorl, 'is_active': True,
                 }
             )
@@ -129,6 +147,27 @@ class Command(BaseCommand):
                 batch=b, subject=subjects[subj_name],
                 defaults={'teacher': teachers.get(teacher_id) if teacher_id else None}
             )
+            # get_or_create's defaults only apply on first creation — an earlier
+            # seed run may have already created this batch before grade/section
+            # existed here, so fix it up explicitly either way.
+            if b.grade != grade or b.section != section:
+                b.grade, b.section = grade, section
+                b.save()
+            batches[bid] = b
+
+        for bid, name, year, fee, color, colorl in next_year_batch_data:
+            grade, section = split_grade_section(name)
+            b, _ = Batch.objects.get_or_create(
+                institute=inst, name=name, academic_year=year,
+                defaults={
+                    'label': grade, 'grade': grade, 'section': section,
+                    'monthly_fee': fee,
+                    'color': color, 'color_light': colorl, 'is_active': True,
+                }
+            )
+            if b.grade != grade or b.section != section:
+                b.grade, b.section = grade, section
+                b.save()
             batches[bid] = b
 
         # ── Students ──
@@ -283,6 +322,42 @@ class Command(BaseCommand):
                           'category': cat, 'amount': amount}
             )
 
+        # ── Notifications (broadcasts + delivery logs) ──
+        broadcast_data = [
+            ('Term 2 Exam Timetable Released', 'The Term 2 exam schedule is now available on your portal. Please check your child\'s subject dates and arrive 15 minutes early.', 'whatsapp', 'All Students', 'completed', None),
+            ('Institute Closed — Public Holiday', 'St. Patrick\'s Institute will be closed on Monday for the public holiday. Classes resume as usual on Tuesday.', 'whatsapp', 'All Students', 'completed', None),
+            ('April Fee Reminder', 'This is a reminder that April month fees are due by the 10th. Please settle at your earliest convenience to avoid late charges.', 'sms', 'Fees Due', 'scheduled', date(2026, 8, 15)),
+        ]
+        for title, message, channel, audience, bstatus, sched in broadcast_data:
+            Broadcast.objects.get_or_create(
+                institute=inst, title=title,
+                defaults={
+                    'message': message, 'channel': channel, 'target_audience': audience,
+                    'status': bstatus, 'scheduled_at': sched,
+                }
+            )
+
+        sample_log_students = [s for s, *_ in all_students[:6]]
+        log_data = [
+            (0, 'whatsapp', 'attendance', True, "Kavitha M. was marked absent today (2026-08-08).", ''),
+            (1, 'whatsapp', 'fee_reminder', True, "Hi Valli, Nithya's April fee of LKR 3,000 is due. Pay via the parent portal.", ''),
+            (2, 'sms', 'attendance', False, "Arun P. was marked absent today (2026-08-08).", "Provider timeout — retry scheduled."),
+            (3, 'whatsapp', 'fee_receipt', True, "Payment received: LKR 3,000 for Deepa J. — April receipt attached.", ''),
+            (4, 'whatsapp', 'timetable', True, "Your Mathematics class for Grade 7 — Batch A has moved to Room A2 starting next week.", ''),
+        ]
+        for idx, channel, ntype, delivered, preview, err in log_data:
+            if idx >= len(sample_log_students):
+                continue
+            student = sample_log_students[idx]
+            NotificationLog.objects.get_or_create(
+                institute=inst, student=student, notification_type=ntype,
+                message_preview=preview,
+                defaults={
+                    'channel': channel, 'recipient_mobile': student.parent_mobile,
+                    'is_delivered': delivered, 'error_message': err,
+                }
+            )
+
         # ── Other Institutes (for admin portal) ──
         other_insts = [
             ('Alpha Lanka', 'alphalanka', 'Colombo', 'institute', 'trial'),
@@ -328,3 +403,5 @@ class Command(BaseCommand):
         self.stdout.write(f'   Teachers: {Teacher.objects.count()}')
         self.stdout.write(f'   Fee records: {FeePayment.objects.count()}')
         self.stdout.write(f'   Attendance: {Attendance.objects.count()}')
+        self.stdout.write(f'   Broadcasts: {Broadcast.objects.count()}')
+        self.stdout.write(f'   Notification logs: {NotificationLog.objects.count()}')

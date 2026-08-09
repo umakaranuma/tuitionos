@@ -61,19 +61,28 @@ class StudentViewSet(viewsets.ModelViewSet):
         valid_student_ids = set(enrolled_ids + legacy_ids)
         qs = qs.filter(id__in=valid_student_ids)
             
-        from django.db.models import OuterRef, Subquery, Case, When, Value, BooleanField
+        from django.db.models import OuterRef, Subquery, Case, When, Value, BooleanField, Exists
         current_enrollment_batch = StudentBatchEnrollment.objects.filter(
             student=OuterRef('pk'),
             academic_year=academic_year
         ).order_by('-enrolled_at').values('batch__name')[:1]
-        
+
+        # Distinguishes a student who was once enrolled but isn't this year
+        # (passed out / left) from one who's never been enrolled at all
+        # (genuinely inactive record) — both currently collapse into the same
+        # "not active this year" bucket otherwise.
+        past_enrollment = StudentBatchEnrollment.objects.filter(
+            student=OuterRef('pk')
+        ).exclude(academic_year=academic_year)
+
         qs = qs.annotate(
             enrolled_batch_name=Subquery(current_enrollment_batch),
             is_active_for_year=Case(
                 When(id__in=enrolled_ids, then=Value(True)),
                 default=Value(False),
                 output_field=BooleanField()
-            )
+            ),
+            has_past_enrollment=Exists(past_enrollment),
         )
             
         search = self.request.query_params.get('search')

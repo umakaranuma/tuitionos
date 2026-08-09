@@ -27,7 +27,15 @@ class StudentSerializer(serializers.ModelSerializer):
             
         if hasattr(instance, 'is_active_for_year'):
             data['is_active'] = instance.is_active_for_year
-            
+            if instance.is_active_for_year:
+                data['status'] = 'active'
+            elif getattr(instance, 'has_past_enrollment', False):
+                data['status'] = 'passout'
+            else:
+                data['status'] = 'inactive'
+        else:
+            data['status'] = 'active' if instance.is_active else 'inactive'
+
         return data
 
     def create(self, validated_data):

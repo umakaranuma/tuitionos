@@ -1,17 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/* Same design tokens as the Admin and Institute portals (frontend/admin and
+   frontend/institute globals.css) — this page is the front door to that same
+   product, so its colors and type must read as one continuous brand. */
 :root {
   --ink: #0f172a;
   --ink2: #334155;
   --ink3: #64748b;
   --ln: #e2e8f0;
   --cr: #f8fafc;
+  --cr-d: #f1f5f9;
   --tc: #4f46e5;
   --tc-l: #e0e7ff;
   --tc-d: #3730a3;
+  --ok: #16a34a;
+  --ok-l: #dcfce7;
+  --ok-d: #15803d;
+  --rb: #ef4444;
+  --rb-l: #fee2e2;
   --font-serif: 'Instrument Serif', Georgia, serif;
-  --font-body: 'Inter', sans-serif;
+  --font-body: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
@@ -56,9 +65,9 @@ body {
 }
 
 .glass-nav {
-  background: rgba(250, 248, 244, 0.85);
+  background: rgba(248, 250, 252, 0.85);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(232, 227, 219, 0.8);
+  border-bottom: 1px solid var(--ln);
 }
 
 .feature-card {
@@ -66,11 +75,11 @@ body {
   border: 1px solid var(--ln);
   border-radius: 20px;
   padding: 32px;
-  box-shadow: 0 4px 24px rgba(28,25,23,0.03);
+  box-shadow: 0 4px 24px rgba(15,23,42,0.03);
   transition: all 0.3s ease;
 }
 .feature-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 12px 32px rgba(28,25,23,0.06);
+  box-shadow: 0 12px 32px rgba(15,23,42,0.06);
   border-color: var(--tc-l);
 }
