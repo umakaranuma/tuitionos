@@ -19,6 +19,8 @@
   --ok-d: #15803d;
   --rb: #ef4444;
   --rb-l: #fee2e2;
+  --ac: #d97706;
+  --ac-l: #fef3c7;
   --font-serif: 'Instrument Serif', Georgia, serif;
   --font-body: 'Manrope', ui-sans-serif, system-ui, sans-serif;
 }
@@ -83,3 +85,157 @@ body {
   box-shadow: 0 12px 32px rgba(15,23,42,0.06);
   border-color: var(--tc-l);
 }
+
+/* ── DOT-GRID BACKDROP (hero) ── */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(79,70,229,0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* ── SCROLL REVEAL ── */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal { opacity: 0; }
+.reveal.in-view { animation: revealUp 640ms cubic-bezier(.16,1,.3,1) both; }
+
+/* ── BROWSER-CHROME FRAME (screenshot preview) ── */
+.browser-frame {
+  background: #fff;
+  border: 1px solid var(--ln);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px -12px rgba(15,23,42,0.18), 0 1px 2px rgba(15,23,42,0.04);
+}
+.browser-frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--cr-d);
+  border-bottom: 1px solid var(--ln);
+}
+.browser-frame-dots { display: flex; gap: 6px; flex-shrink: 0; }
+.browser-frame-dot { width: 10px; height: 10px; border-radius: 50%; }
+.browser-frame-url {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--ln);
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  color: var(--ink3);
+  font-family: ui-monospace, 'SFMono-Regular', monospace;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.browser-frame-body {
+  position: relative;
+  background: var(--cr);
+  /* Matches the actual 1440x900 screenshot ratio exactly — a mismatched
+     ratio here combined with object-fit:cover silently crops the right
+     edge of the image, which is why this must stay in lockstep with the
+     capture_all.js viewport (1440x900). */
+  aspect-ratio: 1440 / 900;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.browser-frame-body img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: left top;
+  transition: opacity 400ms ease;
+}
+.browser-frame-zoom-hint {
+  position: absolute; bottom: 12px; right: 12px;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(15,23,42,0.75); color: #fff;
+  font-size: 11px; font-weight: 600;
+  padding: 5px 10px; border-radius: 99px;
+  opacity: 0; transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.browser-frame-body:hover .browser-frame-zoom-hint { opacity: 1; }
+
+/* ── HOTSPOTS ── */
+.hotspot {
+  position: absolute;
+  width: 22px; height: 22px;
+  transform: translate(-50%, -50%);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.hotspot-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: var(--tc);
+  opacity: 0.35;
+  animation: hotspotPulse 2000ms ease-out infinite;
+}
+.hotspot-core {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--tc);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.3);
+  position: relative;
+  z-index: 1;
+}
+@keyframes hotspotPulse {
+  0% { transform: scale(0.6); opacity: 0.5; }
+  70% { transform: scale(1.9); opacity: 0; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.hotspot-tip {
+  position: absolute; bottom: calc(100% + 10px); left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--ink); color: #fff;
+  font-size: 12px; font-weight: 500; line-height: 1.4;
+  padding: 8px 12px; border-radius: 9px;
+  width: max-content; max-width: 220px;
+  opacity: 0; visibility: hidden;
+  transition: all 150ms ease;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.25);
+}
+.hotspot-tip::after {
+  content: ''; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: var(--ink);
+}
+.hotspot:hover .hotspot-tip {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}
+
+/* ── PLAN BADGE ── */
+.plan-bdg {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 99px;
+  cursor: pointer; transition: filter 150ms ease;
+  border: none;
+}
+.plan-bdg:hover { filter: brightness(0.96); }
+
+/* ── LIGHTBOX ── */
+.lightbox-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(15,23,42,0.82);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px;
+  animation: fadeIn 150ms ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.lightbox-close {
+  position: absolute; top: 20px; right: 24px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 20px; transition: background 150ms;
+}
+.lightbox-close:hover { background: rgba(255,255,255,0.22); }
