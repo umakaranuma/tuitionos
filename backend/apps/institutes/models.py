@@ -22,6 +22,7 @@ class Institute(models.Model):
     ]
 
     name = models.CharField(max_length=200)
+    logo = models.ImageField(upload_to='institutes/logos/', null=True, blank=True)
     subdomain = models.SlugField(max_length=63, unique=True)
     owner_name = models.CharField(max_length=200)
     owner_email = models.EmailField()

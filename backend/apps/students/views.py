@@ -34,12 +34,20 @@ class StudentViewSet(viewsets.ModelViewSet):
         )
         if batch_id:
             enrolled_qs = enrolled_qs.filter(batch_id=batch_id)
-            
+
         enrolled_ids = list(enrolled_qs.values_list('student_id', flat=True))
-        
-        # 2. Legacy / unenrolled students who just have a batch_code
-        legacy_qs = qs.exclude(id__in=enrolled_ids)
-        if batch_id:
+
+        search = self.request.query_params.get('search')
+
+        # 2. Everyone else who should still show up for this year's view.
+        if search:
+            # An explicit search should reach the institute's whole roster —
+            # you should be able to find a student by name regardless of
+            # which year they were last active in.
+            legacy_ids = list(qs.exclude(id__in=enrolled_ids).values_list('id', flat=True))
+        elif batch_id:
+            # Legacy / unenrolled students who just have a batch_code
+            legacy_qs = qs.exclude(id__in=enrolled_ids)
             mapped_codes = list(BatchPromotionMap.objects.filter(
                 institute=self.request.institute,
                 academic_year=academic_year,
@@ -53,10 +61,25 @@ class StudentViewSet(viewsets.ModelViewSet):
                 extras.discard('')
                 extras.discard(None)
                 mapped_codes.extend([c for c in extras if c])
-            legacy_qs = legacy_qs.filter(batch_code__in=mapped_codes)
-            
-        legacy_ids = list(legacy_qs.values_list('id', flat=True))
-        
+            legacy_ids = list(legacy_qs.filter(batch_code__in=mapped_codes).values_list('id', flat=True))
+        else:
+            # No batch filter and no search (the plain "All Students" list) —
+            # only show students actually relevant to this year: those who
+            # passed out right at this year's boundary (active last year,
+            # not this year), plus students never enrolled anywhere at all.
+            # Anyone who left more than a year ago simply isn't part of this
+            # year's roster and shouldn't clutter the list forever.
+            prior_year_ids = set(StudentBatchEnrollment.objects.filter(
+                academic_year=academic_year - 1,
+                status__in=['active', 'archived'],
+                student__institute=self.request.institute,
+            ).exclude(student_id__in=enrolled_ids).values_list('student_id', flat=True))
+            ever_enrolled_ids = set(StudentBatchEnrollment.objects.filter(
+                student__institute=self.request.institute,
+            ).values_list('student_id', flat=True))
+            never_enrolled_ids = set(qs.values_list('id', flat=True)) - ever_enrolled_ids
+            legacy_ids = list(prior_year_ids | never_enrolled_ids)
+
         # Combine both valid lists
         valid_student_ids = set(enrolled_ids + legacy_ids)
         qs = qs.filter(id__in=valid_student_ids)
@@ -85,10 +108,9 @@ class StudentViewSet(viewsets.ModelViewSet):
             has_past_enrollment=Exists(past_enrollment),
         )
             
-        search = self.request.query_params.get('search')
         if search:
             qs = qs.filter(name__icontains=search)
-            
+
         student_status = self.request.query_params.get('student_status')
         if student_status == 'active':
             qs = qs.filter(id__in=enrolled_ids)

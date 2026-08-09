@@ -7,6 +7,8 @@ import { Toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { PLAN_DEFINITIONS, PLAN_FEATURES, PLAN_LIMITS } from "@/lib/planConfig";
 
+type ActivityEntry = { id: number; action: string; description: string; user: string; created_at: string };
+
 export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -14,15 +16,98 @@ export default function SettingsPage() {
   const [confirmModal, setConfirmModal] = useState<{ open: boolean; planKey: string; planLabel: string } | null>(null);
   const [alertModal, setAlertModal] = useState<{ open: boolean; title: string; message: string; type: "success" | "error" } | null>(null);
 
+  // Institute profile edit
+  const [instName, setInstName] = useState("");
+  const [instLogoFile, setInstLogoFile] = useState<File | null>(null);
+  const [instLogoPreview, setInstLogoPreview] = useState<string | null>(null);
+  const [savingInst, setSavingInst] = useState(false);
+
+  // Own profile edit
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Activity log
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+
+  const loadActivity = () => {
+    setActivityLoading(true);
+    api.get("/api/me/activity-log").then(r => setActivity(r.data)).catch(() => {}).finally(() => setActivityLoading(false));
+  };
+
   useEffect(() => {
-    api.get("/api/me").then(r => { 
-      setUser(r.data); 
+    api.get("/api/me").then(r => {
+      setUser(r.data);
+      setInstName(r.data.institute?.name || "");
+      setInstLogoPreview(r.data.institute?.logo || null);
+      setFirstName(r.data.first_name || "");
+      setLastName(r.data.last_name || "");
+      setAvatarPreview(r.data.avatar || null);
       // Self-heal the local storage session with live data
       localStorage.setItem("user", JSON.stringify(r.data));
       window.dispatchEvent(new Event("storage"));
-      setLoading(false); 
+      setLoading(false);
     }).catch(() => setLoading(false));
+    loadActivity();
   }, []);
+
+  const onInstLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setInstLogoFile(f);
+    setInstLogoPreview(URL.createObjectURL(f));
+  };
+
+  const onAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setAvatarFile(f);
+    setAvatarPreview(URL.createObjectURL(f));
+  };
+
+  const saveInstitute = async () => {
+    setSavingInst(true);
+    try {
+      const fd = new FormData();
+      fd.append("name", instName);
+      if (instLogoFile) fd.append("logo", instLogoFile);
+      const r = await api.patch("/api/me/institute", fd);
+      const updatedUser = { ...user, institute: { ...user.institute, name: r.data.name, logo: r.data.logo } };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event("storage"));
+      setAlertModal({ open: true, title: "Institute Updated", message: "Institute profile saved successfully.", type: "success" });
+      loadActivity();
+    } catch {
+      setAlertModal({ open: true, title: "Update Failed", message: "Couldn't save institute profile. Please try again.", type: "error" });
+    } finally {
+      setSavingInst(false);
+    }
+  };
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const fd = new FormData();
+      fd.append("first_name", firstName);
+      fd.append("last_name", lastName);
+      if (avatarFile) fd.append("avatar", avatarFile);
+      const r = await api.patch("/api/me", fd);
+      const updatedUser = { ...user, first_name: r.data.first_name, last_name: r.data.last_name, name: r.data.name, avatar: r.data.avatar };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event("storage"));
+      setAlertModal({ open: true, title: "Profile Updated", message: "Your profile was saved successfully.", type: "success" });
+      loadActivity();
+    } catch {
+      setAlertModal({ open: true, title: "Update Failed", message: "Couldn't save your profile. Please try again.", type: "error" });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const confirmChangePlan = (planKey: string, planLabel: string) => {
     setConfirmModal({ open: true, planKey, planLabel });
@@ -67,9 +152,23 @@ export default function SettingsPage() {
                 <div className="sb-settings">
                   <div className="sb-settings-t">Institute Profile</div>
                   <div className="sb-settings-d">Your institute details</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                    <label style={{ cursor: "pointer", position: "relative", flexShrink: 0 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", background: "var(--tc-l)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--ln)" }}>
+                        {instLogoPreview
+                          ? <img src={instLogoPreview} alt="Institute logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <span style={{ fontSize: 20, fontWeight: 800, color: "var(--tc-d)" }}>{(instName || "I")[0].toUpperCase()}</span>}
+                      </div>
+                      <input type="file" accept="image/*" onChange={onInstLogoChange} style={{ display: "none" }} />
+                      <div style={{ position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: "50%", background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✎</div>
+                    </label>
+                    <div style={{ flex: 1 }}>
+                      <label className="flbl">Institute name</label>
+                      <input value={instName} onChange={e => setInstName(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
                     {[
-                      { label: "Name", val: user.institute?.name || "—" },
                       { label: "Subdomain", val: user.institute?.subdomain || "—" },
                       { label: "Plan", val: user.institute?.plan || "—" },
                       { label: "Status", val: user.institute?.status || "—" },
@@ -80,17 +179,40 @@ export default function SettingsPage() {
                       </div>
                     ))}
                   </div>
+                  <button className="btn btn-p btn-sm" onClick={saveInstitute} disabled={savingInst}>
+                    {savingInst ? "Saving..." : "Save institute profile"}
+                  </button>
                 </div>
               </div>
 
               <div>
                 <div className="sb-settings">
                   <div className="sb-settings-t">Account</div>
-                  <div className="sb-settings-d">Admin user info</div>
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div className="sb-settings-d">Your profile</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                    <label style={{ cursor: "pointer", position: "relative", flexShrink: 0 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", background: "var(--tc-l)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--ln)" }}>
+                        {avatarPreview
+                          ? <img src={avatarPreview} alt="Your avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <span style={{ fontSize: 20, fontWeight: 800, color: "var(--tc-d)" }}>{(firstName || user.username || "U")[0].toUpperCase()}</span>}
+                      </div>
+                      <input type="file" accept="image/*" onChange={onAvatarChange} style={{ display: "none" }} />
+                      <div style={{ position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: "50%", background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✎</div>
+                    </label>
+                    <div style={{ flex: 1, display: "flex", gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <label className="flbl">First name</label>
+                        <input value={firstName} onChange={e => setFirstName(e.target.value)} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label className="flbl">Last name</label>
+                        <input value={lastName} onChange={e => setLastName(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
                     {[
                       { label: "Email", val: user.email || "—" },
-                      { label: "Name", val: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "—" },
                       { label: "Role", val: user.role || "admin" },
                     ].map(r => (
                       <div key={r.label} style={{ padding: "8px 10px", background: "var(--cr)", borderRadius: 8 }}>
@@ -99,6 +221,9 @@ export default function SettingsPage() {
                       </div>
                     ))}
                   </div>
+                  <button className="btn btn-p btn-sm" onClick={saveProfile} disabled={savingProfile}>
+                    {savingProfile ? "Saving..." : "Save profile"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -174,6 +299,32 @@ export default function SettingsPage() {
                     );
                   })}
                 </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 24 }}>
+              <div className="sb-settings" style={{ padding: 24 }}>
+                <div className="sb-settings-t" style={{ fontSize: 18, marginBottom: 4 }}>Activity Log</div>
+                <div className="sb-settings-d" style={{ marginBottom: 16 }}>Recent changes to your institute and account — who did what, and when</div>
+                {activityLoading ? (
+                  <div style={{ textAlign: "center", padding: 24, color: "var(--ink3)" }}>Loading...</div>
+                ) : activity.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 24, color: "var(--ink3)" }}>No activity recorded yet.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {activity.map(a => (
+                      <div key={a.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--ln)" }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--tc-l)", color: "var(--tc-d)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                          {a.user[0]?.toUpperCase() || "?"}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, color: "var(--ink)" }}>{a.description}</div>
+                          <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>{a.user} · {new Date(a.created_at).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

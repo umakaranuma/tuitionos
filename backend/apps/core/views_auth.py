@@ -105,29 +105,13 @@ class LogoutView(APIView):
         return Response({"message": "Logged out successfully."})
 
 class MeView(APIView):
-    """Returns the current logged-in user profile with institute info."""
+    """Returns the current logged-in user profile with institute info, and
+    lets them update their own name/avatar."""
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        user = request.user
+    def _serialize(self, request, user):
         is_fynux_admin = user.is_staff or user.is_superuser
-        institute_id = None
-        institute_name = None
-        institute_subdomain = None
-        institute_plan = None
         role = None
-
-        if not is_fynux_admin:
-            try:
-                profile = user.institute_profile
-                inst = profile.institute
-                institute_id = inst.id
-                institute_name = inst.name
-                institute_subdomain = inst.subdomain
-                institute_plan = inst.plan
-                role = profile.role
-            except Exception:
-                pass
 
         data = {
             "id": user.id,
@@ -136,6 +120,7 @@ class MeView(APIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "name": f"{user.first_name} {user.last_name}".strip() or user.username,
+            "avatar": request.build_absolute_uri(user.avatar.url) if user.avatar else None,
             "is_fynux_admin": is_fynux_admin,
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
@@ -153,6 +138,7 @@ class MeView(APIView):
                 data["institute"] = {
                     "id": inst.id,
                     "name": inst.name,
+                    "logo": request.build_absolute_uri(inst.logo.url) if inst.logo else None,
                     "subdomain": inst.subdomain,
                     "plan": inst.plan,
                     "status": inst.status,
@@ -161,7 +147,38 @@ class MeView(APIView):
             except Exception:
                 pass
 
-        return Response(data)
+        return data
+
+    def get(self, request):
+        return Response(self._serialize(request, request.user))
+
+    def patch(self, request):
+        user = request.user
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
+        avatar = request.data.get("avatar")
+
+        fields = []
+        if first_name is not None:
+            user.first_name = first_name
+            fields.append('first_name')
+        if last_name is not None:
+            user.last_name = last_name
+            fields.append('last_name')
+        if avatar is not None:
+            user.avatar = avatar
+            fields.append('avatar')
+
+        if fields:
+            user.save(update_fields=fields)
+            try:
+                institute = user.institute_profile.institute
+                from apps.core.models import log_activity
+                log_activity(institute, user, 'profile_updated', f"{user.get_full_name() or user.username} updated their profile")
+            except Exception:
+                pass
+
+        return Response(self._serialize(request, user))
 
 class ChangePlanView(APIView):
     """Allows an institute admin to change their active plan.
@@ -236,11 +253,83 @@ class ChangePlanView(APIView):
         inst.plan = new_plan
         inst.save(update_fields=['plan'])
 
+        from apps.core.models import log_activity
+        log_activity(inst, user, 'plan_changed', f"{user.get_full_name() or user.username} changed the plan from {old_plan} to {new_plan}")
+
         return Response({
             "message": f"Plan changed from {old_plan} to {new_plan}",
             "plan": new_plan,
             "previous_plan": old_plan,
         })
+
+class UpdateInstituteProfileView(APIView):
+    """Lets an institute admin edit their own institute's name/logo — kept
+    deliberately narrow (no plan/status) and separate from the admin-only
+    InstituteViewSet so a self-service edit can never touch billing state."""
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        user = request.user
+        try:
+            profile = user.institute_profile
+        except Exception:
+            return Response({"error": "Institute not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if profile.role != 'admin':
+            return Response({"error": "Only admins can edit institute details"}, status=status.HTTP_403_FORBIDDEN)
+
+        inst = profile.institute
+        name = request.data.get("name")
+        logo = request.data.get("logo")
+
+        fields = []
+        changes = []
+        if name is not None and name.strip() and name != inst.name:
+            changes.append(f'name "{inst.name}" -> "{name}"')
+            inst.name = name
+            fields.append('name')
+        if logo is not None:
+            changes.append('logo')
+            inst.logo = logo
+            fields.append('logo')
+
+        if fields:
+            inst.save(update_fields=fields)
+            from apps.core.models import log_activity
+            log_activity(inst, user, 'institute_updated', f"{user.get_full_name() or user.username} updated institute {', '.join(changes)}")
+
+        return Response({
+            "id": inst.id,
+            "name": inst.name,
+            "logo": request.build_absolute_uri(inst.logo.url) if inst.logo else None,
+            "subdomain": inst.subdomain,
+            "plan": inst.plan,
+            "status": inst.status,
+        })
+
+class InstituteActivityLogView(APIView):
+    """Recent audit trail for the current institute — who changed what."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            institute = user.institute_profile.institute
+        except Exception:
+            return Response({"error": "Institute not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        from apps.core.models import ActivityLog
+        logs = ActivityLog.objects.filter(institute=institute).select_related('user').order_by('-created_at')[:50]
+        return Response([
+            {
+                "id": log.id,
+                "action": log.action,
+                "description": log.description,
+                "user": (log.user.get_full_name() or log.user.username) if log.user else "System",
+                "created_at": log.created_at,
+            }
+            for log in logs
+        ])
 
 class RequestPasswordResetView(APIView):
     permission_classes = []

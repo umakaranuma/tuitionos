@@ -10,16 +10,17 @@ type Props = {
   token: string;
   name: string;
   subtitle?: string;
-  /** Optional photo URL; falls back to initials avatar. */
+  /** Optional photo URL; falls back to the institute logo, then its initial. */
   photoUrl?: string | null;
-  /** Optional institute label rendered as the card footer. */
+  /** Optional institute label rendered in the stripe and as the avatar fallback. */
   institute?: string;
+  /** Optional institute logo — shown in the avatar circle when there's no personal photo. */
+  instituteLogoUrl?: string | null;
   /** Optional id printed under the name for staff use. */
   code?: string;
 };
 
-const initialsOf = (name: string) =>
-  name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("") || "?";
+const firstLetterOf = (name: string) => name.trim()[0]?.toUpperCase() || "?";
 
 /**
  * QRCard — printable PVC-style ID card. The QR encodes a URL the future mobile
@@ -27,7 +28,7 @@ const initialsOf = (name: string) =>
  * generic QR reader resolves it via the web. Includes a Print button that
  * opens the card alone in a print-ready window.
  */
-export function QRCard({ kind, token, name, subtitle, photoUrl, institute, code }: Props) {
+export function QRCard({ kind, token, name, subtitle, photoUrl, institute, instituteLogoUrl, code }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   // Encode both the canonical app URI and a web fallback so any reader works.
@@ -60,11 +61,17 @@ export function QRCard({ kind, token, name, subtitle, photoUrl, institute, code 
         </div>
 
         <div className="qr-card-body">
-          {/* Avatar */}
+          {/* Avatar — the cardholder's own photo when we have one; otherwise
+              the institute's branding (logo, or its initial) rather than a
+              generic personal-initial placeholder. */}
           <div className="qr-card-photo">
-            {photoUrl
-              ? <img src={photoUrl} alt={name} />
-              : <span className="qr-card-initials">{initialsOf(name)}</span>}
+            {photoUrl ? (
+              <img src={photoUrl} alt={name} />
+            ) : instituteLogoUrl ? (
+              <img src={instituteLogoUrl} alt={institute || "Institute"} />
+            ) : (
+              <span className="qr-card-initials">{firstLetterOf(institute || "Institute")}</span>
+            )}
           </div>
 
           {/* Identity */}

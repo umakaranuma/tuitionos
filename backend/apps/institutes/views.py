@@ -1,22 +1,28 @@
 from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from django.core.mail import send_mail
 from django.conf import settings
+from apps.core.permissions import AdminOnly
 from .models import Institute, InstituteUser, PlatformSettings
 from .serializers import InstituteSerializer, PlatformSettingsSerializer
 
 class PlatformSettingsViewSet(viewsets.ModelViewSet):
     queryset = PlatformSettings.objects.all()
     serializer_class = PlatformSettingsSerializer
-    permission_classes = [] # Restrict to Admin in production
+    permission_classes = [IsAuthenticated, AdminOnly]
 
 class InstituteViewSet(viewsets.ModelViewSet):
+    """Fynux-admin-only management of institutes (list/create/activate/edit
+    any institute). An institute's own admin edits their own name/logo via
+    the separate, narrower UpdateInstituteProfileView instead — that path
+    can never touch plan/status, this one can, so it stays admin-gated."""
     queryset = Institute.objects.all()
     serializer_class = InstituteSerializer
-    permission_classes = [] # Allow Fynux Admin in a real scenario, open for now
+    permission_classes = [IsAuthenticated, AdminOnly]
 
     def get_queryset(self):
         from django.db.models import Count, Q

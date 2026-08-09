@@ -425,7 +425,7 @@ export default function StudentDetailPage() {
       <Modal open={showQR} onClose={() => setShowQR(false)} title="Student ID card">
         <div style={{ padding: "8px 0 14px", display: "flex", justifyContent: "center" }}>
           {student.qr_token ? (
-            <QRCard kind="student" token={student.qr_token} name={student.name} subtitle={student.batch} code={`STU-${String(student.id).padStart(5, "0")}`} institute={getStoredUser()?.institute?.name} />
+            <QRCard kind="student" token={student.qr_token} name={student.name} subtitle={student.batch} code={`STU-${String(student.id).padStart(5, "0")}`} institute={getStoredUser()?.institute?.name} instituteLogoUrl={getStoredUser()?.institute?.logo} />
           ) : <div style={{ color: "var(--ink3)", padding: 24, fontSize: 13 }}>QR token not generated. Save the student and reopen.</div>}
         </div>
       </Modal>
