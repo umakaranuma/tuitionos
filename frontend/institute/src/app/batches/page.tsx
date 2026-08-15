@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type BatchSubject = { id?: number; subject: number; subject_name?: string; teacher: number | null; teacher_name?: string | null };
 type Batch = {
@@ -18,7 +19,9 @@ type Subject = { id: number; name: string };
 type Teacher = { id: number; name: string; subject: string };
 
 export default function BatchesPage() {
+  const toast = useToast();
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [copyingYear, setCopyingYear] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachersBySubject, setTeachersBySubject] = useState<Record<string, Teacher[]>>({});
   const [loading, setLoading] = useState(true);
@@ -111,9 +114,40 @@ export default function BatchesPage() {
 
   const remove = async (id: number) => { await api.delete(`/api/academics/batches/${id}`); load(); };
 
+  // ── Copy from previous year — explicit, whole-year, one click ──
+  // Clones every batch (grade, section, fee, colour, subjects, teacher) from
+  // last year into the current year. A batch is only created if this year has
+  // no batch with that same grade+section yet, so clicking this again later
+  // (or after adding some batches by hand) only fills in what's still
+  // missing — it never duplicates an existing batch.
+  const copyYear = async () => {
+    const year = Number(localStorage.getItem("academic_year") || new Date().getFullYear());
+    setCopyingYear(true);
+    try {
+      const r = await api.post("/api/academics/batches/copy_year", { to_year: year });
+      toast.success(r.data?.message || "Batches copied.");
+      load();
+    } catch {
+      toast.error("Couldn't copy last year's batches.");
+    } finally {
+      setCopyingYear(false);
+    }
+  };
+
   return (
     <PageShell>
-      <Topbar title="Batches" subtitle={`${batches.length} batches · ${batches.reduce((s, b) => s + b.student_count, 0)} students`} right={<button className="btn btn-p btn-sm" onClick={openAdd}>+ Add batch</button>} />
+      <Topbar
+        title="Batches"
+        subtitle={`${batches.length} batches · ${batches.reduce((s, b) => s + b.student_count, 0)} students`}
+        right={
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-s btn-sm" onClick={copyYear} disabled={copyingYear}>
+              {copyingYear ? "Copying…" : "⧉ Copy from previous year"}
+            </button>
+            <button className="btn btn-p btn-sm" onClick={openAdd}>+ Add batch</button>
+          </div>
+        }
+      />
       <div className="pb fi">
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           <div className="g3">

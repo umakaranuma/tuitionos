@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from apps.core.permissions import InstituteOnly
 from .models import (
-    Subject, Teacher, Batch,
+    Subject, Teacher, Batch, BatchSubject, BatchTeacherConfig,
     Exam, ExamMark,
     TeacherPayment, TeacherAdvance,
 )
@@ -58,14 +58,74 @@ class BatchViewSet(InstituteBaseViewSet):
     queryset = Batch.objects.prefetch_related('batch_subjects__subject', 'batch_subjects__teacher').all()
     serializer_class = BatchSerializer
 
-    def get_queryset(self):
-        qs = super().get_queryset()
+    def _resolve_year(self):
+        """Same year-resolution the list endpoint uses, exposed so `list()` can
+        decide whether a specific year (not the 'all' view) was requested."""
         academic_year = self.request.query_params.get('academic_year')
         if academic_year == 'all':
+            return None
+        if academic_year and academic_year.isdigit():
+            return int(academic_year)
+        return int(self.request.academic_year)
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        year = self._resolve_year()
+        if year is None:
             return qs
-        elif academic_year and academic_year.isdigit():
-            return qs.filter(academic_year=academic_year)
-        return qs.filter(academic_year=self.request.academic_year)
+        return qs.filter(academic_year=year)
+
+    @action(detail=False, methods=['post'])
+    def copy_year(self, request):
+        """Clone every batch from the previous year into `to_year` — grade,
+        section, fee, colour, subjects and teacher assignments — so staff don't
+        recreate the same grades every year (a grade/section batch recurs every
+        year; only its enrolled students change, which promotion handles
+        separately). Matched per grade+section rather than gated on the whole
+        year being empty, so it's safe to click after partial manual setup and
+        safe to click more than once — a batch already present this year (same
+        grade+section) is simply skipped, never duplicated."""
+        from apps.core.plan_config import check_limit_access
+        to_year = request.data.get('to_year')
+        if not to_year:
+            return Response({'error': 'to_year is required'}, status=400)
+        to_year = int(to_year)
+        from_year = to_year - 1
+
+        existing = set(
+            Batch.objects.filter(institute=request.institute, academic_year=to_year)
+            .values_list('grade', 'section')
+        )
+        prev_batches = Batch.objects.filter(
+            institute=request.institute, academic_year=from_year,
+        ).prefetch_related('batch_subjects', 'teacher_config')
+
+        count = Batch.objects.filter(institute=request.institute).count()
+        created_batches = 0
+        for src in prev_batches:
+            if (src.grade, src.section) in existing:
+                continue
+            if not check_limit_access(request.institute, 'batches', count):
+                break
+            new_batch = Batch.objects.create(
+                institute=request.institute, grade=src.grade, section=src.section,
+                academic_year=to_year, monthly_fee=src.monthly_fee,
+                color=src.color, color_light=src.color_light, is_active=True,
+            )
+            count += 1
+            created_batches += 1
+            for bs in src.batch_subjects.all():
+                BatchSubject.objects.create(batch=new_batch, subject=bs.subject, teacher=bs.teacher)
+            if hasattr(src, 'teacher_config'):
+                BatchTeacherConfig.objects.create(
+                    batch=new_batch, teacher_fee_percent=src.teacher_config.teacher_fee_percent,
+                    notes=src.teacher_config.notes,
+                )
+
+        return Response({
+            'message': f'Copied {created_batches} batch{"es" if created_batches != 1 else ""} from {from_year}.',
+            'created_count': created_batches,
+        })
 
     def create(self, request, *args, **kwargs):
         from apps.core.plan_config import check_limit_access

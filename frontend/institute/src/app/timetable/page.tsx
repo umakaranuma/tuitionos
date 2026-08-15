@@ -117,6 +117,7 @@ export default function TimetablePage() {
   const [filterBatch, setFilterBatch] = useState<string>("");
   const [filterTeacher, setFilterTeacher] = useState<string>("");
 
+
   // ── Publish modal ──
   const [publishModal, setPublishModal] = useState(false);
   const [publishTarget, setPublishTarget] = useState<"all" | "current">("all");
@@ -137,6 +138,32 @@ export default function TimetablePage() {
     { color: "#6b7280", label: "Grey" },
   ];
 
+  // Time blocks define the grid's rows, but aren't stored in the backend —
+  // they only ever lived in this component's state, reset to the 4 defaults
+  // on every reload. Any saved session whose time didn't match one of those
+  // exact 4 slots (a custom block, or a session seeded from last year) had
+  // nowhere to render and silently vanished from the grid, even though it
+  // was still saved. Rebuilding the block list from whatever times the
+  // loaded sessions actually use — on top of the 4 defaults — guarantees
+  // every saved session always has a row to land in.
+  const applyLoadedSlots = (slotData: Slot[]) => {
+    setSlots(slotData);
+    setTimeBlocks(prev => {
+      const known = new Set(prev.map(b => b.startTime));
+      const extra: TimeBlock[] = [];
+      slotData.forEach(s => {
+        const start = s.start_time.substring(0, 5);
+        const end = s.end_time.substring(0, 5);
+        if (!known.has(start)) {
+          known.add(start);
+          extra.push({ id: Math.max(0, ...prev.map(b => b.id), ...extra.map(b => b.id)) + 1, label: "", startTime: start, endTime: end });
+        }
+      });
+      if (extra.length === 0) return prev;
+      return [...prev, ...extra].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+  };
+
   // ── Data loading ── (Timetable is available on every plan, no gate here.)
   const loadData = () => {
     const yearParam = (typeof window !== "undefined"
@@ -151,14 +178,36 @@ export default function TimetablePage() {
       api.get("/api/academics/teachers"),
       api.get("/api/academics/exams"),
     ]).then(([resT, resB, resS, resTea, resExams]) => {
-      setSlots(Array.isArray(resT.data) ? resT.data : resT.data.results || []);
-      setBatches(Array.isArray(resB.data) ? resB.data : resB.data.results || []);
+      const slotData: Slot[] = Array.isArray(resT.data) ? resT.data : resT.data.results || [];
+      const batchData = Array.isArray(resB.data) ? resB.data : resB.data.results || [];
+      applyLoadedSlots(slotData);
+      setBatches(batchData);
       setSubjects(Array.isArray(resS.data) ? resS.data : resS.data.results || []);
       setTeachers(Array.isArray(resTea.data) ? resTea.data : resTea.data.results || []);
       const examData: ApiExam[] = Array.isArray(resExams.data) ? resExams.data : resExams.data.results || [];
       setExams(examData.map(examFromApi));
       setLoading(false);
     }).catch(() => setLoading(false));
+  };
+
+  // ── Copy from previous year — explicit, whole-year, one click ──
+  // No batch picker: every batch in the current year is matched to its same
+  // grade+section batch in the previous year, and every session copied in.
+  // A session is only added where the target batch has nothing at that exact
+  // day/time, so clicking this more than once (or after editing/deleting
+  // some sessions) never creates duplicates or resurrects a deleted session.
+  const [copyingYear, setCopyingYear] = useState(false);
+  const copyYear = async () => {
+    setCopyingYear(true);
+    try {
+      const r = await api.post("/api/timetable/copy_year", { to_year: Number(currentAcademicYear) });
+      setAlertModal({ open: true, message: r.data?.message || "Timetable copied.", type: "success" });
+      loadData();
+    } catch {
+      setAlertModal({ open: true, message: "Couldn't copy last year's timetable.", type: "error" });
+    } finally {
+      setCopyingYear(false);
+    }
   };
 
   const reloadExams = async () => {
@@ -557,8 +606,11 @@ export default function TimetablePage() {
                       {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                   </div>
+                  <button className="btn btn-s btn-xs" style={{ marginLeft: "auto" }} onClick={copyYear} disabled={copyingYear}>
+                    {copyingYear ? "Copying…" : "⧉ Copy from previous year"}
+                  </button>
                   {(filterBatch || filterTeacher) && (
-                    <button onClick={() => { setFilterBatch(""); setFilterTeacher(""); }} style={{ background: "none", border: "none", color: "var(--rb)", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>Clear Filters</button>
+                    <button onClick={() => { setFilterBatch(""); setFilterTeacher(""); }} style={{ background: "none", border: "none", color: "var(--rb)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Clear Filters</button>
                   )}
                 </div>
 
