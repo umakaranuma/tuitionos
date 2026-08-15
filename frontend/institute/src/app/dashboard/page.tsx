@@ -10,9 +10,18 @@ type DayRate = { label: string; rate: number | null };
 type BatchAttendance = { batch: string; days: DayRate[]; overall_rate: number | null };
 type Alert = { type: string; name: string; sub: string; time: string; channel: string; delivered: boolean };
 
+const MONTHS = [
+  { value: "1", label: "January" }, { value: "2", label: "February" },
+  { value: "3", label: "March" }, { value: "4", label: "April" },
+  { value: "5", label: "May" }, { value: "6", label: "June" },
+  { value: "7", label: "July" }, { value: "8", label: "August" },
+  { value: "9", label: "September" }, { value: "10", label: "October" },
+  { value: "11", label: "November" }, { value: "12", label: "December" },
+];
+
 type Stats = {
   total_students: number; active_batches: number;
-  fees: { total: number; paid: number; pending: number; outstanding: number };
+  fees: { month: string; total: number; paid: number; pending: number; outstanding: number };
   attendance: { present_today: number; absent_today: number; date: string | null; is_today: boolean; by_batch: BatchAttendance[] };
   payroll: { month: string; teacher_count: number; paid_count: number; paid_amount: number; total_amount: number };
   recent_alerts: Alert[];
@@ -41,16 +50,18 @@ function relativeTime(iso: string) {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [year, setYear] = useState<string>(new Date().getFullYear().toString());
+  // The sidebar's "Academic year" switcher already controls which year this
+  // dashboard reflects (it reloads the page on change) — this only picks the
+  // month within that year for the fees KPI.
   const [month, setMonth] = useState<string>((new Date().getMonth() + 1).toString());
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/api/dashboard?year=${year}&month=${month}`)
+    api.get(`/api/dashboard?month=${month}`)
       .then(r => setStats(r.data))
       .catch(() => setStats(null))
       .finally(() => setLoading(false));
-  }, [year, month]);
+  }, [month]);
 
   const totalPayableCount = stats?.fees.total ?? 0;
   const paidCount = stats?.fees.paid ?? 0;
@@ -74,31 +85,13 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle="Institute Operational Overview"
         right={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ width: 110 }}>
-              <SearchSelect
-                value={year}
-                onChange={setYear}
-                searchable={false}
-                options={[
-                  { value: "all", label: "All years" },
-                  { value: "2026", label: "2026" },
-                  { value: "2025", label: "2025" },
-                  { value: "2024", label: "2024" },
-                ]}
-              />
-            </div>
-            <div style={{ width: 140 }}>
-              <SearchSelect
-                value={month}
-                onChange={setMonth}
-                disabled={year === "all"}
-                options={[
-                  { value: "all", label: "All months" },
-                  ...["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => ({ value: String(i + 1), label: m })),
-                ]}
-              />
-            </div>
+          <div style={{ width: 150 }}>
+            <SearchSelect
+              value={month}
+              onChange={setMonth}
+              searchable={false}
+              options={MONTHS}
+            />
           </div>
         }
       />
@@ -126,10 +119,10 @@ export default function DashboardPage() {
         )}
 
         {/* Every KPI below is scoped to whichever year the "Academic year"
-            switcher (top of the sidebar) is set to — not just this period
-            filter. A genuinely empty year (nothing created or copied into it
-            yet) reads as a wall of unexplained zeros, which is easy to mistake
-            for a bug. Say so plainly instead of leaving it silent. */}
+            switcher (top of the sidebar) is set to. A genuinely empty year
+            (nothing created or copied into it yet) reads as a wall of
+            unexplained zeros, which is easy to mistake for a bug. Say so
+            plainly instead of leaving it silent. */}
         {!loading && stats && stats.active_batches === 0 && (
           <div className="card" style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -160,7 +153,7 @@ export default function DashboardPage() {
           <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
             <div className="kpi-lbl">Fees Due</div>
             <div className="kpi-val">{loading ? "…" : feesDueStudentsCount}</div>
-            <div className="kpi-tr nt">Students this period</div>
+            <div className="kpi-tr nt">{stats?.fees.month || "This month"}</div>
           </div>
           <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
             <div className="kpi-lbl">{stats && !stats.attendance.is_today ? "Absent (latest)" : "Absent Today"}</div>
@@ -176,7 +169,7 @@ export default function DashboardPage() {
         <div className="g2">
           <div>
             <div className="sec-hdr">
-              <span className="sec-title">Fee collection</span>
+              <span className="sec-title">Fee collection — {stats?.fees.month || ""}</span>
               <a href="/fees"><button className="btn btn-g btn-sm">View ledger →</button></a>
             </div>
             <div className="card" style={{ marginBottom: 14 }}>
