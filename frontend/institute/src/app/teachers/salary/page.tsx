@@ -5,11 +5,12 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { SearchSelect } from "@/components/ui/SearchSelect";
 import { Pagination } from "@/components/ui/Pagination";
 import { useToast } from "@/components/ui/ToastProvider";
 
-type Payment = { id: number; teacher: number; teacher_name: string; month: string; amount: string; status: string; paid_date: string | null; method: string; payment_type: string; reference_no?: string; notes?: string };
-type Advance = { id: number; teacher: number; teacher_name: string; amount: string; request_date: string; reason: string; status: string; repaid_amount: string; method?: string };
+type Payment = { id: number; teacher: number; teacher_name: string; month: string; amount: string; status: string; paid_date: string | null; method: string; payment_type: string; reference_no?: string; notes?: string; advance_deduction?: string };
+type Advance = { id: number; teacher: number; teacher_name: string; amount: string; request_date: string; reason: string; status: string; repaid_amount: string; remaining: string; method?: string };
 type Teacher = { id: number; name: string; monthly_salary: string; is_active: boolean };
 
 const PAYMENT_METHODS = ["Cash", "Bank transfer", "Online", "Cheque", "Other"];
@@ -18,13 +19,25 @@ const PAYMENT_TYPES = [
   { value: "bonus", label: "Bonus" },
   { value: "advance", label: "Advance deduction" },
 ];
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTH_OPTS = MONTH_NAMES.map((m, i) => ({ value: String(i + 1), label: m }));
 
 const statusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = { paid: <span className="bdg b-paid">Paid</span>, pending: <span className="bdg b-due">Pending</span>, overdue: <span className="bdg b-over">Overdue</span> };
   return map[s] || <span className="bdg b-due">{s}</span>;
 };
 
+const advanceStatusBadge = (s: string) => {
+  const map: Record<string, JSX.Element> = {
+    active: <span className="bdg b-due">Outstanding</span>,
+    partial: <span className="bdg b-over">Partially repaid</span>,
+    repaid: <span className="bdg b-paid">Repaid</span>,
+  };
+  return map[s] || <span className="bdg b-due">{s}</span>;
+};
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
+const getAcademicYear = () => (typeof window !== "undefined" ? localStorage.getItem("academic_year") || String(new Date().getFullYear()) : String(new Date().getFullYear()));
 
 export default function TeacherSalaryPage() {
   const toast = useToast();
@@ -32,16 +45,21 @@ export default function TeacherSalaryPage() {
   const [advances, setAdvances] = useState<Advance[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
-  const [month, setMonth] = useState("April 2026");
+  // The sidebar's Academic year switcher is the year control — this page
+  // only picks the month within that year.
+  const [monthNum, setMonthNum] = useState(String(new Date().getMonth() + 1));
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
 
+  const academicYear = getAcademicYear();
+  const month = `${MONTH_NAMES[Number(monthNum) - 1]} ${academicYear}`;
+
   // Add-payment modal.
   const [payOpen, setPayOpen] = useState(false);
   const [payForm, setPayForm] = useState({
-    teacher: "", month, amount: "", payment_type: "salary", status: "pending",
-    method: PAYMENT_METHODS[0], reference_no: "", notes: "",
+    teacher: "", monthNum, amount: "", payment_type: "salary", status: "pending",
+    method: PAYMENT_METHODS[0], reference_no: "", notes: "", advance_deduction: "",
   });
   const [paySaving, setPaySaving] = useState(false);
 
@@ -52,7 +70,7 @@ export default function TeacherSalaryPage() {
 
   // Mark-paid modal — captures the real method/reference instead of a hardcoded default.
   const [markPayModal, setMarkPayModal] = useState<Payment | null>(null);
-  const [markForm, setMarkForm] = useState({ method: PAYMENT_METHODS[0], reference_no: "" });
+  const [markForm, setMarkForm] = useState({ method: PAYMENT_METHODS[0], reference_no: "", advance_deduction: "" });
   const [markSaving, setMarkSaving] = useState(false);
 
   const load = () => {
@@ -70,8 +88,26 @@ export default function TeacherSalaryPage() {
   };
   useEffect(load, [month, page, limit]);
 
+  // The teacher pickers in the modals below start from `teachers` (loaded
+  // above) but refetch live into their own list on open/search — kept
+  // separate from `teachers` itself so narrowing the picker's search doesn't
+  // also shrink the page's "Active Teachers" KPI behind the modal. A teacher
+  // added on another tab shows up here immediately, no full reload needed.
+  const [pickerTeachers, setPickerTeachers] = useState<Teacher[] | null>(null);
+  const fetchTeachers = (query: string = "") => {
+    api.get("/api/academics/teachers", { params: { limit: 500, ...(query ? { search: query } : {}) } })
+      .then(r => { const d = r.data; setPickerTeachers(Array.isArray(d) ? d : d.results || []); })
+      .catch(() => {});
+  };
+
+  // Outstanding advance balance per teacher — sums every active/partial
+  // advance's remaining amount, so the payment forms can offer a deduction.
+  const outstandingByTeacher = advances
+    .filter(a => a.status !== "repaid")
+    .reduce<Record<number, number>>((acc, a) => { acc[a.teacher] = (acc[a.teacher] || 0) + Number(a.remaining); return acc; }, {});
+
   const openMarkPaid = (p: Payment) => {
-    setMarkForm({ method: p.method || PAYMENT_METHODS[0], reference_no: p.reference_no || "" });
+    setMarkForm({ method: p.method || PAYMENT_METHODS[0], reference_no: p.reference_no || "", advance_deduction: p.advance_deduction && Number(p.advance_deduction) > 0 ? p.advance_deduction : "" });
     setMarkPayModal(p);
   };
 
@@ -81,6 +117,7 @@ export default function TeacherSalaryPage() {
     try {
       await api.post(`/api/academics/teacher-payments/${markPayModal.id}/mark_paid`, {
         method: markForm.method, reference_no: markForm.reference_no,
+        advance_deduction: markForm.advance_deduction || 0,
       });
       toast.success(`${markPayModal.teacher_name} marked paid.`);
       setMarkPayModal(null);
@@ -93,17 +130,22 @@ export default function TeacherSalaryPage() {
   };
 
   const openAddPayment = () => {
-    setPayForm({ teacher: "", month, amount: "", payment_type: "salary", status: "pending", method: PAYMENT_METHODS[0], reference_no: "", notes: "" });
+    setPayForm({ teacher: "", monthNum, amount: "", payment_type: "salary", status: "pending", method: PAYMENT_METHODS[0], reference_no: "", notes: "", advance_deduction: "" });
     setPayOpen(true);
   };
 
   const pickPayTeacher = (id: string) => {
-    const t = teachers.find(t => String(t.id) === id);
+    const t = (pickerTeachers ?? teachers).find(t => String(t.id) === id);
     setPayForm(f => ({ ...f, teacher: id, amount: f.amount || (t ? t.monthly_salary : f.amount) }));
   };
 
+  const payOutstanding = payForm.teacher ? (outstandingByTeacher[Number(payForm.teacher)] || 0) : 0;
+  const payNet = Math.max(0, Number(payForm.amount || 0) - Number(payForm.advance_deduction || 0));
+  const markOutstanding = markPayModal ? (outstandingByTeacher[markPayModal.teacher] || 0) : 0;
+  const markNet = markPayModal ? Math.max(0, Number(markPayModal.amount) - Number(markForm.advance_deduction || 0)) : 0;
+
   const submitPayment = async () => {
-    if (!payForm.teacher || !payForm.month || !payForm.amount) {
+    if (!payForm.teacher || !payForm.monthNum || !payForm.amount) {
       toast.error("Teacher, month, and amount are required.");
       return;
     }
@@ -111,7 +153,7 @@ export default function TeacherSalaryPage() {
     try {
       await api.post("/api/academics/teacher-payments", {
         teacher: Number(payForm.teacher),
-        month: payForm.month,
+        month: `${MONTH_NAMES[Number(payForm.monthNum) - 1]} ${academicYear}`,
         amount: payForm.amount,
         payment_type: payForm.payment_type,
         status: payForm.status,
@@ -119,6 +161,7 @@ export default function TeacherSalaryPage() {
         method: payForm.status === "paid" ? payForm.method : "",
         reference_no: payForm.reference_no,
         notes: payForm.notes,
+        advance_deduction: payForm.status === "paid" ? (payForm.advance_deduction || 0) : 0,
       });
       toast.success("Payment record added.");
       setPayOpen(false);
@@ -164,19 +207,16 @@ export default function TeacherSalaryPage() {
   const paidCount = payments.filter(p => p.status === "paid").length;
   const totalPaid = payments.filter(p => p.status === "paid").reduce((s, p) => s + Number(p.amount), 0);
   const totalPending = payments.filter(p => p.status !== "paid").reduce((s, p) => s + Number(p.amount), 0);
-  const teacherOptions = teachers.filter(t => t.is_active).map(t => ({ value: t.id, label: t.name }));
+  const totalOutstandingAdvances = Object.values(outstandingByTeacher).reduce((s, v) => s + v, 0);
+  const teacherOptions = (pickerTeachers ?? teachers).filter(t => t.is_active).map(t => ({ value: t.id, label: t.name }));
 
   return (
     <PageShell>
       <Topbar title="Teacher Salary" subtitle={month}
         right={
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div style={{ minWidth: 180 }}>
-              <SearchableSelect
-                value={month}
-                onChange={val => { setMonth(String(val)); setPage(1); }}
-                options={["April 2026", "March 2026", "February 2026", "January 2026"].map(m => ({ value: m, label: m }))}
-              />
+            <div style={{ width: 150 }}>
+              <SearchSelect value={monthNum} onChange={v => { setMonthNum(v); setPage(1); }} options={MONTH_OPTS} searchable={false} />
             </div>
             <button className="btn btn-s btn-sm" onClick={openAddAdvance}>+ Add advance</button>
             <button className="btn btn-p btn-sm" onClick={openAddPayment}>+ Add payment</button>
@@ -184,8 +224,26 @@ export default function TeacherSalaryPage() {
         } />
       <div className="pb fi">
         <div className="g4" style={{ marginBottom: 18 }}>
-          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}><div className="kpi-lbl">Total Paid</div><div className="kpi-val">{Math.round(totalPaid / 1000)}K</div><div className="kpi-tr up">{paidCount} teachers</div></div>
-          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}><div className="kpi-lbl">Pending</div><div className="kpi-val">{Math.round(totalPending / 1000)}K</div><div className="kpi-tr dn">{payments.length - paidCount} teachers</div></div>
+          <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
+            <div className="kpi-lbl">Total Paid</div>
+            <div className="kpi-val">LKR {totalPaid.toLocaleString()}</div>
+            <div className="kpi-tr up">{paidCount} teachers</div>
+          </div>
+          <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
+            <div className="kpi-lbl">Pending</div>
+            <div className="kpi-val">LKR {totalPending.toLocaleString()}</div>
+            <div className="kpi-tr dn">{payments.length - paidCount} teachers</div>
+          </div>
+          <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
+            <div className="kpi-lbl">Outstanding Advances</div>
+            <div className="kpi-val">LKR {totalOutstandingAdvances.toLocaleString()}</div>
+            <div className="kpi-tr nt">{advances.filter(a => a.status !== "repaid").length} active</div>
+          </div>
+          <div className="kpi" style={{ "--kc": "var(--jd)" } as React.CSSProperties}>
+            <div className="kpi-lbl">Active Teachers</div>
+            <div className="kpi-val">{teacherOptions.length}</div>
+            <div className="kpi-tr nt">On payroll</div>
+          </div>
         </div>
 
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
@@ -193,21 +251,27 @@ export default function TeacherSalaryPage() {
             <div className="sec-hdr"><span className="sec-title">Salary Payments — {month}</span></div>
             <div className="tw" style={{ marginBottom: 18 }}>
               <table>
-                <thead><tr><th>Teacher</th><th>Type</th><th>Amount (LKR)</th><th>Status</th><th>Method</th><th>Paid date</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Teacher</th><th>Type</th><th>Amount (LKR)</th><th>Advance deducted</th><th>Net paid</th><th>Status</th><th>Method</th><th>Paid date</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {payments.map(p => (
-                    <tr key={p.id}>
-                      <td style={{ fontWeight: 600 }}>{p.teacher_name}</td>
-                      <td style={{ color: "var(--ink3)", textTransform: "capitalize" }}>{p.payment_type}</td>
-                      <td className="mono">{Number(p.amount).toLocaleString()}</td>
-                      <td>{statusBadge(p.status)}</td>
-                      <td style={{ color: "var(--ink3)" }}>{p.method || "—"}</td>
-                      <td className="mono" style={{ color: "var(--ink3)" }}>{p.paid_date || "—"}</td>
-                      <td>{p.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => openMarkPaid(p)}>Mark paid</button>}</td>
-                    </tr>
-                  ))}
+                  {payments.map(p => {
+                    const deduction = Number(p.advance_deduction || 0);
+                    const net = Number(p.amount) - deduction;
+                    return (
+                      <tr key={p.id}>
+                        <td style={{ fontWeight: 600 }}>{p.teacher_name}</td>
+                        <td style={{ color: "var(--ink3)", textTransform: "capitalize" }}>{p.payment_type}</td>
+                        <td className="mono">{Number(p.amount).toLocaleString()}</td>
+                        <td className="mono" style={{ color: deduction > 0 ? "var(--sf)" : "var(--ink3)" }}>{deduction > 0 ? `− ${deduction.toLocaleString()}` : "—"}</td>
+                        <td className="mono" style={{ fontWeight: 700 }}>{net.toLocaleString()}</td>
+                        <td>{statusBadge(p.status)}</td>
+                        <td style={{ color: "var(--ink3)" }}>{p.method || "—"}</td>
+                        <td className="mono" style={{ color: "var(--ink3)" }}>{p.paid_date || "—"}</td>
+                        <td>{p.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => openMarkPaid(p)}>Mark paid</button>}</td>
+                      </tr>
+                    );
+                  })}
                   {payments.length === 0 && (
-                    <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
+                    <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
                       No salary records for {month}. Click <strong>+ Add payment</strong> to create one.
                     </td></tr>
                   )}
@@ -225,23 +289,24 @@ export default function TeacherSalaryPage() {
             </div>
 
             <div className="sec-hdr" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span className="sec-title">Active Advances</span>
+              <span className="sec-title">Teacher Advances</span>
             </div>
             <div className="tw">
               <table>
-                <thead><tr><th>Teacher</th><th>Amount</th><th>Reason</th><th>Status</th><th>Repaid</th></tr></thead>
+                <thead><tr><th>Teacher</th><th>Amount</th><th>Reason</th><th>Status</th><th>Repaid</th><th>Remaining</th></tr></thead>
                 <tbody>
                   {advances.map(a => (
                     <tr key={a.id}>
                       <td style={{ fontWeight: 600 }}>{a.teacher_name}</td>
                       <td className="mono">{Number(a.amount).toLocaleString()}</td>
                       <td style={{ color: "var(--ink3)" }}>{a.reason || "—"}</td>
-                      <td><span className="bdg b-trial">{a.status}</span></td>
-                      <td className="mono">{Number(a.repaid_amount).toLocaleString()}</td>
+                      <td>{advanceStatusBadge(a.status)}</td>
+                      <td className="mono" style={{ color: "var(--ink3)" }}>{Number(a.repaid_amount).toLocaleString()}</td>
+                      <td className="mono" style={{ fontWeight: 700, color: Number(a.remaining) > 0 ? "var(--sf)" : "var(--tc)" }}>{Number(a.remaining).toLocaleString()}</td>
                     </tr>
                   ))}
                   {advances.length === 0 && (
-                    <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
+                    <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
                       No advances recorded. Click <strong>+ Add advance</strong> above to record one.
                     </td></tr>
                   )}
@@ -270,12 +335,14 @@ export default function TeacherSalaryPage() {
               onChange={v => pickPayTeacher(String(v))}
               options={teacherOptions}
               placeholder="Pick a teacher…"
+              onOpen={() => fetchTeachers()}
+              onSearch={q => fetchTeachers(q)}
             />
           </div>
           <div className="field-row">
             <div className="fg">
-              <label className="flbl">Month</label>
-              <input type="text" value={payForm.month} onChange={e => setPayForm(f => ({ ...f, month: e.target.value }))} placeholder="e.g. April 2026" />
+              <label className="flbl">Month ({academicYear})</label>
+              <SearchSelect value={payForm.monthNum} onChange={v => setPayForm(f => ({ ...f, monthNum: v }))} options={MONTH_OPTS} searchable={false} />
             </div>
             <div className="fg">
               <label className="flbl">Amount (LKR)</label>
@@ -301,12 +368,26 @@ export default function TeacherSalaryPage() {
             </div>
           </div>
           {payForm.status === "paid" && (
-            <div className="fg">
-              <label className="flbl">Payment method</label>
-              <select value={payForm.method} onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}>
-                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
+            <>
+              <div className="fg">
+                <label className="flbl">Payment method</label>
+                <select value={payForm.method} onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}>
+                  {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              {payOutstanding > 0 && (
+                <div className="fg">
+                  <label className="flbl">Deduct from outstanding advance (LKR {payOutstanding.toLocaleString()} owed)</label>
+                  <input
+                    type="number" value={payForm.advance_deduction}
+                    onChange={e => setPayForm(f => ({ ...f, advance_deduction: e.target.value }))}
+                    placeholder="0"
+                    max={Math.min(payOutstanding, Number(payForm.amount || 0))}
+                  />
+                  <div className="hint">Net payable after deduction: <strong>LKR {payNet.toLocaleString()}</strong></div>
+                </div>
+              )}
+            </>
           )}
           <div>
             <label className="flbl">Reference no. (optional)</label>
@@ -337,6 +418,8 @@ export default function TeacherSalaryPage() {
               onChange={v => setAdvForm(f => ({ ...f, teacher: String(v) }))}
               options={teacherOptions}
               placeholder="Pick a teacher…"
+              onOpen={() => fetchTeachers()}
+              onSearch={q => fetchTeachers(q)}
             />
           </div>
           <div className="field-row">
@@ -387,6 +470,18 @@ export default function TeacherSalaryPage() {
               <label className="flbl">Reference no. (optional)</label>
               <input type="text" value={markForm.reference_no} onChange={e => setMarkForm(f => ({ ...f, reference_no: e.target.value }))} placeholder="Transaction ID" />
             </div>
+            {markOutstanding > 0 && (
+              <div className="fg">
+                <label className="flbl">Deduct from outstanding advance (LKR {markOutstanding.toLocaleString()} owed)</label>
+                <input
+                  type="number" value={markForm.advance_deduction}
+                  onChange={e => setMarkForm(f => ({ ...f, advance_deduction: e.target.value }))}
+                  placeholder="0"
+                  max={Math.min(markOutstanding, Number(markPayModal.amount))}
+                />
+                <div className="hint">Net payable after deduction: <strong>LKR {markNet.toLocaleString()}</strong></div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

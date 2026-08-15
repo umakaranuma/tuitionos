@@ -170,14 +170,18 @@ class TeacherPaymentSerializer(serializers.ModelSerializer):
 
 class TeacherAdvanceSerializer(serializers.ModelSerializer):
     teacher_name = serializers.CharField(source='teacher.name', read_only=True)
+    remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = TeacherAdvance
         fields = [
             'id', 'teacher', 'teacher_name', 'amount', 'request_date',
             'reason', 'status', 'disbursed_date', 'method', 'repaid_amount',
-            'created_at',
+            'remaining', 'created_at',
         ]
+
+    def get_remaining(self, obj):
+        return str(obj.amount - obj.repaid_amount)
 
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute

@@ -25,7 +25,7 @@ export default function TeachersPage() {
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Teacher | null>(null);
-  const [form, setForm] = useState({ name: "", mobile: "", email: "", subject: "", monthly_salary: "" });
+  const [form, setForm] = useState({ name: "", mobile: "", email: "", subject: "", monthly_salary: "", is_active: true });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [user, setUser] = useState<any>(null);
@@ -55,8 +55,8 @@ export default function TeachersPage() {
     } catch (e) {}
   };
 
-  const openAdd = () => { setForm({ name: "", mobile: "", email: "", subject: "", monthly_salary: "" }); setEditTarget(null); setImageFile(null); setModal("add"); };
-  const openEdit = (t: Teacher) => { setForm({ name: t.name, mobile: t.mobile, email: t.email, subject: t.subject, monthly_salary: String(t.monthly_salary) }); setEditTarget(t); setImageFile(null); setModal("edit"); };
+  const openAdd = () => { setForm({ name: "", mobile: "", email: "", subject: "", monthly_salary: "", is_active: true }); setEditTarget(null); setImageFile(null); setModal("add"); };
+  const openEdit = (t: Teacher) => { setForm({ name: t.name, mobile: t.mobile, email: t.email, subject: t.subject, monthly_salary: String(t.monthly_salary), is_active: t.is_active }); setEditTarget(t); setImageFile(null); setModal("edit"); };
   const close = () => setModal(null);
 
   const save = async () => {
@@ -77,11 +77,22 @@ export default function TeachersPage() {
     payload.append("email", form.email);
     payload.append("subject", form.subject);
     payload.append("monthly_salary", form.monthly_salary);
+    payload.append("is_active", form.is_active ? "true" : "false");
     if (imageFile) payload.append("image", imageFile);
 
     if (modal === "add") { await api.post("/api/academics/teachers", payload); }
     else if (editTarget) { await api.patch(`/api/academics/teachers/${editTarget.id}`, payload); }
     close(); load();
+  };
+
+  // Quick toggle straight from the table — no need to open the edit modal
+  // just to flip a teacher active/inactive. This is also the only way to
+  // recover a teacher that somehow ended up inactive with no UI path back,
+  // which was silently hiding them from every "active teachers" picker
+  // across payroll and advances despite the API correctly returning them.
+  const toggleActive = async (t: Teacher) => {
+    await api.patch(`/api/academics/teachers/${t.id}`, { is_active: !t.is_active });
+    load();
   };
 
   const remove = async (id: number) => { await api.delete(`/api/academics/teachers/${id}`); load(); };
@@ -115,7 +126,15 @@ export default function TeachersPage() {
                       <td style={{ color: "var(--ink3)" }}>{t.subject || "—"}</td>
                       <td className="mono">{t.mobile}</td>
                       <td className="mono">{Number(t.monthly_salary).toLocaleString()}</td>
-                      <td>{t.is_active ? <span className="dot-st dot-active">Active</span> : <span className="dot-st dot-paused">Inactive</span>}</td>
+                      <td onClick={e => e.stopPropagation()}>
+                        <button
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                          title="Click to toggle active/inactive"
+                          onClick={() => toggleActive(t)}
+                        >
+                          {t.is_active ? <span className="dot-st dot-active">Active</span> : <span className="dot-st dot-paused">Inactive</span>}
+                        </button>
+                      </td>
                       <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: "flex", gap: 4 }}>
                           <button className="btn btn-xs btn-s" onClick={() => router.push(`/teachers/${t.id}`)}>View</button>
@@ -174,6 +193,13 @@ export default function TeachersPage() {
               {errors.mobile && <div className="f-error">{errors.mobile}</div>}
             </div>
             <div className="fg"><label className="flbl">Email</label><input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>
+          </div>
+          <div>
+            <label className="flbl">Status</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" className={`btn btn-sm ${form.is_active ? "btn-ok" : "btn-s"}`} style={{ flex: 1 }} onClick={() => setForm(f => ({ ...f, is_active: true }))}>Active</button>
+              <button type="button" className={`btn btn-sm ${!form.is_active ? "btn-d" : "btn-s"}`} style={{ flex: 1 }} onClick={() => setForm(f => ({ ...f, is_active: false }))}>Inactive</button>
+            </div>
           </div>
           <div className="fg fg-full">
             <label className="flbl">Profile Image</label>

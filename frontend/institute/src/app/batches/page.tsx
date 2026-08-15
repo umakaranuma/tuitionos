@@ -24,6 +24,7 @@ export default function BatchesPage() {
   const [copyingYear, setCopyingYear] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachersBySubject, setTeachersBySubject] = useState<Record<string, Teacher[]>>({});
+  const [allTeachers, setAllTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<Batch | null>(null);
@@ -54,6 +55,18 @@ export default function BatchesPage() {
       const qs = query ? `&search=${encodeURIComponent(query)}` : "";
       const r = await api.get(`/api/academics/teachers?subject=${encodeURIComponent(subjectName)}${qs}`);
       setTeachersBySubject(prev => ({ ...prev, [subjectName]: Array.isArray(r.data) ? r.data : r.data.results || [] }));
+    } catch (e) {}
+  };
+
+  // No subject picked yet for this row — a subject match is a helpful filter,
+  // not a hard requirement, so fall back to the institute's full teacher list
+  // instead of leaving the picker empty and disabled.
+  const fetchAllTeachers = async (query: string = "") => {
+    try {
+      const qs = query ? `&search=${encodeURIComponent(query)}` : "";
+      const r = await api.get(`/api/academics/teachers?limit=500${qs}`);
+      const d = r.data;
+      setAllTeachers(Array.isArray(d) ? d : d.results || []);
     } catch (e) {}
   };
 
@@ -241,25 +254,25 @@ export default function BatchesPage() {
                     />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <SearchableSelect 
-                      value={s.teacher} 
+                    <SearchableSelect
+                      value={s.teacher}
                       onOpen={() => {
                         const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
-                        if (subjectName) fetchTeachers(subjectName);
+                        if (subjectName) fetchTeachers(subjectName); else fetchAllTeachers();
                       }}
                       onChange={val => {
                         const newSubs = [...form.subjects]; newSubs[idx].teacher = String(val); setForm({ ...form, subjects: newSubs });
                       }}
                       placeholder="Select teacher..."
-                      disabled={!s.subject}
                       onSearch={q => {
                         const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
-                        if (subjectName) fetchTeachers(subjectName, q);
+                        if (subjectName) fetchTeachers(subjectName, q); else fetchAllTeachers(q);
                       }}
-                      options={(subjects.find(sub => sub.id === Number(s.subject))?.name 
-                        ? teachersBySubject[subjects.find(sub => sub.id === Number(s.subject))!.name] || []
-                        : []
-                      ).map(t => ({ value: t.id, label: t.name }))}
+                      options={(() => {
+                        const subjectName = subjects.find(sub => sub.id === Number(s.subject))?.name;
+                        const list = subjectName ? (teachersBySubject[subjectName] || []) : allTeachers;
+                        return list.map(t => ({ value: t.id, label: t.name }));
+                      })()}
                     />
                   </div>
                   <button className="btn btn-xs btn-d" onClick={() => {

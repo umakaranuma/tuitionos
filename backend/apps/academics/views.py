@@ -185,16 +185,28 @@ class TeacherPaymentViewSet(InstituteBaseViewSet):
 
     def perform_create(self, serializer):
         from apps.billing.services import sync_salary_expense
+        from .services import sync_advance_deduction
         payment = serializer.save()
+        # Brand new record — nothing was ever applied against it before, so
+        # the "old" side of the reconciliation is empty.
+        sync_advance_deduction(payment.teacher, 'pending', 0, payment.status, payment.advance_deduction)
         sync_salary_expense(payment)
 
     def perform_update(self, serializer):
         from apps.billing.services import sync_salary_expense
+        from .services import sync_advance_deduction
+        old = self.get_object()
+        old_status, old_deduction = old.status, old.advance_deduction
         payment = serializer.save()
+        sync_advance_deduction(payment.teacher, old_status, old_deduction, payment.status, payment.advance_deduction)
         sync_salary_expense(payment)
 
     def perform_destroy(self, instance):
         from apps.billing.services import sync_salary_expense
+        from .services import sync_advance_deduction
+        # Reverse any deduction this payment had applied — deleting a paid
+        # record shouldn't leave the teacher's advance permanently short.
+        sync_advance_deduction(instance.teacher, instance.status, instance.advance_deduction, 'deleted', 0)
         # Delete first, then recompute the month's total from what's left —
         # the aggregate sync sums straight from the DB, so it must run after
         # this row is actually gone or it'd still be counted.
@@ -204,13 +216,18 @@ class TeacherPaymentViewSet(InstituteBaseViewSet):
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
         from apps.billing.services import sync_salary_expense
+        from .services import sync_advance_deduction
         payment = self.get_object()
+        old_status, old_deduction = payment.status, payment.advance_deduction
         from django.utils import timezone
         payment.status = 'paid'
         payment.paid_date = timezone.now().date()
         payment.method = request.data.get('method', 'Bank transfer')
         payment.reference_no = request.data.get('reference_no', '')
+        if 'advance_deduction' in request.data:
+            payment.advance_deduction = request.data.get('advance_deduction') or 0
         payment.save()
+        sync_advance_deduction(payment.teacher, old_status, old_deduction, payment.status, payment.advance_deduction)
         sync_salary_expense(payment)
         return Response(TeacherPaymentSerializer(payment).data)
 

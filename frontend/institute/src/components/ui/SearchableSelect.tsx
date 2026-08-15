@@ -35,8 +35,12 @@ export function SearchableSelect({ options, value, onChange, placeholder = "Sele
     if (disabled) return;
     setIsOpen(!isOpen);
     if (!isOpen) {
-      const opt = options.find(o => String(o.value) === String(value));
-      setSearch(opt ? opt.label : "");
+      // Always start the search box empty on open — pre-filling it with the
+      // currently selected option's label (the old behavior) meant the local
+      // filter immediately narrowed the list down to just that one option,
+      // making every other choice disappear the moment you reopened the
+      // picker to change a selection you'd already made.
+      setSearch("");
       if (onSearch) onSearch("");
       if (onOpen) onOpen();
     }
