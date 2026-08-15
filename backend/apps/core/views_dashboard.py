@@ -34,29 +34,81 @@ class InstituteDashboardView(APIView):
 
         year_str = request.query_params.get('year', str(today.year))
         month_str = request.query_params.get('month', str(today.month))
-        
-        fees_qs = FeePayment.objects.filter(student__institute=institute)
 
-        if year_str != 'all':
+        from datetime import date
+        from apps.students.models import StudentBatchEnrollment
+
+        month_date = None
+        if year_str != 'all' and month_str != 'all':
             try:
-                y = int(year_str)
-                fees_qs = fees_qs.filter(month__year=y)
-                if month_str != 'all':
-                    m = int(month_str)
-                    fees_qs = fees_qs.filter(month__month=m)
+                month_date = date(int(year_str), int(month_str), 1)
             except ValueError:
-                pass
-            
-        total_fees = fees_qs.count()
-        paid_fees = fees_qs.filter(status='paid').count()
-        pending_fees = fees_qs.exclude(status='paid').count()
-        outstanding = fees_qs.exclude(status='paid').aggregate(total=Sum('amount'))['total'] or 0
+                month_date = None
 
-        # "Today" is always the real calendar date — independent of whatever
-        # historical year/month the dashboard's period filter is set to.
-        today_attendance = Attendance.objects.filter(student__institute=institute, date=today)
-        present_today = today_attendance.filter(is_present=True).count()
-        absent_today = today_attendance.filter(is_present=False).count()
+        if month_date:
+            # "Fees Due" means every active, non-free student this year who
+            # hasn't paid for this specific month — including students who
+            # never even got a FeePayment row generated yet (the Fees screen
+            # only creates a row once staff act on it, so no row does not
+            # mean paid). Counting only existing unpaid rows silently ignored
+            # anyone with no row at all, which was most of the real total.
+            # Same status set as get_student_stats' "active" bucket (active +
+            # archived) — otherwise a student counted in Total Students could
+            # silently be excluded here, and the two KPIs would disagree.
+            payable_enrollments = list(StudentBatchEnrollment.objects.filter(
+                student__institute=institute, academic_year=request.academic_year,
+                status__in=['active', 'archived'], student__is_free=False,
+            ).select_related('batch').order_by('student_id'))
+            student_batch = {}
+            for e in payable_enrollments:
+                student_batch.setdefault(e.student_id, e.batch)
+            payable_student_ids = set(student_batch.keys())
+
+            month_fees = {
+                f.student_id: f for f in FeePayment.objects.filter(
+                    student__institute=institute, month=month_date, student_id__in=payable_student_ids,
+                )
+            }
+            paid_ids = {sid for sid, f in month_fees.items() if f.status == 'paid'}
+
+            total_fees = len(payable_student_ids)
+            paid_fees = len(paid_ids)
+            pending_fees = total_fees - paid_fees
+            outstanding = 0.0
+            for sid in payable_student_ids - paid_ids:
+                fee = month_fees.get(sid)
+                outstanding += float(fee.amount) if fee else float(student_batch[sid].monthly_fee)
+        else:
+            # Spanning multiple months/years — there's no single roster to
+            # check attendance-style, so report on whatever fee records
+            # actually exist in that range.
+            fees_qs = FeePayment.objects.filter(student__institute=institute)
+            if year_str != 'all':
+                try:
+                    fees_qs = fees_qs.filter(month__year=int(year_str))
+                except ValueError:
+                    pass
+            total_fees = fees_qs.count()
+            paid_fees = fees_qs.filter(status='paid').count()
+            pending_fees = fees_qs.exclude(status='paid').count()
+            outstanding = fees_qs.exclude(status='paid').aggregate(total=Sum('amount'))['total'] or 0
+
+        # Prefer literally today, but an institute doesn't necessarily take
+        # attendance every single day — if nothing's been marked yet today,
+        # fall back to the most recent date that actually has records so this
+        # doesn't read as a false "0" the moment nobody's marked today's class.
+        attendance_date = today
+        if not Attendance.objects.filter(student__institute=institute, date=today).exists():
+            attendance_date = Attendance.objects.filter(
+                student__institute=institute,
+            ).order_by('-date').values_list('date', flat=True).first()
+
+        if attendance_date:
+            day_attendance = Attendance.objects.filter(student__institute=institute, date=attendance_date)
+            present_today = day_attendance.filter(is_present=True).count()
+            absent_today = day_attendance.filter(is_present=False).count()
+        else:
+            present_today = absent_today = 0
 
         # ── Per-batch attendance, for the last few dates that actually have
         # records — real dates/rates instead of a fabricated Mon/Tue/Wed table.
@@ -123,6 +175,8 @@ class InstituteDashboardView(APIView):
             'attendance': {
                 'present_today': present_today,
                 'absent_today': absent_today,
+                'date': attendance_date.isoformat() if attendance_date else None,
+                'is_today': attendance_date == today,
                 'by_batch': attendance_by_batch,
             },
             'payroll': {

@@ -13,7 +13,7 @@ type Alert = { type: string; name: string; sub: string; time: string; channel: s
 type Stats = {
   total_students: number; active_batches: number;
   fees: { total: number; paid: number; pending: number; outstanding: number };
-  attendance: { present_today: number; absent_today: number; by_batch: BatchAttendance[] };
+  attendance: { present_today: number; absent_today: number; date: string | null; is_today: boolean; by_batch: BatchAttendance[] };
   payroll: { month: string; teacher_count: number; paid_count: number; paid_amount: number; total_amount: number };
   recent_alerts: Alert[];
   institute: { name: string; plan: string; status: string; trial_ends_at: string | null; created_at: string };
@@ -163,9 +163,13 @@ export default function DashboardPage() {
             <div className="kpi-tr nt">Students this period</div>
           </div>
           <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
-            <div className="kpi-lbl">Absent Today</div>
+            <div className="kpi-lbl">{stats && !stats.attendance.is_today ? "Absent (latest)" : "Absent Today"}</div>
             <div className="kpi-val">{loading ? "…" : stats?.attendance.absent_today ?? 0}</div>
-            <div className="kpi-tr dn">Marked today</div>
+            <div className="kpi-tr dn">
+              {stats?.attendance.date
+                ? (stats.attendance.is_today ? "Marked today" : `As of ${new Date(stats.attendance.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`)
+                : "No attendance yet"}
+            </div>
           </div>
         </div>
 
