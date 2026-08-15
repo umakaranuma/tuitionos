@@ -10,5 +10,6 @@ class FeePaymentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student', 'student_name', 'batch', 'batch_name',
             'month', 'amount', 'status', 'paid_at', 'collected_by',
+            'method', 'reference_no', 'notes',
             'created_at',
         ]

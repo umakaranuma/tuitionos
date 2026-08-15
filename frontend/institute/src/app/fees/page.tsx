@@ -4,12 +4,14 @@ import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { SearchSelect } from "@/components/ui/SearchSelect";
+import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
 type Fee = {
   id: number; student: number; batch: number; month: string;
   amount: string; status: string; paid_at: string | null; collected_by: string;
+  method?: string; reference_no?: string; notes?: string;
 };
 type Batch = { id: number; name: string; display_name?: string; grade?: string; academic_year?: number; monthly_fee: string };
 type Student = { id: number; name: string; parent_name?: string; parent_mobile?: string; is_free?: boolean };
@@ -31,6 +33,8 @@ const AV_COLORS: [string, string][] = [
   ["#fee2e2", "#b91c1c"], ["#dbeafe", "#1e40af"],
 ];
 
+const PAYMENT_METHODS = ["Cash", "Bank transfer", "Online", "Cheque", "Other"];
+
 export default function FeesPage() {
   const toast = useToast();
   const now = new Date();
@@ -42,6 +46,9 @@ export default function FeesPage() {
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
+  const [payModal, setPayModal] = useState<Student | null>(null);
+  const [payForm, setPayForm] = useState({ amount: "", method: PAYMENT_METHODS[0], reference_no: "", notes: "" });
+  const [paySaving, setPaySaving] = useState(false);
 
   const monthIso = `${selectedYear}-${selectedMonth}-01`;
 
@@ -99,23 +106,56 @@ export default function FeesPage() {
     return sum + (f ? Number(f.amount) : monthlyFee);
   }, 0);
 
-  const togglePaid = async (student: Student) => {
-    if (!selectedBatch) return;
+  const openPayModal = (student: Student) => {
     if (student.is_free) {
       toast.info?.("This student is marked free — no fee to record.");
       return;
     }
     const existing = feeByStudent[student.id];
-    const wantPaid = !(existing?.status === "paid");
+    setPayForm({
+      amount: existing ? existing.amount : String(monthlyFee),
+      method: existing?.method || PAYMENT_METHODS[0],
+      reference_no: existing?.reference_no || "",
+      notes: existing?.notes || "",
+    });
+    setPayModal(student);
+  };
+
+  const submitPayment = async () => {
+    if (!payModal || !selectedBatch) return;
+    setPaySaving(true);
+    try {
+      await api.post(`/api/fees/quick_mark`, {
+        student: payModal.id,
+        batch: Number(selectedBatch),
+        month: monthIso,
+        paid: true,
+        amount: payForm.amount || undefined,
+        method: payForm.method,
+        reference_no: payForm.reference_no,
+        notes: payForm.notes,
+      });
+      toast.success(`${payModal.name} marked paid.`);
+      setPayModal(null);
+      load();
+    } catch {
+      toast.error("Couldn't record payment.");
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
+  const unmark = async (student: Student) => {
+    if (!selectedBatch) return;
     setBusyIds(prev => new Set(prev).add(student.id));
     try {
       await api.post(`/api/fees/quick_mark`, {
         student: student.id,
         batch: Number(selectedBatch),
         month: monthIso,
-        paid: wantPaid,
+        paid: false,
       });
-      toast.success(wantPaid ? `${student.name} marked paid.` : `${student.name} reverted to pending.`);
+      toast.success(`${student.name} reverted to pending.`);
       load();
     } catch {
       toast.error("Couldn't update fee status.");
@@ -190,7 +230,7 @@ export default function FeesPage() {
               </span>
             </div>
             <span style={{ fontSize: 12, color: "var(--ink3)" }}>
-              Click <strong>Mark paid</strong> on any student to record this month's payment, or <strong>Unmark</strong> to revert.
+              Click <strong>Record payment</strong> on any student to record this month's payment, or <strong>Unmark</strong> to revert.
             </span>
           </div>
         )}
@@ -286,12 +326,12 @@ export default function FeesPage() {
                         {s.is_free ? (
                           <span style={{ fontSize: 11, color: "var(--ink3)" }}>—</span>
                         ) : paid ? (
-                          <button className="btn btn-xs btn-s" onClick={() => togglePaid(s)} disabled={busy}>
+                          <button className="btn btn-xs btn-s" onClick={() => unmark(s)} disabled={busy}>
                             {busy ? "…" : "Unmark"}
                           </button>
                         ) : (
-                          <button className="btn btn-xs btn-ok" onClick={() => togglePaid(s)} disabled={busy}>
-                            {busy ? "…" : "Mark paid"}
+                          <button className="btn btn-xs btn-ok" onClick={() => openPayModal(s)} disabled={busy}>
+                            {busy ? "…" : "Record payment"}
                           </button>
                         )}
                       </td>
@@ -303,6 +343,61 @@ export default function FeesPage() {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!payModal}
+        onClose={() => setPayModal(null)}
+        title={`Record payment — ${payModal?.name || ""}`}
+        footer={<>
+          <button className="btn btn-s btn-sm" onClick={() => setPayModal(null)} disabled={paySaving}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={submitPayment} disabled={paySaving}>
+            {paySaving ? "Saving…" : "Confirm payment"}
+          </button>
+        </>}
+      >
+        {payModal && (
+          <div className="form-gap">
+            <div style={{ fontSize: 12.5, color: "var(--ink3)", marginBottom: 2 }}>
+              {monthLabel} {selectedYear} · {batch?.grade || batch?.display_name || batch?.name}
+            </div>
+            <div className="field-row">
+              <div className="fg">
+                <label className="flbl">Amount (LKR)</label>
+                <input
+                  type="number"
+                  value={payForm.amount}
+                  onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
+                  placeholder={String(monthlyFee)}
+                />
+              </div>
+              <div className="fg">
+                <label className="flbl">Payment method</label>
+                <select value={payForm.method} onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}>
+                  {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="flbl">Reference no. (optional)</label>
+              <input
+                type="text"
+                value={payForm.reference_no}
+                onChange={e => setPayForm(f => ({ ...f, reference_no: e.target.value }))}
+                placeholder="Cheque no. / transaction ID"
+              />
+            </div>
+            <div>
+              <label className="flbl">Notes (optional)</label>
+              <input
+                type="text"
+                value={payForm.notes}
+                onChange={e => setPayForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="e.g. partial payment, discount applied"
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageShell>
   );
 }

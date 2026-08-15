@@ -88,12 +88,15 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
         """One-call upsert + status toggle keyed by student+batch+month. Lets the
         fees screen show a student list (not a fee-record list) and let staff tap
         each row to flip paid ↔ unpaid without first generating fee records.
-        Accepts `paid: true|false` to set state explicitly."""
+        Accepts `paid: true|false` to set state explicitly, plus optional
+        `amount`/`method`/`reference_no`/`notes` captured from the Record
+        Payment modal so a real payment trail (not just a status flag) is kept."""
         from apps.academics.models import Batch
         student_id = request.data.get('student')
         batch_id = request.data.get('batch')
         month = request.data.get('month')  # YYYY-MM-01
         paid = bool(request.data.get('paid'))
+        amount = request.data.get('amount')
         if not all([student_id, batch_id, month]):
             return Response({'error': 'student, batch, month are required'}, status=400)
         try:
@@ -105,14 +108,21 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
             student_id=student_id, batch=batch, month=month,
             defaults={'amount': batch.monthly_fee, 'status': 'pending'},
         )
+        if amount not in (None, ''):
+            fee.amount = amount
         if paid:
             fee.status = 'paid'
             fee.paid_at = timezone.now()
             fee.collected_by = request.user.get_full_name() or request.user.username
+            fee.method = request.data.get('method', fee.method)
+            fee.reference_no = request.data.get('reference_no', fee.reference_no)
+            fee.notes = request.data.get('notes', fee.notes)
         else:
             fee.status = 'pending'
             fee.paid_at = None
             fee.collected_by = ''
+            fee.method = ''
+            fee.reference_no = ''
         fee.save()
         return Response(FeePaymentSerializer(fee).data)
 
