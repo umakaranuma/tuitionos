@@ -67,6 +67,7 @@ class InstituteTransaction(models.Model):
     """Institute-level income/expense transactions for the Accounts page."""
     TYPE_CHOICES = [('income', 'Income'), ('expense', 'Expense')]
     CATEGORY_CHOICES = [
+        ('student_fee', 'Student Fees'),
         ('utility_bill', 'Utility Bill'),
         ('staff_salary', 'Staff Salary'),
         ('rent', 'Rent'),
@@ -84,12 +85,23 @@ class InstituteTransaction(models.Model):
     label = models.CharField(max_length=200)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField()
+    # True only on the single running-total row per institute+month+category
+    # for student_fee / staff_salary (e.g. one "Student Fees" row for August
+    # that holds the sum of every paid fee that month) — every new paid
+    # fee/salary updates that one row's amount rather than adding a new line.
+    # Lets the UI lock editing on a per-row basis, since a category like
+    # staff_salary can have both this auto-total row and manual entries.
+    is_auto_synced = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'institute_transactions'
         ordering = ['-date']
     def __str__(self): return f'{self.label} ({self.amount})'
+
+    @property
+    def is_system(self) -> bool:
+        return self.is_auto_synced or self.category == 'platform_fee'
 
 
 class InvoiceActivity(models.Model):

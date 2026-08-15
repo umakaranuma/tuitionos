@@ -9,20 +9,14 @@ import { Pagination } from "@/components/ui/Pagination";
 import { useToast } from "@/components/ui/ToastProvider";
 import { api } from "@/lib/api";
 
-type Tx = { id: number; month: string; transaction_type: string; category: string; label: string; amount: string; date: string };
+type Tx = { id: number; month: string; transaction_type: string; category: string; label: string; amount: string; date: string; is_system: boolean };
 
 const catLabels: Record<string, string> = {
-  staff_salary: "Staff Salary", utility_bill: "Utility Bill", rent: "Rent",
+  student_fee: "Student Fees", staff_salary: "Staff Salary", utility_bill: "Utility Bill", rent: "Rent",
   maintenance: "Maintenance", supplies: "Supplies", sponsorship: "Sponsorship",
   platform_fee: "Platform Fee", other_income: "Other Income", other: "Other",
 };
 
-// Categories the institute is not allowed to touch. Platform-fee rows are
-// auto-created by the admin billing flow whenever a monthly invoice is paid —
-// editing them here would desync the books from what was actually charged.
-const READ_ONLY_CATEGORIES = new Set(["platform_fee"]);
-
-const YEAR_OPTS = [{ value: "all", label: "All years" }, ...["2026", "2025", "2024"].map(y => ({ value: y, label: y }))];
 const MONTH_OPTS = [
   { value: "all", label: "All months" },
   ...["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -60,7 +54,8 @@ export default function AccountsPage() {
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
-  const [year, setYear] = useState<string>("all");
+  // The sidebar's "Academic year" switcher is the year control; this only
+  // narrows down to one month within that year.
   const [month, setMonth] = useState<string>("all");
   const [stats, setStats] = useState({ income: 0, expense: 0 });
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
@@ -68,7 +63,7 @@ export default function AccountsPage() {
 
   const load = () => {
     setLoading(true);
-    api.get(`/api/billing/transactions?page=${page}&limit=${limit}&year=${year}&month=${month}`).then(r => {
+    api.get(`/api/billing/transactions?page=${page}&limit=${limit}&month=${month}`).then(r => {
       const d = r.data;
       if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
       setTxns(Array.isArray(d) ? d : d.results || []);
@@ -76,13 +71,13 @@ export default function AccountsPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   };
-  useEffect(load, [page, limit, year, month]);
+  useEffect(load, [page, limit, month]);
 
   const openAdd = () => { setForm(emptyForm()); setEditing(null); setModal("add"); };
 
   const openEdit = (t: Tx) => {
-    if (READ_ONLY_CATEGORIES.has(t.category)) {
-      toast.info?.("Platform fee entries are managed by the platform's billing — they can't be edited here.");
+    if (t.is_system) {
+      toast.info?.("This entry is auto-generated and managed elsewhere (Fees / Teacher Salary / Billing) — it can't be edited here.");
       return;
     }
     setEditing(t);
@@ -118,8 +113,8 @@ export default function AccountsPage() {
 
   const confirmDelete = async () => {
     if (!deleting) return;
-    if (READ_ONLY_CATEGORIES.has(deleting.category)) {
-      toast.info?.("Platform fee entries can't be deleted from here.");
+    if (deleting.is_system) {
+      toast.info?.("This entry is auto-generated and managed elsewhere (Fees / Teacher Salary / Billing) — it can't be deleted here.");
       setDeleting(null);
       return;
     }
@@ -144,15 +139,11 @@ export default function AccountsPage() {
         subtitle={`${meta.total_count || txns.length} transactions`}
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <div style={{ width: 120 }}>
-              <SearchSelect value={year} onChange={v => { setYear(v); setPage(1); }} options={YEAR_OPTS} searchable={false} />
-            </div>
             <div style={{ width: 140 }}>
               <SearchSelect
                 value={month}
                 onChange={v => { setMonth(v); setPage(1); }}
                 options={MONTH_OPTS}
-                disabled={year === "all"}
               />
             </div>
             <button className="btn btn-p btn-sm" onClick={openAdd}>+ Add transaction</button>
@@ -192,7 +183,7 @@ export default function AccountsPage() {
               </thead>
               <tbody>
                 {txns.map(t => {
-                  const locked = READ_ONLY_CATEGORIES.has(t.category);
+                  const locked = t.is_system;
                   return (
                     <tr key={t.id}>
                       <td>
@@ -200,7 +191,7 @@ export default function AccountsPage() {
                           {t.label}
                           {locked && (
                             <span
-                              title="Auto-generated when you paid the platform invoice. Edit it from Settings → Billing if needed."
+                              title="Auto-generated from a paid fee, salary payment, or platform invoice — edit it from its own screen instead."
                               style={{
                                 fontSize: 9.5, fontWeight: 700, padding: "2px 7px",
                                 borderRadius: 99, background: "var(--cr-d)", color: "var(--ink3)",

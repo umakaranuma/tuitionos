@@ -25,11 +25,13 @@ class InvoiceSerializer(serializers.ModelSerializer):
 
 
 class InstituteTransactionSerializer(serializers.ModelSerializer):
+    is_system = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = InstituteTransaction
         fields = [
             'id', 'month', 'transaction_type', 'category', 'label',
-            'amount', 'date', 'created_at',
+            'amount', 'date', 'is_system', 'created_at',
         ]
 
     def create(self, validated_data):

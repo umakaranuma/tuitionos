@@ -183,8 +183,27 @@ class TeacherPaymentViewSet(InstituteBaseViewSet):
             qs = qs.filter(month=month)
         return qs
 
+    def perform_create(self, serializer):
+        from apps.billing.services import sync_salary_expense
+        payment = serializer.save()
+        sync_salary_expense(payment)
+
+    def perform_update(self, serializer):
+        from apps.billing.services import sync_salary_expense
+        payment = serializer.save()
+        sync_salary_expense(payment)
+
+    def perform_destroy(self, instance):
+        from apps.billing.services import sync_salary_expense
+        # Delete first, then recompute the month's total from what's left —
+        # the aggregate sync sums straight from the DB, so it must run after
+        # this row is actually gone or it'd still be counted.
+        instance.delete()
+        sync_salary_expense(instance)
+
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
+        from apps.billing.services import sync_salary_expense
         payment = self.get_object()
         from django.utils import timezone
         payment.status = 'paid'
@@ -192,6 +211,7 @@ class TeacherPaymentViewSet(InstituteBaseViewSet):
         payment.method = request.data.get('method', 'Bank transfer')
         payment.reference_no = request.data.get('reference_no', '')
         payment.save()
+        sync_salary_expense(payment)
         return Response(TeacherPaymentSerializer(payment).data)
 
 

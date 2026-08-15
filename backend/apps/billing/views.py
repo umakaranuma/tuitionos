@@ -1052,16 +1052,18 @@ class InstituteTransactionViewSet(viewsets.ModelViewSet):
     serializer_class = InstituteTransactionSerializer
     permission_classes = [IsAuthenticated, InstituteOnly]
 
-    SYSTEM_CATEGORIES = {'platform_fee'}
-
     def _is_system_row(self, obj) -> bool:
-        return obj.category in self.SYSTEM_CATEGORIES
+        # A row is system-managed if it's linked back to a paid FeePayment or
+        # TeacherPayment (auto-synced) or is a platform_fee row — checked
+        # per-row, not per-category, since staff_salary now has both manual
+        # entries and auto-synced ones living in the same category.
+        return obj.is_system
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         if self._is_system_row(instance):
             return Response(
-                {'error': 'Platform fee entries are managed by billing and cannot be edited here.'},
+                {'error': 'This entry is auto-generated and managed elsewhere (Fees / Teacher Salary / Billing) — edit it from there instead.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().update(request, *args, **kwargs)
@@ -1070,7 +1072,7 @@ class InstituteTransactionViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if self._is_system_row(instance):
             return Response(
-                {'error': 'Platform fee entries are managed by billing and cannot be edited here.'},
+                {'error': 'This entry is auto-generated and managed elsewhere (Fees / Teacher Salary / Billing) — edit it from there instead.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().partial_update(request, *args, **kwargs)
@@ -1079,27 +1081,25 @@ class InstituteTransactionViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if self._is_system_row(instance):
             return Response(
-                {'error': 'Platform fee entries are managed by billing and cannot be deleted here.'},
+                {'error': 'This entry is auto-generated and managed elsewhere (Fees / Teacher Salary / Billing) — remove it from there instead.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
 
     def get_queryset(self):
         qs = InstituteTransaction.objects.filter(institute=self.request.institute)
-        year_str = self.request.query_params.get('year', 'all')
         month_str = self.request.query_params.get('month', 'all')
         tx_type = self.request.query_params.get('type')
-        
-        if year_str != 'all':
+
+        # The sidebar's Academic year switcher is the single year control —
+        # only month narrows it further here.
+        qs = qs.filter(date__year=self.request.academic_year)
+        if month_str != 'all':
             try:
-                y = int(year_str)
-                qs = qs.filter(date__year=y)
-                if month_str != 'all':
-                    m = int(month_str)
-                    qs = qs.filter(date__month=m)
+                qs = qs.filter(date__month=int(month_str))
             except ValueError:
                 pass
-            
+
         if tx_type:
             qs = qs.filter(transaction_type=tx_type)
         return qs

@@ -27,24 +27,36 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(status=fee_status)
         return qs
 
+    def perform_destroy(self, instance):
+        from apps.billing.services import sync_fee_income
+        # Delete first, then recompute the month's total from what's left —
+        # the aggregate sync sums straight from the DB, so it must run after
+        # this row is actually gone or it'd still be counted.
+        instance.delete()
+        sync_fee_income(instance)
+
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
+        from apps.billing.services import sync_fee_income
         fee = self.get_object()
         fee.status = 'paid'
         fee.paid_at = timezone.now()
         fee.collected_by = request.user.get_full_name() or request.user.username
         fee.save()
+        sync_fee_income(fee)
         return Response(FeePaymentSerializer(fee).data)
 
     @action(detail=True, methods=['post'])
     def mark_unpaid(self, request, pk=None):
         """Reverse a paid record — toggling a row back to pending. Useful when a
         payment was recorded by mistake or refunded later."""
+        from apps.billing.services import sync_fee_income
         fee = self.get_object()
         fee.status = 'pending'
         fee.paid_at = None
         fee.collected_by = ''
         fee.save()
+        sync_fee_income(fee)
         return Response(FeePaymentSerializer(fee).data)
 
     @action(detail=False, methods=['patch'], url_path='upsert')
@@ -65,6 +77,7 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
         except Batch.DoesNotExist:
             return Response({'error': 'Batch not found'}, status=404)
 
+        from apps.billing.services import sync_fee_income
         defaults = {'amount': amount if amount not in (None, '') else batch.monthly_fee, 'status': 'pending'}
         fee, created = FeePayment.objects.get_or_create(
             student_id=student_id, batch=batch, month=month, defaults=defaults,
@@ -81,6 +94,7 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
                     fee.paid_at = None
                     fee.collected_by = ''
             fee.save()
+        sync_fee_income(fee)
         return Response(FeePaymentSerializer(fee).data)
 
     @action(detail=False, methods=['post'])
@@ -104,6 +118,7 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
         except Batch.DoesNotExist:
             return Response({'error': 'Batch not found'}, status=404)
 
+        from apps.billing.services import sync_fee_income
         fee, _ = FeePayment.objects.get_or_create(
             student_id=student_id, batch=batch, month=month,
             defaults={'amount': batch.monthly_fee, 'status': 'pending'},
@@ -124,6 +139,7 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
             fee.method = ''
             fee.reference_no = ''
         fee.save()
+        sync_fee_income(fee)
         return Response(FeePaymentSerializer(fee).data)
 
     @action(detail=False, methods=['post'])
