@@ -15,33 +15,35 @@ class InstituteDashboardView(APIView):
         today = timezone.now().date()
         current_month = today.replace(day=1)
 
-        from apps.students.models import Student, StudentBatchEnrollment
         from apps.academics.models import Batch
         from apps.fees.models import FeePayment
         from apps.attendance.models import Attendance
 
-        total_students = StudentBatchEnrollment.objects.filter(
-            student__institute=institute, 
-            academic_year=request.academic_year, 
-            status='active'
-        ).values('student').distinct().count()
-        active_batches = Batch.objects.filter(institute=institute, is_active=True, academic_year=request.academic_year).count()
+        # There's no user-facing way to toggle a batch's active flag, so it
+        # isn't a meaningful filter here — just count every batch that exists
+        # for the selected year.
+        active_batches = Batch.objects.filter(institute=institute, academic_year=request.academic_year).count()
+
+        # Same helper the Students page's own stats card reads from — so the
+        # two screens can never show two different counts. "Total Students"
+        # here means every student tied to this year (active + passout +
+        # inactive), not just the currently-enrolled subset.
+        from apps.students.services import get_student_stats
+        student_stats = get_student_stats(institute, request.academic_year)
+        total_students = student_stats['total']
 
         year_str = request.query_params.get('year', str(today.year))
         month_str = request.query_params.get('month', str(today.month))
         
         fees_qs = FeePayment.objects.filter(student__institute=institute)
-        attendance_qs = Attendance.objects.filter(student__institute=institute)
 
         if year_str != 'all':
             try:
                 y = int(year_str)
                 fees_qs = fees_qs.filter(month__year=y)
-                attendance_qs = attendance_qs.filter(date__year=y)
                 if month_str != 'all':
                     m = int(month_str)
                     fees_qs = fees_qs.filter(month__month=m)
-                    attendance_qs = attendance_qs.filter(date__month=m)
             except ValueError:
                 pass
             
@@ -50,9 +52,64 @@ class InstituteDashboardView(APIView):
         pending_fees = fees_qs.exclude(status='paid').count()
         outstanding = fees_qs.exclude(status='paid').aggregate(total=Sum('amount'))['total'] or 0
 
-        # Attendance
-        present_today = attendance_qs.filter(is_present=True).count()
-        absent_today = attendance_qs.filter(is_present=False).count()
+        # "Today" is always the real calendar date — independent of whatever
+        # historical year/month the dashboard's period filter is set to.
+        today_attendance = Attendance.objects.filter(student__institute=institute, date=today)
+        present_today = today_attendance.filter(is_present=True).count()
+        absent_today = today_attendance.filter(is_present=False).count()
+
+        # ── Per-batch attendance, for the last few dates that actually have
+        # records — real dates/rates instead of a fabricated Mon/Tue/Wed table.
+        batches = Batch.objects.filter(
+            institute=institute, academic_year=request.academic_year,
+        ).order_by('grade')[:4]
+        recent_dates = list(
+            Attendance.objects.filter(student__institute=institute)
+            .order_by('-date').values_list('date', flat=True).distinct()[:3]
+        )
+        recent_dates.reverse()  # oldest of the three first, so columns read left-to-right chronologically
+        attendance_by_batch = []
+        for b in batches:
+            batch_att = Attendance.objects.filter(batch=b)
+            day_cols = []
+            for d in recent_dates:
+                day_qs = batch_att.filter(date=d)
+                total = day_qs.count()
+                present = day_qs.filter(is_present=True).count()
+                day_cols.append({
+                    'label': d.strftime('%a %d'),
+                    'rate': round(present / total * 100) if total else None,
+                })
+            overall_total = batch_att.count()
+            overall_present = batch_att.filter(is_present=True).count()
+            attendance_by_batch.append({
+                'batch': b.display_name,
+                'days': day_cols,
+                'overall_rate': round(overall_present / overall_total * 100) if overall_total else None,
+            })
+
+        # ── Teacher payroll for the current calendar month ──
+        from apps.academics.models import Teacher, TeacherPayment
+        month_label = today.strftime('%B %Y')
+        active_teachers = Teacher.objects.filter(institute=institute, is_active=True)
+        teacher_count = active_teachers.count()
+        salary_obligation = active_teachers.aggregate(t=Sum('monthly_salary'))['t'] or 0
+        month_payments = TeacherPayment.objects.filter(
+            institute=institute, month=month_label, payment_type='salary',
+        )
+        payroll_paid_count = month_payments.filter(status='paid').values('teacher').distinct().count()
+        payroll_paid_amount = month_payments.filter(status='paid').aggregate(t=Sum('amount'))['t'] or 0
+
+        # ── Recent alerts actually sent (attendance/fee notifications) ──
+        from apps.notifications.models import NotificationLog
+        recent_alerts = [{
+            'type': n.notification_type,
+            'name': n.student.name if n.student else 'Unknown',
+            'sub': n.message_preview[:80],
+            'time': n.sent_at.isoformat(),
+            'channel': 'WA' if n.channel == 'whatsapp' else 'SMS',
+            'delivered': n.is_delivered,
+        } for n in NotificationLog.objects.filter(institute=institute).select_related('student').order_by('-sent_at')[:5]]
 
         return Response({
             'total_students': total_students,
@@ -66,6 +123,22 @@ class InstituteDashboardView(APIView):
             'attendance': {
                 'present_today': present_today,
                 'absent_today': absent_today,
+                'by_batch': attendance_by_batch,
+            },
+            'payroll': {
+                'month': month_label,
+                'teacher_count': teacher_count,
+                'paid_count': payroll_paid_count,
+                'paid_amount': float(payroll_paid_amount),
+                'total_amount': float(salary_obligation),
+            },
+            'recent_alerts': recent_alerts,
+            'institute': {
+                'name': institute.name,
+                'plan': institute.plan,
+                'status': institute.status,
+                'trial_ends_at': institute.trial_ends_at,
+                'created_at': institute.created_at,
             },
         })
 

@@ -17,12 +17,14 @@ const STATUS_STYLE: Record<Student["status"], { bg: string; fg: string; label: s
   inactive: { bg: "var(--rb-l)", fg: "var(--rb)", label: "Inactive" },
 };
 type Batch = { id: number; name: string; display_name?: string };
+type StudentStats = { active: number; passout: number; inactive: number; total: number };
 
 const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"]];
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  const [stats, setStats] = useState<StudentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -38,16 +40,21 @@ export default function StudentsPage() {
     return () => clearTimeout(t);
   }, [search]);
 
+  const loadStats = () => {
+    api.get("/api/students/students/stats").then(r => setStats(r.data)).catch(() => setStats(null));
+  };
+
   const load = () => {
     setLoading(true);
     Promise.all([
-      api.get(`/api/students/students?page=${page}&limit=${limit}&student_status=${studentStatus}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`).then(r => { 
-        const d = r.data; 
+      api.get(`/api/students/students?page=${page}&limit=${limit}&student_status=${studentStatus}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`).then(r => {
+        const d = r.data;
         if (d.total_count !== undefined) setMeta({ total_count: d.total_count, total_pages: d.total_pages });
-        return Array.isArray(d) ? d : d.results || []; 
+        return Array.isArray(d) ? d : d.results || [];
       }),
       api.get("/api/academics/batches").then(r => { const d = r.data; return Array.isArray(d) ? d : d.results || []; })
     ]).then(([s, b]) => { setStudents(s); setBatches(b); setLoading(false); }).catch(() => setLoading(false));
+    loadStats();
   };
   useEffect(load, [page, limit, debouncedSearch, studentStatus]);
 
@@ -71,7 +78,7 @@ export default function StudentsPage() {
     }
     try {
       await api.post("/api/students/students", form);
-      setModal(null); 
+      setModal(null);
       load();
     } catch (err: any) {
       console.error(err);
@@ -81,21 +88,48 @@ export default function StudentsPage() {
 
   return (
     <PageShell>
-      <Topbar title="Students" subtitle={`${students.length} students`}
+      <Topbar title="Students" subtitle={`${meta.total_count} ${studentStatus === "all" ? "" : studentStatus + " "}students this year`}
         right={<>
-          <select 
+          <select
             style={{ width: 160, padding: "6px 10px", borderRadius: 6, border: "1px solid var(--bdr)", background: "var(--bg)", color: "var(--ink)", outline: "none" }}
-            value={studentStatus} 
+            value={studentStatus}
             onChange={e => { setStudentStatus(e.target.value); setPage(1); }}
           >
             <option value="active">Active Students</option>
-            <option value="inactive">Passout / Inactive</option>
+            <option value="passout">Passout Students</option>
+            <option value="inactive">Inactive Students</option>
             <option value="all">All Students</option>
           </select>
           <input placeholder="Search..." style={{ width: 180 }} value={search} onChange={e => setSearch(e.target.value)} />
           <button className="btn btn-p btn-sm" onClick={() => { setForm({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true }); setModal("add"); }}>+ Add student</button>
         </>} />
       <div className="pb fi">
+        {/* Real per-status counts for this academic year — independent of
+            whichever filter/page is currently applied to the table below. */}
+        {stats && (
+          <div className="g4" style={{ marginBottom: 18 }}>
+            <div className="kpi" style={{ "--kc": "var(--tc)" } as any}>
+              <div className="kpi-lbl">Active</div>
+              <div className="kpi-val">{stats.active}</div>
+              <div className="kpi-tr nt">Enrolled this year</div>
+            </div>
+            <div className="kpi" style={{ "--kc": "var(--sp)" } as any}>
+              <div className="kpi-lbl">Passout</div>
+              <div className="kpi-val">{stats.passout}</div>
+              <div className="kpi-tr nt">Left after last year</div>
+            </div>
+            <div className="kpi" style={{ "--kc": "var(--rb)" } as any}>
+              <div className="kpi-lbl">Inactive</div>
+              <div className="kpi-val">{stats.inactive}</div>
+              <div className="kpi-tr nt">Never enrolled</div>
+            </div>
+            <div className="kpi" style={{ "--kc": "var(--sf)" } as any}>
+              <div className="kpi-lbl">Total</div>
+              <div className="kpi-val">{stats.total}</div>
+              <div className="kpi-tr nt">All students</div>
+            </div>
+          </div>
+        )}
         {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
           <div className="tw">
             <table>

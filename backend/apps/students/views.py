@@ -62,28 +62,55 @@ class StudentViewSet(viewsets.ModelViewSet):
                 extras.discard(None)
                 mapped_codes.extend([c for c in extras if c])
             legacy_ids = list(legacy_qs.filter(batch_code__in=mapped_codes).values_list('id', flat=True))
+        # Passed out right at this year's boundary (active last year, not this
+        # year) vs. never enrolled anywhere at all — computed unconditionally
+        # so both the "All Students" scoping below and the status filter
+        # further down use the exact same two buckets instead of drifting.
+        prior_year_ids = set(StudentBatchEnrollment.objects.filter(
+            academic_year=academic_year - 1,
+            status__in=['active', 'archived'],
+            student__institute=self.request.institute,
+        ).exclude(student_id__in=enrolled_ids).values_list('student_id', flat=True))
+        ever_enrolled_ids = set(StudentBatchEnrollment.objects.filter(
+            student__institute=self.request.institute,
+        ).values_list('student_id', flat=True))
+        never_enrolled_ids = set(qs.values_list('id', flat=True)) - ever_enrolled_ids
+
+        if search:
+            # An explicit search should reach the institute's whole roster —
+            # you should be able to find a student by name regardless of
+            # which year they were last active in.
+            legacy_ids = list(qs.exclude(id__in=enrolled_ids).values_list('id', flat=True))
+        elif batch_id:
+            # Legacy / unenrolled students who just have a batch_code
+            legacy_qs = qs.exclude(id__in=enrolled_ids)
+            mapped_codes = list(BatchPromotionMap.objects.filter(
+                institute=self.request.institute,
+                academic_year=academic_year,
+                batch_id=batch_id
+            ).values_list('batch_code', flat=True))
+            # Also match by the batch's own identifying strings so students
+            # whose batch_code is just the batch grade/name still show up even
+            # without an explicit promotion mapping.
+            if batch_obj:
+                extras = {batch_obj.name, batch_obj.label, batch_obj.grade, batch_obj.display_name, str(batch_obj.id)}
+                extras.discard('')
+                extras.discard(None)
+                mapped_codes.extend([c for c in extras if c])
+            legacy_ids = list(legacy_qs.filter(batch_code__in=mapped_codes).values_list('id', flat=True))
         else:
             # No batch filter and no search (the plain "All Students" list) —
             # only show students actually relevant to this year: those who
-            # passed out right at this year's boundary (active last year,
-            # not this year), plus students never enrolled anywhere at all.
-            # Anyone who left more than a year ago simply isn't part of this
-            # year's roster and shouldn't clutter the list forever.
-            prior_year_ids = set(StudentBatchEnrollment.objects.filter(
-                academic_year=academic_year - 1,
-                status__in=['active', 'archived'],
-                student__institute=self.request.institute,
-            ).exclude(student_id__in=enrolled_ids).values_list('student_id', flat=True))
-            ever_enrolled_ids = set(StudentBatchEnrollment.objects.filter(
-                student__institute=self.request.institute,
-            ).values_list('student_id', flat=True))
-            never_enrolled_ids = set(qs.values_list('id', flat=True)) - ever_enrolled_ids
+            # passed out right at this year's boundary, plus students never
+            # enrolled anywhere at all. Anyone who left more than a year ago
+            # simply isn't part of this year's roster and shouldn't clutter
+            # the list forever.
             legacy_ids = list(prior_year_ids | never_enrolled_ids)
 
         # Combine both valid lists
         valid_student_ids = set(enrolled_ids + legacy_ids)
         qs = qs.filter(id__in=valid_student_ids)
-            
+
         from django.db.models import OuterRef, Subquery, Case, When, Value, BooleanField, Exists
         current_enrollment_batch = StudentBatchEnrollment.objects.filter(
             student=OuterRef('pk'),
@@ -107,21 +134,34 @@ class StudentViewSet(viewsets.ModelViewSet):
             ),
             has_past_enrollment=Exists(past_enrollment),
         )
-            
+
         if search:
             qs = qs.filter(name__icontains=search)
 
+        # active / passout / inactive are now three distinct, mutually
+        # exclusive filters (previously "inactive" silently lumped passout
+        # students in with never-enrolled ones).
         student_status = self.request.query_params.get('student_status')
         if student_status == 'active':
             qs = qs.filter(id__in=enrolled_ids)
+        elif student_status == 'passout':
+            qs = qs.filter(id__in=prior_year_ids)
         elif student_status == 'inactive':
-            qs = qs.exclude(id__in=enrolled_ids)
-            
+            qs = qs.filter(id__in=never_enrolled_ids)
+
         batch_code_param = self.request.query_params.get('batch_code')
         if batch_code_param:
             qs = qs.filter(batch_code=batch_code_param)
-            
+
         return qs.order_by('name')
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Active / passout / inactive counts for the selected academic year —
+        the same numbers the Dashboard shows (both read from the same shared
+        helper), so the two screens can never disagree."""
+        from .services import get_student_stats
+        return Response(get_student_stats(request.institute, getattr(request, 'academic_year', 2026)))
 
     def create(self, request, *args, **kwargs):
         from apps.core.plan_config import check_limit_access
@@ -142,6 +182,7 @@ class StudentViewSet(viewsets.ModelViewSet):
         response = super().create(request, *args, **kwargs)
         if response.status_code == status.HTTP_201_CREATED:
             from apps.promotion.models import BatchPromotionMap
+            from apps.academics.models import Batch
             student = Student.objects.get(id=response.data['id'])
             batch_code = student.batch_code
             academic_year = getattr(request, 'academic_year', 2026)
@@ -158,16 +199,34 @@ class StudentViewSet(viewsets.ModelViewSet):
                 if mapping:
                     batch_id = mapping.batch_id
                     
+            batch_obj = None
             if batch_id:
-                # The frontend might pass the batch name (e.g. "Grade 7") instead of the integer ID
+                # The frontend might pass the batch name (e.g. "Grade 7 · Batch A")
+                # instead of the integer ID. Same name can legitimately exist in
+                # multiple years now that batches carry forward year to year
+                # ("Copy from previous year"), so a name-only lookup must also be
+                # scoped to this academic year — otherwise it silently resolves
+                # to whichever year's batch happens to have the lowest id.
                 try:
                     batch_id = int(batch_id)
+                    batch_obj = Batch.objects.filter(id=batch_id, institute=request.institute).first()
                 except ValueError:
-                    from apps.academics.models import Batch
-                    batch_obj = Batch.objects.filter(name=batch_id, institute=request.institute).first()
+                    batch_obj = Batch.objects.filter(
+                        name=batch_id, institute=request.institute, academic_year=academic_year,
+                    ).first()
                     batch_id = batch_obj.id if batch_obj else None
-                    
+
             if batch_id:
+                # `batch_code` stayed at the model default ('DEFAULT') until now
+                # since the create payload only carries `batch`, not
+                # `batch_code` — stamp it with the real batch's name (the same
+                # convention bulk_enroll uses) so this student's cohort is
+                # actually identifiable later (promotion, QR grouping, etc.)
+                # instead of sharing the generic 'DEFAULT' bucket with everyone.
+                if batch_code == 'DEFAULT' and batch_obj:
+                    batch_code = batch_obj.name
+                    student.batch_code = batch_code
+                    student.save(update_fields=['batch_code'])
                 StudentBatchEnrollment.objects.get_or_create(
                     student=student,
                     batch_id=batch_id,
@@ -190,7 +249,14 @@ class StudentViewSet(viewsets.ModelViewSet):
                 batch_id = int(batch_id)
             except ValueError:
                 from apps.academics.models import Batch
-                batch_obj = Batch.objects.filter(name=batch_id, institute=request.institute).first()
+                # Scoped to this enrollment's academic year — the same batch
+                # name can legitimately exist in multiple years now that
+                # batches carry forward year to year ("Copy from previous
+                # year"), so an unscoped lookup could silently resolve to the
+                # wrong year's batch.
+                batch_obj = Batch.objects.filter(
+                    name=batch_id, institute=request.institute, academic_year=academic_year,
+                ).first()
                 if not batch_obj:
                     return Response({"error": "Batch not found"}, status=status.HTTP_400_BAD_REQUEST)
                 batch_id = batch_obj.id
