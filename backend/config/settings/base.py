@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'storages',
     'django_celery_beat',
     'apps.core',
     'apps.institutes',
@@ -32,6 +33,10 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    # Serves STATIC_ROOT directly from the app process — no separate static
+    # file server needed on a single-dyno host like Railway. Must sit right
+    # after SecurityMiddleware per WhiteNoise's own setup docs.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'apps.core.middleware.TenantMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
