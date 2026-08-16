@@ -38,6 +38,15 @@ const sections: { title: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        label: "QR scanner", href: "/scan",
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <path d="M1.5 5V2.5A1 1 0 012.5 1.5H5M11 1.5h2.5a1 1 0 011 1V5M14.5 11v2.5a1 1 0 01-1 1H11M5 14.5H2.5a1 1 0 01-1-1V11"/>
+            <rect x="5" y="5" width="6" height="6" rx="0.8"/>
+          </svg>
+        ),
+      },
     ],
   },
   {
