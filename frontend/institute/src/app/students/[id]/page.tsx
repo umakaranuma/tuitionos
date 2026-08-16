@@ -105,7 +105,13 @@ export default function StudentDetailPage() {
     ? Math.round((allMarks.reduce((s, m) => s + (Number(m.marks) / m.max_marks) * 100, 0) / allMarks.length) * 10) / 10
     : null;
 
-  const activeBatches = enrollments.filter(en => en.status === "active");
+  // "archived" still counts as genuinely enrolled here — matches the
+  // backend's own is_active_for_year computation (status__in=['active',
+  // 'archived']) in apps/students/views.py. Only "deactivated" means the
+  // student actually left the batch. Filtering on "active" alone wrongly
+  // blocked marking attendance for students the rest of the app still
+  // considers enrolled.
+  const activeBatches = enrollments.filter(en => en.status === "active" || en.status === "archived");
 
   // Slots by day
   const slotsByDay: Record<string, Slot[]> = {};
