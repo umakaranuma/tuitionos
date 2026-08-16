@@ -10,6 +10,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
 import { useToast } from "@/components/ui/ToastProvider";
 import { Avatar } from "@/components/ui/Avatar";
+import { CroppableImageInput } from "@/components/ui/CroppableImageInput";
 import { getStoredUser } from "@/lib/auth";
 
 type Student = { id: number; name: string; initials: string; image?: string | null; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; status: "active" | "passout" | "inactive"; join_date: string };
@@ -36,7 +37,8 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
-  const [modal, setModal] = useState<"add" | null>(null);
+  const [modal, setModal] = useState<"add" | "edit" | null>(null);
+  const [editTarget, setEditTarget] = useState<Student | null>(null);
   const [form, setForm] = useState({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -74,6 +76,20 @@ export default function StudentsPage() {
 
   const filtered = students;
 
+  const openAdd = () => {
+    setEditTarget(null);
+    setForm({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true });
+    setImageFile(null);
+    setModal("add");
+  };
+
+  const openEdit = (s: Student) => {
+    setEditTarget(s);
+    setForm({ name: s.name, parent_name: s.parent_name || "", parent_mobile: s.parent_mobile || "", batch: s.batch, has_whatsapp: s.has_whatsapp });
+    setImageFile(null);
+    setModal("edit");
+  };
+
   const save = async () => {
     if (!form.name.trim()) {
       toast.error("Student name is required.");
@@ -91,14 +107,20 @@ export default function StudentsPage() {
       payload.append("batch", form.batch);
       payload.append("has_whatsapp", form.has_whatsapp ? "true" : "false");
       if (imageFile) payload.append("image", imageFile);
-      await api.post("/api/students/students", payload);
-      toast.success("Student added.");
+      if (modal === "edit" && editTarget) {
+        await api.patch(`/api/students/students/${editTarget.id}`, payload);
+        toast.success("Student updated.");
+      } else {
+        await api.post("/api/students/students", payload);
+        toast.success("Student added.");
+      }
       setModal(null);
+      setEditTarget(null);
       setImageFile(null);
       load();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.response?.data ? JSON.stringify(err.response.data) : "Failed to create student.");
+      toast.error(err.response?.data ? JSON.stringify(err.response.data) : "Failed to save student.");
     }
   };
 
@@ -117,7 +139,7 @@ export default function StudentsPage() {
             <option value="all">All Students</option>
           </select>
           <input placeholder="Search..." style={{ width: 180 }} value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-p btn-sm" onClick={() => { setForm({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true }); setImageFile(null); setModal("add"); }}>+ Add student</button>
+          <button className="btn btn-p btn-sm" onClick={openAdd}>+ Add student</button>
         </>} />
       <div className="pb fi">
         {/* Real per-status counts for this academic year — independent of
@@ -161,7 +183,12 @@ export default function StudentsPage() {
                       <td><span className="bdg" style={{ background: st.bg, color: st.fg }}>{st.label}</span></td>
                       <td>{s.parent_name || "—"}</td>
                       <td className="mono">{s.parent_mobile}{s.has_whatsapp && " (WA)"}</td>
-                      <td><Link href={`/students/${s.id}`}><button className="btn btn-xs btn-s">View</button></Link></td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <Link href={`/students/${s.id}`}><button className="btn btn-xs btn-s">View</button></Link>
+                          <button className="btn btn-xs btn-s" onClick={() => openEdit(s)}>Edit</button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -181,8 +208,8 @@ export default function StudentsPage() {
         )}
       </div>
 
-      <Modal open={modal !== null} onClose={() => setModal(null)} title="Add student"
-        footer={<><button className="btn btn-s btn-sm" onClick={() => setModal(null)}>Cancel</button><button className="btn btn-p btn-sm" onClick={save}>Create</button></>}>
+      <Modal open={modal !== null} onClose={() => { setModal(null); setEditTarget(null); }} title={modal === "edit" ? `Edit — ${editTarget?.name}` : "Add student"}
+        footer={<><button className="btn btn-s btn-sm" onClick={() => { setModal(null); setEditTarget(null); }}>Cancel</button><button className="btn btn-p btn-sm" onClick={save}>{modal === "edit" ? "Save changes" : "Create"}</button></>}>
         <div className="form-gap">
           <div><label className="flbl freq">Student name</label><input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus /></div>
           <div className="field-row">
@@ -202,19 +229,12 @@ export default function StudentsPage() {
           <div className="fg fg-full">
             <label className="flbl">Photo</label>
             {user?.institute?.plan === "institute_pro" ? (
-              <div style={{
-                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px",
-                textAlign: "center", background: "var(--cr)", cursor: "pointer",
-                transition: "all 0.2s"
-              }}>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={e => setImageFile(e.target.files?.[0] || null)}
-                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }}
-                />
-                {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
-              </div>
+              <CroppableImageInput
+                value={editTarget?.image}
+                name={form.name}
+                onChange={setImageFile}
+                hint="Click to upload a student photo"
+              />
             ) : (
               <div style={{ padding: 16, background: "var(--w)", border: "1px solid var(--ln)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ background: "var(--tc)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>PRO</div>

@@ -5,6 +5,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { Toast } from "@/components/ui/Toast";
+import { CroppableImageInput } from "@/components/ui/CroppableImageInput";
 import { api } from "@/lib/api";
 import { PLAN_DEFINITIONS, PLAN_FEATURES, PLAN_LIMITS } from "@/lib/planConfig";
 
@@ -55,16 +56,12 @@ export default function SettingsPage() {
     loadActivity();
   }, []);
 
-  const onInstLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  const onInstLogoCropped = (f: File) => {
     setInstLogoFile(f);
     setInstLogoPreview(URL.createObjectURL(f));
   };
 
-  const onAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  const onAvatarCropped = (f: File) => {
     setAvatarFile(f);
     setAvatarPreview(URL.createObjectURL(f));
   };
@@ -154,15 +151,11 @@ export default function SettingsPage() {
                   <div className="sb-settings-t">Institute Profile</div>
                   <div className="sb-settings-d">Your institute details</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                    <label style={{ cursor: "pointer", position: "relative", flexShrink: 0 }}>
-                      <div style={{ width: 56, height: 56, borderRadius: 12, overflow: "hidden", background: "var(--tc-l)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--ln)" }}>
-                        {instLogoPreview
-                          ? <img src={instLogoPreview} alt="Institute logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <span style={{ fontSize: 20, fontWeight: 800, color: "var(--tc-d)" }}>{(instName || "I")[0].toUpperCase()}</span>}
-                      </div>
-                      <input type="file" accept="image/*" onChange={onInstLogoChange} style={{ display: "none" }} />
-                      <div style={{ position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: "50%", background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✎</div>
-                    </label>
+                    <CroppableImageInput
+                      variant="circle" round={false} size={56}
+                      value={instLogoPreview} name={instName || "Institute"}
+                      onChange={onInstLogoCropped}
+                    />
                     <div style={{ flex: 1 }}>
                       <label className="flbl">Institute name</label>
                       <input value={instName} onChange={e => setInstName(e.target.value)} />
@@ -191,15 +184,11 @@ export default function SettingsPage() {
                   <div className="sb-settings-t">Account</div>
                   <div className="sb-settings-d">Your profile</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                    <label style={{ cursor: "pointer", position: "relative", flexShrink: 0 }}>
-                      <div style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", background: "var(--tc-l)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--ln)" }}>
-                        {avatarPreview
-                          ? <img src={avatarPreview} alt="Your avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <span style={{ fontSize: 20, fontWeight: 800, color: "var(--tc-d)" }}>{(firstName || user.username || "U")[0].toUpperCase()}</span>}
-                      </div>
-                      <input type="file" accept="image/*" onChange={onAvatarChange} style={{ display: "none" }} />
-                      <div style={{ position: "absolute", bottom: -4, right: -4, width: 20, height: 20, borderRadius: "50%", background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>✎</div>
-                    </label>
+                    <CroppableImageInput
+                      variant="circle" round={true} size={56}
+                      value={avatarPreview} name={firstName || user.username || "User"}
+                      onChange={onAvatarCropped}
+                    />
                     <div style={{ flex: 1, display: "flex", gap: 8 }}>
                       <div style={{ flex: 1 }}>
                         <label className="flbl">First name</label>

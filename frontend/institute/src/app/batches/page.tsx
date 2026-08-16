@@ -7,11 +7,12 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
 import { useToast } from "@/components/ui/ToastProvider";
+import { CroppableImageInput } from "@/components/ui/CroppableImageInput";
 
 type BatchSubject = { id?: number; subject: number; subject_name?: string; teacher: number | null; teacher_name?: string | null };
 type Batch = {
   id: number; grade: string; section: string; display_name: string;
-  name: string; label: string;
+  name: string; label: string; image?: string | null;
   subjects: BatchSubject[]; academic_year: number; monthly_fee: string;
   color: string; color_light: string; student_count: number; is_active: boolean;
 };
@@ -289,19 +290,12 @@ export default function BatchesPage() {
           <div className="fg fg-full">
             <label className="flbl">Cover Image</label>
             {user?.institute?.plan === "institute_pro" ? (
-              <div style={{ 
-                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px", 
-                textAlign: "center", background: "var(--cr)", cursor: "pointer", 
-                transition: "all 0.2s" 
-              }}>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={e => setImageFile(e.target.files?.[0] || null)} 
-                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }} 
-                />
-                {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
-              </div>
+              <CroppableImageInput
+                value={editTarget?.image}
+                name={form.grade || "Batch"}
+                onChange={setImageFile}
+                hint="Click to upload a cover image"
+              />
             ) : (
               <div style={{ padding: 16, background: "var(--w)", border: "1px solid var(--ln)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ background: "var(--tc)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>PRO</div>

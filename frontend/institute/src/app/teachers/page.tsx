@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
 import { Avatar } from "@/components/ui/Avatar";
+import { CroppableImageInput } from "@/components/ui/CroppableImageInput";
 
 type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; image?: string | null; monthly_salary: string; is_active: boolean };
 type Subject = { id: number; name: string };
@@ -204,22 +205,12 @@ export default function TeachersPage() {
           <div className="fg fg-full">
             <label className="flbl">Profile Image</label>
             {user?.institute?.plan === "institute_pro" ? (
-              <div style={{
-                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px",
-                textAlign: "center", background: "var(--cr)", cursor: "pointer",
-                transition: "all 0.2s"
-              }}>
-                {!imageFile && editTarget?.image && (
-                  <img src={editTarget.image} alt={editTarget.name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", marginBottom: 10 }} />
-                )}
-                <input
-                  type="file" 
-                  accept="image/*" 
-                  onChange={e => setImageFile(e.target.files?.[0] || null)} 
-                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }} 
-                />
-                {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
-              </div>
+              <CroppableImageInput
+                value={editTarget?.image}
+                name={form.name}
+                onChange={setImageFile}
+                hint="Click to upload a profile photo"
+              />
             ) : (
               <div style={{ padding: 16, background: "var(--w)", border: "1px solid var(--ln)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ background: "var(--tc)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>PRO</div>
