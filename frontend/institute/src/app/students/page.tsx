@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type Student = { id: number; name: string; initials: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; status: "active" | "passout" | "inactive"; join_date: string };
 
@@ -22,6 +23,7 @@ type StudentStats = { active: number; passout: number; inactive: number; total: 
 const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"]];
 
 export default function StudentsPage() {
+  const toast = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [stats, setStats] = useState<StudentStats | null>(null);
@@ -69,20 +71,21 @@ export default function StudentsPage() {
 
   const save = async () => {
     if (!form.name.trim()) {
-      alert("Student name is required");
+      toast.error("Student name is required.");
       return;
     }
     if (!form.batch.trim()) {
-      alert("Batch is required");
+      toast.error("Batch is required.");
       return;
     }
     try {
       await api.post("/api/students/students", form);
+      toast.success("Student added.");
       setModal(null);
       load();
     } catch (err: any) {
       console.error(err);
-      alert(err.response?.data ? JSON.stringify(err.response.data) : "Failed to create student");
+      toast.error(err.response?.data ? JSON.stringify(err.response.data) : "Failed to create student.");
     }
   };
 

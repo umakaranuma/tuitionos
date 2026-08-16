@@ -31,6 +31,7 @@ class AttendanceViewSet(InstituteBaseViewSet):
         records = request.data.get('records', [])
 
         created = 0
+        present_count = 0
         for rec in records:
             obj, was_created = Attendance.objects.update_or_create(
                 student_id=rec['student'], batch_id=batch_id, subject_id=subject_id, date=date_val,
@@ -38,6 +39,22 @@ class AttendanceViewSet(InstituteBaseViewSet):
             )
             if was_created:
                 created += 1
+            if rec['is_present']:
+                present_count += 1
+
+        if records:
+            # One summary entry for the whole batch/date, not one per
+            # student — marking attendance for 30 students shouldn't produce
+            # 30 lines in the feed.
+            from apps.core.models import log_activity
+            from apps.academics.models import Batch
+            batch = Batch.objects.filter(id=batch_id).first()
+            batch_label = batch.display_name if batch else f"batch {batch_id}"
+            log_activity(
+                request.institute, request.user, 'attendance_marked',
+                f"{self._actor_name()} marked attendance for {batch_label} on {date_val} "
+                f"({present_count}/{len(records)} present)",
+            )
 
         return Response({'message': f'{len(records)} records processed, {created} created'})
 

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 from .models import (
     Subject, Teacher, Batch, BatchSubject, BatchTeacherConfig,
@@ -181,7 +182,10 @@ class TeacherAdvanceSerializer(serializers.ModelSerializer):
         ]
 
     def get_remaining(self, obj):
-        return str(obj.amount - obj.repaid_amount)
+        # Never show a negative balance — an edit that drops `amount` below
+        # what's already been repaid must not make it look like the teacher
+        # is owed money back.
+        return str(max(obj.amount - obj.repaid_amount, Decimal('0')))
 
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute

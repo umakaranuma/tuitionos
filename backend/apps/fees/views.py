@@ -27,23 +27,37 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
             qs = qs.filter(status=fee_status)
         return qs
 
+    def _actor_name(self, request):
+        return request.user.get_full_name() or request.user.username
+
     def perform_destroy(self, instance):
         from apps.billing.services import sync_fee_income
+        from apps.core.models import log_activity
+        student_name, month = instance.student.name, instance.month
         # Delete first, then recompute the month's total from what's left —
         # the aggregate sync sums straight from the DB, so it must run after
         # this row is actually gone or it'd still be counted.
         instance.delete()
         sync_fee_income(instance)
+        log_activity(
+            self.request.institute, self.request.user, 'fee_deleted',
+            f"{self._actor_name(self.request)} deleted a fee record for {student_name} ({month})",
+        )
 
     @action(detail=True, methods=['post'])
     def mark_paid(self, request, pk=None):
         from apps.billing.services import sync_fee_income
+        from apps.core.models import log_activity
         fee = self.get_object()
         fee.status = 'paid'
         fee.paid_at = timezone.now()
         fee.collected_by = request.user.get_full_name() or request.user.username
         fee.save()
         sync_fee_income(fee)
+        log_activity(
+            request.institute, request.user, 'fee_marked_paid',
+            f"{self._actor_name(request)} collected LKR {fee.amount} fee from {fee.student.name} ({fee.month})",
+        )
         return Response(FeePaymentSerializer(fee).data)
 
     @action(detail=True, methods=['post'])
@@ -140,6 +154,12 @@ class FeePaymentViewSet(viewsets.ModelViewSet):
             fee.reference_no = ''
         fee.save()
         sync_fee_income(fee)
+        if paid:
+            from apps.core.models import log_activity
+            log_activity(
+                request.institute, request.user, 'fee_marked_paid',
+                f"{self._actor_name(request)} collected LKR {fee.amount} fee from {fee.student.name} ({fee.month})",
+            )
         return Response(FeePaymentSerializer(fee).data)
 
     @action(detail=False, methods=['post'])

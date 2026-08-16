@@ -176,6 +176,15 @@ const sections: { title: string; items: NavItem[] }[] = [
           </svg>
         ),
       },
+      {
+        label: "Activity log", href: "/activity",
+        icon: (
+          <svg fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.6">
+            <circle cx="8" cy="8" r="6.5"/>
+            <path d="M8 4.5V8l2.5 1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        ),
+      },
     ],
   },
 ];
@@ -195,6 +204,17 @@ export function Sidebar() {
   const planKey = user?.institute?.plan || "institute";
   const planDef = PLAN_DEFINITIONS[planKey];
   const isRestricted = (item: NavItem) => !!item.premium && planKey !== "institute_pro";
+
+  // A plain prefix match (pathname.startsWith(item.href)) wrongly lit up
+  // "Teachers" whenever "Teacher salary" (/teachers/salary) was open, since
+  // that path also starts with "/teachers/" — even though it's a distinct
+  // sibling page, not a sub-page of Teachers. Only the single item whose
+  // href is the longest (most specific) match for the current path should
+  // ever be marked active.
+  const allItems = sections.flatMap(s => s.items);
+  const activeHref = allItems
+    .filter(item => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   const initials = (n?: string) =>
     (n || "User").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
@@ -222,7 +242,7 @@ export function Sidebar() {
           <div key={section.title}>
             <div className="sb-sec">{section.title}</div>
             {section.items.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = item.href === activeHref;
               const locked = isRestricted(item);
               return (
                 <Link

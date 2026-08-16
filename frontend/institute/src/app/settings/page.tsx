@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
@@ -304,8 +305,13 @@ export default function SettingsPage() {
 
             <div style={{ marginTop: 24 }}>
               <div className="sb-settings" style={{ padding: 24 }}>
-                <div className="sb-settings-t" style={{ fontSize: 18, marginBottom: 4 }}>Activity Log</div>
-                <div className="sb-settings-d" style={{ marginBottom: 16 }}>Recent changes to your institute and account — who did what, and when</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div className="sb-settings-t" style={{ fontSize: 18, marginBottom: 4 }}>Activity Log</div>
+                    <div className="sb-settings-d" style={{ marginBottom: 16 }}>Recent changes to your institute and account — who did what, and when</div>
+                  </div>
+                  <Link href="/activity" className="btn btn-s btn-sm" style={{ flexShrink: 0 }}>View all</Link>
+                </div>
                 {activityLoading ? (
                   <div style={{ textAlign: "center", padding: 24, color: "var(--ink3)" }}>Loading...</div>
                 ) : activity.length === 0 ? (

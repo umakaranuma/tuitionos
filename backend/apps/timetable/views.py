@@ -35,8 +35,35 @@ class TimetableSlotViewSet(InstituteBaseViewSet):
             qs = qs.filter(batch_id__in=list(batch_ids))
         return qs
 
+    def _slot_desc(self, slot):
+        day = dict(TimetableSlot.DAY_CHOICES).get(slot.day_of_week, slot.day_of_week)
+        subject = slot.subject.name if slot.subject else "a free period"
+        return f"{subject} for {slot.batch.display_name} on {day} {slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}"
+
     def perform_create(self, serializer):
-        serializer.save()
+        from apps.core.models import log_activity
+        slot = serializer.save()
+        log_activity(
+            self.request.institute, self.request.user, 'timetable_slot_added',
+            f"{self._actor_name()} added a timetable slot — {self._slot_desc(slot)}",
+        )
+
+    def perform_update(self, serializer):
+        from apps.core.models import log_activity
+        slot = serializer.save()
+        log_activity(
+            self.request.institute, self.request.user, 'timetable_slot_updated',
+            f"{self._actor_name()} updated a timetable slot — {self._slot_desc(slot)}",
+        )
+
+    def perform_destroy(self, instance):
+        from apps.core.models import log_activity
+        desc = self._slot_desc(instance)
+        instance.delete()
+        log_activity(
+            self.request.institute, self.request.user, 'timetable_slot_deleted',
+            f"{self._actor_name()} deleted a timetable slot — {desc}",
+        )
 
     @action(detail=False, methods=['post'])
     def copy_year(self, request):
@@ -88,6 +115,15 @@ class TimetableSlotViewSet(InstituteBaseViewSet):
                 TimetableSlot.objects.bulk_create(created)
                 total_created += len(created)
                 batches_seeded += 1
+
+        if total_created:
+            from apps.core.models import log_activity
+            log_activity(
+                request.institute, request.user, 'timetable_slot_added',
+                f"{self._actor_name()} copied {total_created} timetable session"
+                f"{'s' if total_created != 1 else ''} from {from_year} across {batches_seeded} batch"
+                f"{'es' if batches_seeded != 1 else ''}",
+            )
 
         return Response({
             'message': f'Copied {total_created} session{"s" if total_created != 1 else ""} across {batches_seeded} batch{"es" if batches_seeded != 1 else ""}.',

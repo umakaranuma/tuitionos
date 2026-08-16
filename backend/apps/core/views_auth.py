@@ -308,7 +308,9 @@ class UpdateInstituteProfileView(APIView):
         })
 
 class InstituteActivityLogView(APIView):
-    """Recent audit trail for the current institute — who changed what."""
+    """Audit trail for the current institute — who changed what, when.
+    Unpaginated (last 50) by default for the Settings-page teaser; pass
+    `?page=` to paginate through full history for the dedicated Activity page."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -318,18 +320,42 @@ class InstituteActivityLogView(APIView):
         except Exception:
             return Response({"error": "Institute not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        from apps.core.models import ActivityLog
-        logs = ActivityLog.objects.filter(institute=institute).select_related('user').order_by('-created_at')[:50]
-        return Response([
-            {
-                "id": log.id,
-                "action": log.action,
-                "description": log.description,
-                "user": (log.user.get_full_name() or log.user.username) if log.user else "System",
-                "created_at": log.created_at,
-            }
-            for log in logs
-        ])
+        from django.db.models import Q
+        from apps.core.models import ActivityLog, ACTIVITY_CATEGORIES
+        from apps.core.pagination import StandardPagination
+        logs = ActivityLog.objects.filter(institute=institute).select_related('user').order_by('-created_at')
+
+        category = request.query_params.get('category')
+        if category in ACTIVITY_CATEGORIES:
+            logs = logs.filter(action__in=ACTIVITY_CATEGORIES[category])
+
+        search = request.query_params.get('search')
+        if search:
+            logs = logs.filter(
+                Q(description__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+                | Q(user__username__icontains=search)
+            )
+
+        def serialize(qs):
+            return [
+                {
+                    "id": log.id,
+                    "action": log.action,
+                    "description": log.description,
+                    "user": (log.user.get_full_name() or log.user.username) if log.user else "System",
+                    "created_at": log.created_at,
+                }
+                for log in qs
+            ]
+
+        if request.query_params.get('page'):
+            paginator = StandardPagination()
+            page = paginator.paginate_queryset(logs, request, view=self)
+            return paginator.get_paginated_response(serialize(page))
+
+        return Response(serialize(logs[:50]))
 
 class RequestPasswordResetView(APIView):
     permission_classes = []

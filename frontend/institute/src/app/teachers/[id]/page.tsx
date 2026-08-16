@@ -249,7 +249,7 @@ export default function TeacherDetailPage() {
         {tab === "advances" && (
           <div className="tw">
             <table>
-              <thead><tr><th>Requested</th><th>Amount</th><th>Repaid</th><th>Remaining</th><th>Status</th><th>Reason</th></tr></thead>
+              <thead><tr><th>Requested</th><th>Amount</th><th>Deducted</th><th>Remaining</th><th>Status</th><th>Reason</th></tr></thead>
               <tbody>
                 {advances.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 28 }}>No advance records.</td></tr>}
                 {advances.map(a => {
@@ -261,9 +261,9 @@ export default function TeacherDetailPage() {
                       <td className="mono">{fmt(a.repaid_amount || 0)}</td>
                       <td className="mono" style={{ color: remaining > 0 ? "var(--rb)" : "var(--ink3)" }}>{fmt(remaining)}</td>
                       <td>
-                        {a.status === "repaid" ? <span className="bdg b-paid">Repaid</span> :
-                         a.status === "partial" ? <span className="bdg b-due">Partial</span> :
-                         <span className="bdg b-over">Active</span>}
+                        {a.status === "repaid" ? <span className="bdg b-paid">Fully deducted</span> :
+                         a.status === "partial" ? <span className="bdg b-due">Partially deducted</span> :
+                         <span className="bdg b-over">Outstanding</span>}
                       </td>
                       <td style={{ color: "var(--ink2)", fontSize: 12 }}>{a.reason || "—"}</td>
                     </tr>
@@ -394,7 +394,6 @@ export default function TeacherDetailPage() {
               <select value={salaryForm.payment_type} onChange={e => setSalaryForm(f => ({ ...f, payment_type: e.target.value }))}>
                 <option value="salary">Salary</option>
                 <option value="bonus">Bonus</option>
-                <option value="advance">Advance payout</option>
               </select>
             </div>
           </div>

@@ -8,16 +8,21 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { Pagination } from "@/components/ui/Pagination";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type Payment = { id: number; teacher: number; teacher_name: string; month: string; amount: string; status: string; paid_date: string | null; method: string; payment_type: string; reference_no?: string; notes?: string; advance_deduction?: string };
 type Advance = { id: number; teacher: number; teacher_name: string; amount: string; request_date: string; reason: string; status: string; repaid_amount: string; remaining: string; method?: string };
 type Teacher = { id: number; name: string; monthly_salary: string; is_active: boolean };
 
 const PAYMENT_METHODS = ["Cash", "Bank transfer", "Online", "Cheque", "Other"];
+// "Advance deduction" used to be a third type here, but it never triggered
+// any different behavior — the actual deduction always happens through the
+// "Deduct from outstanding advance" field below, regardless of type. Keeping
+// it around just made it look like picking that type was required (or would
+// auto-calculate something) to apply a deduction, when it did nothing at all.
 const PAYMENT_TYPES = [
   { value: "salary", label: "Salary" },
   { value: "bonus", label: "Bonus" },
-  { value: "advance", label: "Advance deduction" },
 ];
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_OPTS = MONTH_NAMES.map((m, i) => ({ value: String(i + 1), label: m }));
@@ -27,11 +32,14 @@ const statusBadge = (s: string) => {
   return map[s] || <span className="bdg b-due">{s}</span>;
 };
 
+// Advances aren't repaid by the teacher in cash — they're automatically
+// deducted from upcoming salary payments, so the labels say "deducted"
+// rather than "repaid" to match how the money actually moves.
 const advanceStatusBadge = (s: string) => {
   const map: Record<string, JSX.Element> = {
     active: <span className="bdg b-due">Outstanding</span>,
-    partial: <span className="bdg b-over">Partially repaid</span>,
-    repaid: <span className="bdg b-paid">Repaid</span>,
+    partial: <span className="bdg b-over">Partially deducted</span>,
+    repaid: <span className="bdg b-paid">Fully deducted</span>,
   };
   return map[s] || <span className="bdg b-due">{s}</span>;
 };
@@ -41,6 +49,7 @@ const getAcademicYear = () => (typeof window !== "undefined" ? localStorage.getI
 
 export default function TeacherSalaryPage() {
   const toast = useToast();
+  const confirmDialog = useConfirm();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [advances, setAdvances] = useState<Advance[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -54,17 +63,25 @@ export default function TeacherSalaryPage() {
 
   const academicYear = getAcademicYear();
   const month = `${MONTH_NAMES[Number(monthNum) - 1]} ${academicYear}`;
+  // The month after whatever's currently selected — advances project onto
+  // that teacher's *next* salary payment, so the label needs to roll over
+  // into next year once the selected month is December.
+  const nextMonthIdx = Number(monthNum) % 12;
+  const nextMonthYear = Number(monthNum) === 12 ? Number(academicYear) + 1 : Number(academicYear);
+  const nextMonthLabel = `${MONTH_NAMES[nextMonthIdx]} ${nextMonthYear}`;
 
-  // Add-payment modal.
+  // Add/edit-payment modal — same modal serves both, keyed off payEditTarget.
   const [payOpen, setPayOpen] = useState(false);
+  const [payEditTarget, setPayEditTarget] = useState<Payment | null>(null);
   const [payForm, setPayForm] = useState({
     teacher: "", monthNum, amount: "", payment_type: "salary", status: "pending",
     method: PAYMENT_METHODS[0], reference_no: "", notes: "", advance_deduction: "",
   });
   const [paySaving, setPaySaving] = useState(false);
 
-  // Add-advance modal.
+  // Add/edit-advance modal — same modal serves both, keyed off advEditTarget.
   const [advOpen, setAdvOpen] = useState(false);
+  const [advEditTarget, setAdvEditTarget] = useState<Advance | null>(null);
   const [advForm, setAdvForm] = useState({ teacher: "", amount: "", request_date: todayIso(), reason: "", method: PAYMENT_METHODS[0] });
   const [advSaving, setAdvSaving] = useState(false);
 
@@ -106,8 +123,29 @@ export default function TeacherSalaryPage() {
     .filter(a => a.status !== "repaid")
     .reduce<Record<number, number>>((acc, a) => { acc[a.teacher] = (acc[a.teacher] || 0) + Number(a.remaining); return acc; }, {});
 
+  // Projected net pay for this teacher's *next* salary payment — their
+  // monthly salary minus whatever's still outstanding on their advance(s),
+  // capped so a large advance can't make the projection go negative (it just
+  // takes more than one month to fully deduct). Purely a preview: nothing is
+  // applied until an actual payment is recorded.
+  const nextMonthProjection = (teacherId: number) => {
+    const t = (pickerTeachers ?? teachers).find(x => x.id === teacherId) || teachers.find(x => x.id === teacherId);
+    if (!t) return null;
+    const salary = Number(t.monthly_salary);
+    const outstanding = outstandingByTeacher[teacherId] || 0;
+    const deduction = Math.min(outstanding, salary);
+    return { salary, deduction, net: salary - deduction };
+  };
+
   const openMarkPaid = (p: Payment) => {
-    setMarkForm({ method: p.method || PAYMENT_METHODS[0], reference_no: p.reference_no || "", advance_deduction: p.advance_deduction && Number(p.advance_deduction) > 0 ? p.advance_deduction : "" });
+    // Advances aren't something the admin opts into deducting each time —
+    // they're owed against this teacher's very next salary, so default the
+    // deduction to the full outstanding balance (capped to what's actually
+    // being paid) rather than leaving it blank and easy to forget.
+    const already = p.advance_deduction && Number(p.advance_deduction) > 0 ? Number(p.advance_deduction) : 0;
+    const outstanding = outstandingByTeacher[p.teacher] || 0;
+    const suggested = already || Math.min(outstanding, Number(p.amount));
+    setMarkForm({ method: p.method || PAYMENT_METHODS[0], reference_no: p.reference_no || "", advance_deduction: suggested > 0 ? String(suggested) : "" });
     setMarkPayModal(p);
   };
 
@@ -130,16 +168,61 @@ export default function TeacherSalaryPage() {
   };
 
   const openAddPayment = () => {
+    setPayEditTarget(null);
     setPayForm({ teacher: "", monthNum, amount: "", payment_type: "salary", status: "pending", method: PAYMENT_METHODS[0], reference_no: "", notes: "", advance_deduction: "" });
     setPayOpen(true);
   };
 
-  const pickPayTeacher = (id: string) => {
-    const t = (pickerTeachers ?? teachers).find(t => String(t.id) === id);
-    setPayForm(f => ({ ...f, teacher: id, amount: f.amount || (t ? t.monthly_salary : f.amount) }));
+  const openEditPayment = (p: Payment) => {
+    const monthIdx = MONTH_NAMES.indexOf(p.month.split(" ")[0]);
+    setPayEditTarget(p);
+    setPayForm({
+      teacher: String(p.teacher),
+      monthNum: monthIdx >= 0 ? String(monthIdx + 1) : monthNum,
+      amount: p.amount,
+      payment_type: p.payment_type,
+      status: p.status === "paid" ? "paid" : "pending",
+      method: p.method || PAYMENT_METHODS[0],
+      reference_no: p.reference_no || "",
+      notes: p.notes || "",
+      advance_deduction: p.advance_deduction && Number(p.advance_deduction) > 0 ? p.advance_deduction : "",
+    });
+    setPayOpen(true);
   };
 
-  const payOutstanding = payForm.teacher ? (outstandingByTeacher[Number(payForm.teacher)] || 0) : 0;
+  const deletePayment = async (p: Payment) => {
+    const ok = await confirmDialog({
+      title: "Delete payment",
+      message: `Delete the LKR ${Number(p.amount).toLocaleString()} ${p.payment_type} payment for ${p.teacher_name} (${p.month})? This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/api/academics/teacher-payments/${p.id}`);
+      toast.success("Payment deleted.");
+      load();
+    } catch (e) {
+      toast.error(errMsg(e, "Couldn't delete payment."));
+    }
+  };
+
+  const pickPayTeacher = (id: string) => {
+    const t = (pickerTeachers ?? teachers).find(t => String(t.id) === id);
+    const amount = payForm.amount || (t ? t.monthly_salary : payForm.amount);
+    // Same default-to-full-outstanding logic as Mark paid — the deduction
+    // isn't optional extra work, it's the whole point of recording an advance.
+    const outstanding = outstandingByTeacher[Number(id)] || 0;
+    const suggested = outstanding > 0 ? String(Math.min(outstanding, Number(amount || 0))) : "";
+    setPayForm(f => ({ ...f, teacher: id, amount, advance_deduction: f.advance_deduction || suggested }));
+  };
+
+  // When editing a payment that's already paid, its own deduction has
+  // already been subtracted out of the ledger — outstandingByTeacher no
+  // longer includes it. Add it back so the field (and its cap) reflect the
+  // teacher's true headroom, matching what the backend clamps against.
+  const payEditAlreadyApplied = payEditTarget && payEditTarget.status === "paid" ? Number(payEditTarget.advance_deduction || 0) : 0;
+  const payOutstanding = (payForm.teacher ? (outstandingByTeacher[Number(payForm.teacher)] || 0) : 0) + payEditAlreadyApplied;
   const payNet = Math.max(0, Number(payForm.amount || 0) - Number(payForm.advance_deduction || 0));
   const markOutstanding = markPayModal ? (outstandingByTeacher[markPayModal.teacher] || 0) : 0;
   const markNet = markPayModal ? Math.max(0, Number(markPayModal.amount) - Number(markForm.advance_deduction || 0)) : 0;
@@ -151,31 +234,56 @@ export default function TeacherSalaryPage() {
     }
     setPaySaving(true);
     try {
-      await api.post("/api/academics/teacher-payments", {
+      const payload: Record<string, any> = {
         teacher: Number(payForm.teacher),
         month: `${MONTH_NAMES[Number(payForm.monthNum) - 1]} ${academicYear}`,
         amount: payForm.amount,
         payment_type: payForm.payment_type,
         status: payForm.status,
-        paid_date: payForm.status === "paid" ? todayIso() : null,
         method: payForm.status === "paid" ? payForm.method : "",
         reference_no: payForm.reference_no,
         notes: payForm.notes,
         advance_deduction: payForm.status === "paid" ? (payForm.advance_deduction || 0) : 0,
-      });
-      toast.success("Payment record added.");
+      };
+      if (payEditTarget) {
+        // Only stamp today's date if this edit is what's newly marking it
+        // paid — otherwise keep the original paid_date so correcting, say,
+        // the amount on an already-paid record doesn't rewrite history.
+        payload.paid_date = payForm.status === "paid"
+          ? (payEditTarget.status === "paid" ? payEditTarget.paid_date : todayIso())
+          : null;
+        await api.patch(`/api/academics/teacher-payments/${payEditTarget.id}`, payload);
+        toast.success("Payment updated.");
+      } else {
+        payload.paid_date = payForm.status === "paid" ? todayIso() : null;
+        await api.post("/api/academics/teacher-payments", payload);
+        toast.success("Payment record added.");
+      }
       setPayOpen(false);
+      setPayEditTarget(null);
       load();
-    } catch {
-      toast.error("Couldn't add payment record.");
+    } catch (e) {
+      toast.error(errMsg(e, payEditTarget ? "Couldn't update payment." : "Couldn't add payment record."));
     } finally {
       setPaySaving(false);
     }
   };
 
   const openAddAdvance = () => {
+    setAdvEditTarget(null);
     setAdvForm({ teacher: "", amount: "", request_date: todayIso(), reason: "", method: PAYMENT_METHODS[0] });
     setAdvOpen(true);
+  };
+
+  const openEditAdvance = (a: Advance) => {
+    setAdvEditTarget(a);
+    setAdvForm({ teacher: String(a.teacher), amount: a.amount, request_date: a.request_date, reason: a.reason || "", method: a.method || PAYMENT_METHODS[0] });
+    setAdvOpen(true);
+  };
+
+  const errMsg = (e: any, fallback: string) => {
+    const d = e?.response?.data;
+    return (Array.isArray(d) ? d[0] : d?.detail || d?.error) || fallback;
   };
 
   const submitAdvance = async () => {
@@ -185,22 +293,51 @@ export default function TeacherSalaryPage() {
     }
     setAdvSaving(true);
     try {
-      await api.post("/api/academics/teacher-advances", {
-        teacher: Number(advForm.teacher),
-        amount: advForm.amount,
-        request_date: advForm.request_date,
-        reason: advForm.reason,
-        method: advForm.method,
-        disbursed_date: todayIso(),
-        status: "active",
-      });
-      toast.success("Advance recorded.");
+      if (advEditTarget) {
+        await api.patch(`/api/academics/teacher-advances/${advEditTarget.id}`, {
+          teacher: Number(advForm.teacher),
+          amount: advForm.amount,
+          request_date: advForm.request_date,
+          reason: advForm.reason,
+          method: advForm.method,
+        });
+        toast.success("Advance updated.");
+      } else {
+        await api.post("/api/academics/teacher-advances", {
+          teacher: Number(advForm.teacher),
+          amount: advForm.amount,
+          request_date: advForm.request_date,
+          reason: advForm.reason,
+          method: advForm.method,
+          disbursed_date: todayIso(),
+          status: "active",
+        });
+        toast.success("Advance recorded.");
+      }
       setAdvOpen(false);
+      setAdvEditTarget(null);
       load();
-    } catch {
-      toast.error("Couldn't record advance.");
+    } catch (e) {
+      toast.error(errMsg(e, advEditTarget ? "Couldn't update advance." : "Couldn't record advance."));
     } finally {
       setAdvSaving(false);
+    }
+  };
+
+  const deleteAdvance = async (a: Advance) => {
+    const ok = await confirmDialog({
+      title: "Delete advance",
+      message: `Delete the LKR ${Number(a.amount).toLocaleString()} advance for ${a.teacher_name}? This can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/api/academics/teacher-advances/${a.id}`);
+      toast.success("Advance deleted.");
+      load();
+    } catch (e) {
+      toast.error(errMsg(e, "Couldn't delete advance."));
     }
   };
 
@@ -266,7 +403,13 @@ export default function TeacherSalaryPage() {
                         <td>{statusBadge(p.status)}</td>
                         <td style={{ color: "var(--ink3)" }}>{p.method || "—"}</td>
                         <td className="mono" style={{ color: "var(--ink3)" }}>{p.paid_date || "—"}</td>
-                        <td>{p.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => openMarkPaid(p)}>Mark paid</button>}</td>
+                        <td>
+                          <div style={{ display: "flex", gap: 4 }}>
+                            {p.status !== "paid" && <button className="btn btn-xs btn-ok" onClick={() => openMarkPaid(p)}>Mark paid</button>}
+                            <button className="btn btn-xs btn-s" onClick={() => openEditPayment(p)}>Edit</button>
+                            <button className="btn btn-xs btn-d" onClick={() => deletePayment(p)}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}
@@ -293,20 +436,35 @@ export default function TeacherSalaryPage() {
             </div>
             <div className="tw">
               <table>
-                <thead><tr><th>Teacher</th><th>Amount</th><th>Reason</th><th>Status</th><th>Repaid</th><th>Remaining</th></tr></thead>
+                <thead><tr><th>Teacher</th><th>Advance Amount</th><th>Reason</th><th>Status</th><th>Deducted</th><th>Net Pay — {nextMonthLabel}</th><th>Actions</th></tr></thead>
                 <tbody>
-                  {advances.map(a => (
+                  {advances.map(a => {
+                    const proj = nextMonthProjection(a.teacher);
+                    return (
                     <tr key={a.id}>
                       <td style={{ fontWeight: 600 }}>{a.teacher_name}</td>
                       <td className="mono">{Number(a.amount).toLocaleString()}</td>
                       <td style={{ color: "var(--ink3)" }}>{a.reason || "—"}</td>
                       <td>{advanceStatusBadge(a.status)}</td>
                       <td className="mono" style={{ color: "var(--ink3)" }}>{Number(a.repaid_amount).toLocaleString()}</td>
-                      <td className="mono" style={{ fontWeight: 700, color: Number(a.remaining) > 0 ? "var(--sf)" : "var(--tc)" }}>{Number(a.remaining).toLocaleString()}</td>
+                      <td className="mono">
+                        {proj ? (
+                          <>
+                            <span style={{ fontWeight: 700 }}>{proj.net.toLocaleString()}</span>
+                            {proj.deduction > 0 && <span style={{ color: "var(--ink3)", fontSize: 11.5 }}> (salary {proj.salary.toLocaleString()} − {proj.deduction.toLocaleString()})</span>}
+                          </>
+                        ) : "—"}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button className="btn btn-xs btn-s" onClick={() => openEditAdvance(a)}>Edit</button>
+                          <button className="btn btn-xs btn-d" onClick={() => deleteAdvance(a)}>Delete</button>
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                  );})}
                   {advances.length === 0 && (
-                    <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
+                    <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink3)", padding: 24 }}>
                       No advances recorded. Click <strong>+ Add advance</strong> above to record one.
                     </td></tr>
                   )}
@@ -317,14 +475,14 @@ export default function TeacherSalaryPage() {
         )}
       </div>
 
-      {/* Add payment modal */}
+      {/* Add/edit payment modal */}
       <Modal
         open={payOpen}
-        onClose={() => setPayOpen(false)}
-        title="Add salary payment"
+        onClose={() => { setPayOpen(false); setPayEditTarget(null); }}
+        title={payEditTarget ? `Edit payment — ${payEditTarget.teacher_name}` : "Add salary payment"}
         footer={<>
-          <button className="btn btn-s btn-sm" onClick={() => setPayOpen(false)} disabled={paySaving}>Cancel</button>
-          <button className="btn btn-p btn-sm" onClick={submitPayment} disabled={paySaving}>{paySaving ? "Saving…" : "Add payment"}</button>
+          <button className="btn btn-s btn-sm" onClick={() => { setPayOpen(false); setPayEditTarget(null); }} disabled={paySaving}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={submitPayment} disabled={paySaving}>{paySaving ? "Saving…" : payEditTarget ? "Save changes" : "Add payment"}</button>
         </>}
       >
         <div className="form-gap">
@@ -333,11 +491,29 @@ export default function TeacherSalaryPage() {
             <SearchableSelect
               value={payForm.teacher}
               onChange={v => pickPayTeacher(String(v))}
-              options={teacherOptions}
+              options={
+                // Same reasoning as the advance edit modal — a teacher
+                // deactivated after this payment was recorded still needs to
+                // show up here, or editing looks like it silently blanked
+                // out (or would reassign) the teacher.
+                payEditTarget && !teacherOptions.some(o => String(o.value) === String(payEditTarget.teacher))
+                  ? [{ value: payEditTarget.teacher, label: payEditTarget.teacher_name }, ...teacherOptions]
+                  : teacherOptions
+              }
               placeholder="Pick a teacher…"
               onOpen={() => fetchTeachers()}
               onSearch={q => fetchTeachers(q)}
             />
+            {payForm.teacher && payOutstanding > 0 && (() => {
+              const proj = nextMonthProjection(Number(payForm.teacher));
+              if (!proj) return null;
+              return (
+                <div className="hint" style={{ marginTop: 6 }}>
+                  {nextMonthLabel} net pay: <strong>LKR {proj.net.toLocaleString()}</strong>
+                  {" "}(salary {proj.salary.toLocaleString()} − advance {proj.deduction.toLocaleString()})
+                </div>
+              );
+            })()}
           </div>
           <div className="field-row">
             <div className="fg">
@@ -368,26 +544,33 @@ export default function TeacherSalaryPage() {
             </div>
           </div>
           {payForm.status === "paid" && (
-            <>
+            <div className="fg">
+              <label className="flbl">Payment method</label>
+              <select value={payForm.method} onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}>
+                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          )}
+          {payOutstanding > 0 && (
+            payForm.status === "paid" ? (
               <div className="fg">
-                <label className="flbl">Payment method</label>
-                <select value={payForm.method} onChange={e => setPayForm(f => ({ ...f, method: e.target.value }))}>
-                  {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <label className="flbl">Deduct from outstanding advance (LKR {payOutstanding.toLocaleString()} owed)</label>
+                <input
+                  type="number" value={payForm.advance_deduction}
+                  onChange={e => setPayForm(f => ({ ...f, advance_deduction: e.target.value }))}
+                  placeholder="0"
+                  max={Math.min(payOutstanding, Number(payForm.amount || 0))}
+                />
+                <div className="hint">Net payable after deduction: <strong>LKR {payNet.toLocaleString()}</strong></div>
               </div>
-              {payOutstanding > 0 && (
-                <div className="fg">
-                  <label className="flbl">Deduct from outstanding advance (LKR {payOutstanding.toLocaleString()} owed)</label>
-                  <input
-                    type="number" value={payForm.advance_deduction}
-                    onChange={e => setPayForm(f => ({ ...f, advance_deduction: e.target.value }))}
-                    placeholder="0"
-                    max={Math.min(payOutstanding, Number(payForm.amount || 0))}
-                  />
-                  <div className="hint">Net payable after deduction: <strong>LKR {payNet.toLocaleString()}</strong></div>
-                </div>
-              )}
-            </>
+            ) : (
+              // Deduction only applies once the payment is actually paid — the
+              // projection above the teacher field already shows the numbers,
+              // this just points at how to actually apply it.
+              <div className="hint" style={{ background: "var(--sf-l)", color: "var(--sf)", padding: "8px 10px", borderRadius: 8 }}>
+                Set status to <strong>Paid</strong> to deduct this now, or it'll be offered again when you mark this payment paid later.
+              </div>
+            )
           )}
           <div>
             <label className="flbl">Reference no. (optional)</label>
@@ -400,14 +583,14 @@ export default function TeacherSalaryPage() {
         </div>
       </Modal>
 
-      {/* Add advance modal */}
+      {/* Add/edit advance modal */}
       <Modal
         open={advOpen}
-        onClose={() => setAdvOpen(false)}
-        title="Add advance"
+        onClose={() => { setAdvOpen(false); setAdvEditTarget(null); }}
+        title={advEditTarget ? `Edit advance — ${advEditTarget.teacher_name}` : "Add advance"}
         footer={<>
-          <button className="btn btn-s btn-sm" onClick={() => setAdvOpen(false)} disabled={advSaving}>Cancel</button>
-          <button className="btn btn-p btn-sm" onClick={submitAdvance} disabled={advSaving}>{advSaving ? "Saving…" : "Add advance"}</button>
+          <button className="btn btn-s btn-sm" onClick={() => { setAdvOpen(false); setAdvEditTarget(null); }} disabled={advSaving}>Cancel</button>
+          <button className="btn btn-p btn-sm" onClick={submitAdvance} disabled={advSaving}>{advSaving ? "Saving…" : advEditTarget ? "Save changes" : "Add advance"}</button>
         </>}
       >
         <div className="form-gap">
@@ -416,7 +599,15 @@ export default function TeacherSalaryPage() {
             <SearchableSelect
               value={advForm.teacher}
               onChange={v => setAdvForm(f => ({ ...f, teacher: String(v) }))}
-              options={teacherOptions}
+              options={
+                // A teacher deactivated after this advance was recorded
+                // wouldn't otherwise appear in the (active-only) picker —
+                // keep them selectable so editing doesn't blank out or
+                // silently reassign the teacher.
+                advEditTarget && !teacherOptions.some(o => String(o.value) === String(advEditTarget.teacher))
+                  ? [{ value: advEditTarget.teacher, label: advEditTarget.teacher_name }, ...teacherOptions]
+                  : teacherOptions
+              }
               placeholder="Pick a teacher…"
               onOpen={() => fetchTeachers()}
               onSearch={q => fetchTeachers(q)}

@@ -236,7 +236,29 @@ class StudentViewSet(viewsets.ModelViewSet):
                         'batch_code': batch_code
                     }
                 )
+            from apps.core.models import log_activity
+            log_activity(
+                request.institute, request.user, 'student_added',
+                f"{request.user.get_full_name() or request.user.username} added student {student.name}",
+            )
         return response
+
+    def perform_update(self, serializer):
+        from apps.core.models import log_activity
+        student = serializer.save()
+        log_activity(
+            self.request.institute, self.request.user, 'student_updated',
+            f"{self.request.user.get_full_name() or self.request.user.username} updated student {student.name}",
+        )
+
+    def perform_destroy(self, instance):
+        from apps.core.models import log_activity
+        name = instance.name
+        instance.delete()
+        log_activity(
+            self.request.institute, self.request.user, 'student_deleted',
+            f"{self.request.user.get_full_name() or self.request.user.username} deleted student {name}",
+        )
 
     @action(detail=True, methods=['post'])
     def enroll(self, request, pk=None):
