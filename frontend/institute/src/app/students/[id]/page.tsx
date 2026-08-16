@@ -6,11 +6,12 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { QRCard } from "@/components/ui/QRCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/ToastProvider";
 import { getStoredUser } from "@/lib/auth";
 import { api } from "@/lib/api";
 
-type Student = { id: number; name: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; join_date: string; qr_token: string };
+type Student = { id: number; name: string; image?: string | null; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; join_date: string; qr_token: string };
 type Enrollment = { id: number; batch: number; batch_name: string; academic_year: number; status: string; enrolled_at: string };
 type Fee = { id: number; batch_name: string; month: string; amount: string; status: string; paid_at: string | null };
 type AttendanceRow = { id: number; date: string; is_present: boolean; batch: number; batch_name?: string; subject?: number };
@@ -238,6 +239,9 @@ export default function StudentDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div className="card">
               <div className="sec-title" style={{ marginBottom: 12 }}>Profile</div>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                <Avatar src={student.image} name={student.name} size={72} radius={18} />
+              </div>
               <div className="detail-row"><span className="detail-k">Parent</span><span className="detail-v">{student.parent_name || "—"}</span></div>
               <div className="detail-row"><span className="detail-k">Mobile</span><span className="detail-v" style={{ fontFamily: "var(--font-mono)" }}>{student.parent_mobile || "—"}</span></div>
               <div className="detail-row"><span className="detail-k">WhatsApp</span><span className="detail-v">{student.has_whatsapp ? "Yes" : "No"}</span></div>
@@ -425,7 +429,7 @@ export default function StudentDetailPage() {
       <Modal open={showQR} onClose={() => setShowQR(false)} title="Student ID card">
         <div style={{ padding: "8px 0 14px", display: "flex", justifyContent: "center" }}>
           {student.qr_token ? (
-            <QRCard kind="student" token={student.qr_token} name={student.name} subtitle={student.batch} code={`STU-${String(student.id).padStart(5, "0")}`} institute={getStoredUser()?.institute?.name} instituteLogoUrl={getStoredUser()?.institute?.logo} />
+            <QRCard kind="student" token={student.qr_token} name={student.name} subtitle={student.batch} code={`STU-${String(student.id).padStart(5, "0")}`} photoUrl={student.image} institute={getStoredUser()?.institute?.name} instituteLogoUrl={getStoredUser()?.institute?.logo} />
           ) : <div style={{ color: "var(--ink3)", padding: 24, fontSize: 13 }}>QR token not generated. Save the student and reopen.</div>}
         </div>
       </Modal>

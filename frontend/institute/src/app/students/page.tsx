@@ -9,8 +9,10 @@ import { api } from "@/lib/api";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Avatar } from "@/components/ui/Avatar";
+import { getStoredUser } from "@/lib/auth";
 
-type Student = { id: number; name: string; initials: string; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; status: "active" | "passout" | "inactive"; join_date: string };
+type Student = { id: number; name: string; initials: string; image?: string | null; parent_name: string; parent_mobile: string; has_whatsapp: boolean; batch: string; is_free: boolean; is_active: boolean; status: "active" | "passout" | "inactive"; join_date: string };
 
 const STATUS_STYLE: Record<Student["status"], { bg: string; fg: string; label: string }> = {
   active: { bg: "#dcfce7", fg: "#15803d", label: "Active" },
@@ -36,6 +38,8 @@ export default function StudentsPage() {
   const [meta, setMeta] = useState({ total_count: 0, total_pages: 1 });
   const [modal, setModal] = useState<"add" | null>(null);
   const [form, setForm] = useState({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -47,6 +51,7 @@ export default function StudentsPage() {
   };
 
   const load = () => {
+    setUser(getStoredUser());
     setLoading(true);
     Promise.all([
       api.get(`/api/students/students?page=${page}&limit=${limit}&student_status=${studentStatus}${debouncedSearch ? `&search=${encodeURIComponent(debouncedSearch)}` : ''}`).then(r => {
@@ -79,9 +84,17 @@ export default function StudentsPage() {
       return;
     }
     try {
-      await api.post("/api/students/students", form);
+      const payload = new FormData();
+      payload.append("name", form.name);
+      payload.append("parent_name", form.parent_name);
+      payload.append("parent_mobile", form.parent_mobile);
+      payload.append("batch", form.batch);
+      payload.append("has_whatsapp", form.has_whatsapp ? "true" : "false");
+      if (imageFile) payload.append("image", imageFile);
+      await api.post("/api/students/students", payload);
       toast.success("Student added.");
       setModal(null);
+      setImageFile(null);
       load();
     } catch (err: any) {
       console.error(err);
@@ -104,7 +117,7 @@ export default function StudentsPage() {
             <option value="all">All Students</option>
           </select>
           <input placeholder="Search..." style={{ width: 180 }} value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-p btn-sm" onClick={() => { setForm({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true }); setModal("add"); }}>+ Add student</button>
+          <button className="btn btn-p btn-sm" onClick={() => { setForm({ name: "", parent_name: "", parent_mobile: "", batch: "", has_whatsapp: true }); setImageFile(null); setModal("add"); }}>+ Add student</button>
         </>} />
       <div className="pb fi">
         {/* Real per-status counts for this academic year — independent of
@@ -143,7 +156,7 @@ export default function StudentsPage() {
                   const st = STATUS_STYLE[s.status] ?? STATUS_STYLE.inactive;
                   return (
                     <tr key={s.id}>
-                      <td><div className="td-nm"><div className="ava" style={{ background: bg, color: fg }}>{s.initials}</div>{s.name}</div></td>
+                      <td><div className="td-nm"><Avatar src={s.image} name={s.name} size={32} radius={8} bg={bg} fg={fg} />{s.name}</div></td>
                       <td style={{ color: "var(--ink3)" }}>{s.batch}</td>
                       <td><span className="bdg" style={{ background: st.bg, color: st.fg }}>{st.label}</span></td>
                       <td>{s.parent_name || "—"}</td>
@@ -178,13 +191,36 @@ export default function StudentsPage() {
           </div>
           <div>
             <label className="flbl">Batch</label>
-            <SearchableSelect 
-              value={form.batch} 
+            <SearchableSelect
+              value={form.batch}
               onChange={val => setForm(f => ({ ...f, batch: String(val) }))}
               placeholder="Select batch..."
               options={batches.map(b => ({ value: b.name, label: b.display_name || b.name }))}
               onSearch={searchBatches}
             />
+          </div>
+          <div className="fg fg-full">
+            <label className="flbl">Photo</label>
+            {user?.institute?.plan === "institute_pro" ? (
+              <div style={{
+                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px",
+                textAlign: "center", background: "var(--cr)", cursor: "pointer",
+                transition: "all 0.2s"
+              }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setImageFile(e.target.files?.[0] || null)}
+                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }}
+                />
+                {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
+              </div>
+            ) : (
+              <div style={{ padding: 16, background: "var(--w)", border: "1px solid var(--ln)", borderRadius: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ background: "var(--tc)", color: "white", padding: "4px 8px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>PRO</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink2)" }}>Upgrade to Institute Pro to upload student photos.</div>
+              </div>
+            )}
           </div>
         </div>
       </Modal>

@@ -71,6 +71,32 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Cloudflare R2 (S3-compatible) for uploaded media — teacher/student photos,
+# institute logos, user avatars. Applies in *every* environment (dev, test,
+# production) whenever the R2_* vars are present, so local uploads land in
+# the same bucket as production instead of an easily-forgotten local disk
+# folder. If they're absent (e.g. a fresh clone with no .env yet), media
+# just falls back to local disk — dev/test still work without R2 set up.
+# production.py hard-requires these vars instead of allowing this fallback.
+if os.environ.get('R2_ACCESS_KEY_ID'):
+    STORAGES = {
+        'default': {'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+    AWS_ACCESS_KEY_ID = os.environ['R2_ACCESS_KEY_ID']
+    AWS_SECRET_ACCESS_KEY = os.environ['R2_SECRET_ACCESS_KEY']
+    AWS_STORAGE_BUCKET_NAME = os.environ['R2_BUCKET_NAME']
+    AWS_S3_ENDPOINT_URL = os.environ['R2_ENDPOINT_URL']
+    AWS_S3_REGION_NAME = 'auto'
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_ADDRESSING_STYLE = 'virtual'
+    AWS_DEFAULT_ACL = None  # R2 ignores per-object S3 ACLs — public access is a bucket-level setting
+    AWS_QUERYSTRING_AUTH = False  # serve plain public URLs, not SigV4-signed ones
+    AWS_S3_FILE_OVERWRITE = False  # match local FileSystemStorage: never clobber a same-named upload
+    AWS_S3_CUSTOM_DOMAIN = (
+        os.environ['R2_PUBLIC_URL'].removeprefix('https://').removeprefix('http://').rstrip('/')
+    )
+
 from corsheaders.defaults import default_headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-academic-year',

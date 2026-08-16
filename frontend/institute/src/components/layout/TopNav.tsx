@@ -2,9 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getStoredUser, logout } from "@/lib/auth";
+import { Avatar } from "@/components/ui/Avatar";
 
 type Inst = { name?: string; subdomain?: string; plan?: string; status?: string; trial_ends_at?: string | null };
-type User = { name?: string; role?: string; institute?: Inst };
+type User = { name?: string; role?: string; avatar?: string | null; institute?: Inst };
 
 const YEARS = [2024, 2025, 2026, 2027, 2028, 2029, 2030];
 
@@ -29,7 +30,6 @@ export function TopNav() {
   };
 
   const inst = user?.institute;
-  const initials = (n?: string) => (n || "User").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
   // Trial countdown — show only when the institute is on trial and the end date is near.
   let trialBanner: { days: number; expired: boolean } | null = null;
@@ -65,7 +65,7 @@ export function TopNav() {
         <div style={{ width: 1, height: 20, background: "var(--ln)", margin: "0 4px" }} />
 
         <Link href="/settings" className="tnav-user-ava" title="Profile & settings">
-          {initials(user?.name)}
+          <Avatar src={user?.avatar} name={user?.name || "User"} size={30} radius={15} bg="var(--tc)" fg="#fff" />
         </Link>
 
         <button className="tnav-btn" onClick={() => logout()} title="Sign out" aria-label="Sign out">

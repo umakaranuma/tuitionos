@@ -4,6 +4,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Avatar } from "@/components/ui/Avatar";
 import { getScheduledSubjects, getTodayShort, TEACHERS, INIT_TIMETABLE } from "@/lib/batchData";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -11,7 +12,7 @@ import { api } from "@/lib/api";
 type AttStatus = "present" | "absent";
 type AttRecord = Record<string, AttStatus>;
 type Batch = { id: number; name: string; grade?: string; section?: string; display_name?: string; color?: string; color_light?: string; label?: string };
-type Student = { id: number; name: string; bg?: string; fg?: string; initials?: string; mobile?: string; attPct?: number };
+type Student = { id: number; name: string; image?: string | null; bg?: string; fg?: string; initials?: string; mobile?: string; attPct?: number };
 type TimetableSlot = { id: number; batch: number; subject: number | null; subject_name: string; teacher: number | null; teacher_name: string; day_of_week: string; start_time: string; end_time: string; room: string };
 // Backend stores day_of_week as "0".."6" (Mon..Sun). The page uses 3-letter short codes.
 const DAY_SHORT_TO_NUM: Record<string, string> = { Mon: "0", Tue: "1", Wed: "2", Thu: "3", Fri: "4", Sat: "5", Sun: "6" };
@@ -688,12 +689,7 @@ export default function AttendancePage() {
                       style={{ flex: 1, cursor: "pointer" }}
                       onClick={() => router.push(`/students/${s.id}`)}
                     >
-                      <div className="ava" style={{
-                        background: s.bg, color: s.fg,
-                        width: 30, height: 30, fontSize: 11, flexShrink: 0,
-                      }}>
-                        {s.initials}
-                      </div>
+                      <Avatar src={s.image} name={s.name} size={30} radius={8} bg={s.bg} fg={s.fg} />
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
                           {s.name}

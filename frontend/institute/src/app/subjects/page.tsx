@@ -5,6 +5,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
+import { Avatar } from "@/components/ui/Avatar";
 
 const BG_OPTS = [
   { label: "Teal", bg: "var(--sp-l)", fg: "var(--sp)" },
@@ -14,7 +15,7 @@ const BG_OPTS = [
   { label: "Purple", bg: "var(--pr-l)", fg: "var(--pr)" },
 ];
 
-type Subject = { id: number; name: string; icon: string; batch: string; color_bg: string; color_fg: string; is_active: boolean };
+type Subject = { id: number; name: string; icon: string; image?: string | null; batch: string; color_bg: string; color_fg: string; is_active: boolean };
 
 export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -86,9 +87,13 @@ export default function SubjectsPage() {
               const fg = s.color_fg || BG_OPTS[0].fg;
               return (
                 <div key={s.id} className="card" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: fg, flexShrink: 0 }}>
-                    {s.icon || s.name.substring(0, 2)}
-                  </div>
+                  {s.image ? (
+                    <img src={s.image} alt={s.name} style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: fg, flexShrink: 0 }}>
+                      {s.icon || s.name.substring(0, 2)}
+                    </div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{s.name}</div>
                     <div style={{ fontSize: 11, color: "var(--ink3)", marginTop: 2 }}>Batch: {s.batch}</div>
@@ -142,16 +147,19 @@ export default function SubjectsPage() {
           <div className="fg fg-full">
             <label className="flbl">Cover Image</label>
             {user?.institute?.plan === "institute_pro" ? (
-              <div style={{ 
-                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px", 
-                textAlign: "center", background: "var(--cr)", cursor: "pointer", 
-                transition: "all 0.2s" 
+              <div style={{
+                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px",
+                textAlign: "center", background: "var(--cr)", cursor: "pointer",
+                transition: "all 0.2s"
               }}>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={e => setImageFile(e.target.files?.[0] || null)} 
-                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }} 
+                {!imageFile && editTarget?.image && (
+                  <img src={editTarget.image} alt={editTarget.name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", marginBottom: 10 }} />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={e => setImageFile(e.target.files?.[0] || null)}
+                  style={{ display: "block", width: "100%", margin: "0 auto", cursor: "pointer", padding: "12px", background: "#fff", borderRadius: 8, border: "1px solid var(--ln)" }}
                 />
                 {imageFile && <div style={{ fontSize: 12, color: "var(--tc)", marginTop: 8, fontWeight: 600 }}>Selected: {imageFile.name}</div>}
               </div>

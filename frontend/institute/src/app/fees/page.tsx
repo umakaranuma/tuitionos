@@ -6,6 +6,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { SearchSelect } from "@/components/ui/SearchSelect";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { Avatar } from "@/components/ui/Avatar";
 import { api } from "@/lib/api";
 
 type Fee = {
@@ -14,7 +15,7 @@ type Fee = {
   method?: string; reference_no?: string; notes?: string;
 };
 type Batch = { id: number; name: string; display_name?: string; grade?: string; academic_year?: number; monthly_fee: string };
-type Student = { id: number; name: string; parent_name?: string; parent_mobile?: string; is_free?: boolean };
+type Student = { id: number; name: string; image?: string | null; parent_name?: string; parent_mobile?: string; is_free?: boolean };
 
 const MONTHS = [
   { value: "01", label: "January" }, { value: "02", label: "February" },
@@ -24,9 +25,6 @@ const MONTHS = [
   { value: "09", label: "September" }, { value: "10", label: "October" },
   { value: "11", label: "November" }, { value: "12", label: "December" },
 ];
-
-const initials = (n: string) =>
-  n.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
 const AV_COLORS: [string, string][] = [
   ["#e0e7ff", "#4338ca"], ["#dcfce7", "#15803d"], ["#fef3c7", "#92400e"],
@@ -298,7 +296,7 @@ export default function FeesPage() {
                     <tr key={s.id}>
                       <td>
                         <Link href={`/students/${s.id}`} className="td-nm" style={{ textDecoration: "none", color: "inherit" }}>
-                          <div className="ava" style={{ background: bg, color: fg }}>{initials(s.name)}</div>
+                          <Avatar src={s.image} name={s.name} size={32} radius={8} bg={bg} fg={fg} />
                           <div>
                             <div className="td-nm-main" style={{ color: "var(--tc-d)" }}>{s.name}</div>
                             <div className="td-nm-sub" style={{ color: "var(--ink3)" }}>

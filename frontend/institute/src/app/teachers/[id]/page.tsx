@@ -6,11 +6,12 @@ import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { QRCard } from "@/components/ui/QRCard";
+import { Avatar } from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/ToastProvider";
 import { getStoredUser } from "@/lib/auth";
 import { api } from "@/lib/api";
 
-type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean; qr_token: string };
+type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; image?: string | null; monthly_salary: string; is_active: boolean; qr_token: string };
 type Payment = { id: number; month: string; amount: string; status: string; paid_date: string | null; method: string; payment_type: string; advance_deduction?: string; reference_no?: string };
 type Advance = { id: number; amount: string; request_date: string; status: string; reason: string; disbursed_date: string | null; repaid_amount: string; method?: string };
 type BatchSlot = { id: number; batch: number; batch_name: string; subject_name: string; day_of_week: string; start_time: string; end_time: string; room: string };
@@ -194,6 +195,9 @@ export default function TeacherDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div className="card">
               <div className="sec-title" style={{ marginBottom: 12 }}>Profile</div>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+                <Avatar src={teacher.image} name={teacher.name} size={72} radius={18} />
+              </div>
               <div className="detail-row"><span className="detail-k">Subject</span><span className="detail-v">{teacher.subject || "—"}</span></div>
               <div className="detail-row"><span className="detail-k">Mobile</span><span className="detail-v" style={{ fontFamily: "var(--font-mono)" }}>{teacher.mobile}</span></div>
               <div className="detail-row"><span className="detail-k">Email</span><span className="detail-v">{teacher.email || "—"}</span></div>
@@ -342,7 +346,7 @@ export default function TeacherDetailPage() {
       <Modal open={showQR} onClose={() => setShowQR(false)} title="Staff ID card">
         <div style={{ padding: "8px 0 14px", display: "flex", justifyContent: "center" }}>
           {teacher.qr_token ? (
-            <QRCard kind="teacher" token={teacher.qr_token} name={teacher.name} subtitle={teacher.subject || "Teacher"} code={`STF-${String(teacher.id).padStart(5, "0")}`} institute={getStoredUser()?.institute?.name} instituteLogoUrl={getStoredUser()?.institute?.logo} />
+            <QRCard kind="teacher" token={teacher.qr_token} name={teacher.name} subtitle={teacher.subject || "Teacher"} code={`STF-${String(teacher.id).padStart(5, "0")}`} photoUrl={teacher.image} institute={getStoredUser()?.institute?.name} instituteLogoUrl={getStoredUser()?.institute?.logo} />
           ) : <div style={{ color: "var(--ink3)", padding: 24, fontSize: 13 }}>QR token not generated. Save the teacher and reopen.</div>}
         </div>
       </Modal>

@@ -4,15 +4,16 @@ import Link from "next/link";
 import jsQR from "jsqr";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
+import { Avatar } from "@/components/ui/Avatar";
 
 type StudentResult = {
-  kind: "student"; id: number; name: string; batch_code: string;
+  kind: "student"; id: number; name: string; batch_code: string; image?: string | null;
   parent_name: string; parent_mobile: string; is_active: boolean;
   attendance: { window_days: number; present: number; total: number; rate_pct: number };
   fees: { year: number; paid_total: number; pending_total: number; pending_count: number; status: string };
 };
 type TeacherResult = {
-  kind: "teacher"; id: number; name: string; subject: string;
+  kind: "teacher"; id: number; name: string; subject: string; image?: string | null;
   mobile: string; email: string; monthly_salary: number; is_active: boolean;
   payments: { window_days: number; paid_total: number; pending_total: number; pending_count: number; status: string };
 };
@@ -182,17 +183,10 @@ export default function ScanPage() {
 }
 
 function ResultCard({ result, onRescan }: { result: ScanResult; onRescan: () => void }) {
-  const initials = (n: string) => n.trim().split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
-
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "20px 20px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid var(--ln)" }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: 12, background: "var(--tc-l)", color: "var(--tc-d)",
-          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0,
-        }}>
-          {initials(result.name)}
-        </div>
+        <Avatar src={result.image} name={result.name} size={48} radius={12} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>{result.name}</div>
           <div style={{ fontSize: 12.5, color: "var(--ink3)" }}>

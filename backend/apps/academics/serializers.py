@@ -9,7 +9,7 @@ from .models import (
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
-        fields = ['id', 'name', 'batch', 'icon', 'color_bg', 'color_fg', 'is_active', 'created_at']
+        fields = ['id', 'name', 'batch', 'icon', 'image', 'color_bg', 'color_fg', 'is_active', 'created_at']
 
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
@@ -18,7 +18,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Teacher
-        fields = ['id', 'name', 'mobile', 'email', 'subject', 'monthly_salary', 'is_active', 'qr_token', 'created_at']
+        fields = ['id', 'name', 'mobile', 'email', 'subject', 'image', 'monthly_salary', 'is_active', 'qr_token', 'created_at']
 
     def create(self, validated_data):
         validated_data['institute'] = self.context['request'].institute
@@ -50,7 +50,7 @@ class BatchSerializer(serializers.ModelSerializer):
         model = Batch
         fields = [
             'id', 'grade', 'section', 'display_name',
-            'name', 'label',
+            'name', 'label', 'image',
             'academic_year', 'monthly_fee',
             'color', 'color_light', 'is_active', 'created_at',
             'teacher_config', 'student_count', 'subjects',

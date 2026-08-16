@@ -24,7 +24,7 @@ from apps.fees.models import FeePayment
 from .models import Student
 
 
-def _student_summary(student: Student) -> dict:
+def _student_summary(student: Student, request) -> dict:
     # Last 60 days of attendance for a quick percentage.
     since = timezone.now().date() - datetime.timedelta(days=60)
     att = Attendance.objects.filter(student=student, date__gte=since)
@@ -48,6 +48,7 @@ def _student_summary(student: Student) -> dict:
         'parent_mobile': student.parent_mobile,
         'is_active': student.is_active,
         'qr_token': student.qr_token,
+        'image': request.build_absolute_uri(student.image.url) if student.image else None,
         'attendance': {
             'window_days': 60,
             'present': present, 'total': total, 'rate_pct': rate,
@@ -62,7 +63,7 @@ def _student_summary(student: Student) -> dict:
     }
 
 
-def _teacher_summary(teacher: Teacher) -> dict:
+def _teacher_summary(teacher: Teacher, request) -> dict:
     # Last 6 months of teacher payments + outstanding salary.
     cutoff = timezone.now().date() - datetime.timedelta(days=180)
     payments = TeacherPayment.objects.filter(teacher=teacher, created_at__gte=cutoff)
@@ -80,6 +81,7 @@ def _teacher_summary(teacher: Teacher) -> dict:
         'monthly_salary': float(teacher.monthly_salary),
         'is_active': teacher.is_active,
         'qr_token': teacher.qr_token,
+        'image': request.build_absolute_uri(teacher.image.url) if teacher.image else None,
         'payments': {
             'window_days': 180,
             'paid_total': float(paid),
@@ -98,8 +100,8 @@ def scan_qr(request, token: str):
     # Try student first, then teacher — tokens are namespaced by uniqueness.
     student = Student.objects.filter(institute=inst, qr_token=token).first()
     if student:
-        return Response(_student_summary(student))
+        return Response(_student_summary(student, request))
     teacher = Teacher.objects.filter(institute=inst, qr_token=token).first()
     if teacher:
-        return Response(_teacher_summary(teacher))
+        return Response(_teacher_summary(teacher, request))
     return Response({'error': 'Unknown QR token'}, status=404)

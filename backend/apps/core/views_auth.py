@@ -76,16 +76,18 @@ class LoginView(APIView):
                     "subdomain": profile.institute.subdomain,
                     "plan": profile.institute.plan,
                     "status": profile.institute.status,
+                    "logo": request.build_absolute_uri(profile.institute.logo.url) if profile.institute.logo else None,
                 }
             except Exception:
                 pass
-                
+
         return Response({
             "token": token.key,
             "user": {
                 "id": user.id,
                 "email": user.email,
                 "name": f"{user.first_name} {user.last_name}".strip(),
+                "avatar": request.build_absolute_uri(user.avatar.url) if user.avatar else None,
                 "is_fynux_admin": is_fynux_admin,
                 "institute_id": institute_id,
                 "institute_name": institute_name,

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { getStoredUser, logout } from "@/lib/auth";
 import { PLAN_DEFINITIONS } from "@/lib/planConfig";
 import { Modal } from "@/components/ui/Modal";
+import { Avatar } from "@/components/ui/Avatar";
 
 interface NavItem {
   label: string;
@@ -200,7 +201,7 @@ const sections: { title: string; items: NavItem[] }[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [user, setUser] = useState<{ name?: string; role?: string; institute?: { name?: string; subdomain?: string; plan?: string } } | null>(null);
+  const [user, setUser] = useState<{ name?: string; role?: string; avatar?: string | null; institute?: { name?: string; subdomain?: string; plan?: string } } | null>(null);
   const [lockedFeatureModal, setLockedFeatureModal] = useState<{ open: boolean; feature: string }>({ open: false, feature: "" });
 
   useEffect(() => {
@@ -224,9 +225,6 @@ export function Sidebar() {
   const activeHref = allItems
     .filter(item => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
-
-  const initials = (n?: string) =>
-    (n || "User").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
   return (
     <aside className="sb">
@@ -279,7 +277,7 @@ export function Sidebar() {
 
       <div className="sb-foot">
         <Link href="/settings" className="sb-foot-user" title="View profile">
-          <div className="sb-ava">{initials(user?.name)}</div>
+          <Avatar src={user?.avatar} name={user?.name || "User"} size={30} radius={15} bg="var(--tc)" fg="#fff" />
           <div style={{ minWidth: 0 }}>
             <div className="sb-user">{user?.name || "Admin"}</div>
             <div className="sb-role">{user?.role === "admin" ? "Institute Admin" : "Staff"}</div>

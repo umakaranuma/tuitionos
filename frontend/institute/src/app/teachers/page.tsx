@@ -8,12 +8,12 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Pagination } from "@/components/ui/Pagination";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
+import { Avatar } from "@/components/ui/Avatar";
 
-type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; monthly_salary: string; is_active: boolean };
+type Teacher = { id: number; name: string; mobile: string; email: string; subject: string; image?: string | null; monthly_salary: string; is_active: boolean };
 type Subject = { id: number; name: string };
 
 const P: [string,string][] = [["var(--tc-l)","var(--tc-d)"],["var(--sp-l)","var(--sp)"],["var(--sf-l)","var(--sf)"],["var(--jd-l)","var(--jd)"],["var(--rb-l)","var(--rb)"],["var(--pr-l)","var(--pr)"]];
-const initials = (n: string) => n.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
 export default function TeachersPage() {
   const router = useRouter();
@@ -116,7 +116,7 @@ export default function TeachersPage() {
                     >
                       <td>
                         <div className="td-nm">
-                          <div className="ava" style={{ background: bg, color: fg }}>{initials(t.name)}</div>
+                          <Avatar src={t.image} name={t.name} size={32} radius={8} bg={bg} fg={fg} />
                           <div>
                             <div className="td-nm-main">{t.name}</div>
                             {t.email && <div className="td-nm-sub">{t.email}</div>}
@@ -204,12 +204,15 @@ export default function TeachersPage() {
           <div className="fg fg-full">
             <label className="flbl">Profile Image</label>
             {user?.institute?.plan === "institute_pro" ? (
-              <div style={{ 
-                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px", 
-                textAlign: "center", background: "var(--cr)", cursor: "pointer", 
-                transition: "all 0.2s" 
+              <div style={{
+                border: "2px dashed var(--ln)", borderRadius: 12, padding: "24px",
+                textAlign: "center", background: "var(--cr)", cursor: "pointer",
+                transition: "all 0.2s"
               }}>
-                <input 
+                {!imageFile && editTarget?.image && (
+                  <img src={editTarget.image} alt={editTarget.name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", marginBottom: 10 }} />
+                )}
+                <input
                   type="file" 
                   accept="image/*" 
                   onChange={e => setImageFile(e.target.files?.[0] || null)} 

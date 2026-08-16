@@ -18,6 +18,7 @@ class Student(models.Model):
     is_free = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     join_date = models.DateField(null=True, blank=True)
+    image = models.ImageField(upload_to='students/', null=True, blank=True)
     # Stable opaque token used by the QR / ID card. Generated once on save and
     # never rewritten — keeps printed cards valid forever.
     qr_token = models.CharField(max_length=32, unique=True, db_index=True, default=_gen_token)
