@@ -7,6 +7,7 @@ import { PageShell } from "@/components/layout/PageShell";
 import { Modal } from "@/components/ui/Modal";
 import { QRCard } from "@/components/ui/QRCard";
 import { Avatar } from "@/components/ui/Avatar";
+import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { useToast } from "@/components/ui/ToastProvider";
 import { getStoredUser } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -43,6 +44,7 @@ export default function TeacherDetailPage() {
   const [batches, setBatches] = useState<BatchHandle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showQR, setShowQR] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("overview");
 
   const [payModal, setPayModal] = useState<Payment | null>(null);
@@ -152,6 +154,24 @@ export default function TeacherDetailPage() {
       />
 
       <div className="pb fi">
+        {/* Profile hero — the record's own photo, name, and identity at a
+            glance, separate from the page title bar above it. Click the
+            photo to view it full-size. */}
+        <div className="card" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+          <Avatar
+            src={teacher.image} name={teacher.name} size={88} radius={20}
+            onClick={teacher.image ? () => setLightboxOpen(true) : undefined}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>{teacher.name}</div>
+            <div style={{ fontSize: 13, color: "var(--ink3)", marginTop: 2 }}>{teacher.subject || "Teacher"}</div>
+            <div style={{ marginTop: 8 }}>
+              {teacher.is_active ? <span className="dot-st dot-active">Active</span> : <span className="dot-st dot-paused">Inactive</span>}
+            </div>
+          </div>
+        </div>
+        <ImageLightbox src={lightboxOpen ? teacher.image ?? null : null} alt={teacher.name} onClose={() => setLightboxOpen(false)} />
+
         {/* KPI strip */}
         <div className="g4" style={{ marginBottom: 16 }}>
           <div className="kpi" style={{ "--kc": "var(--tc)" } as React.CSSProperties}>
@@ -195,9 +215,6 @@ export default function TeacherDetailPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <div className="card">
               <div className="sec-title" style={{ marginBottom: 12 }}>Profile</div>
-              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-                <Avatar src={teacher.image} name={teacher.name} size={72} radius={18} />
-              </div>
               <div className="detail-row"><span className="detail-k">Subject</span><span className="detail-v">{teacher.subject || "—"}</span></div>
               <div className="detail-row"><span className="detail-k">Mobile</span><span className="detail-v" style={{ fontFamily: "var(--font-mono)" }}>{teacher.mobile}</span></div>
               <div className="detail-row"><span className="detail-k">Email</span><span className="detail-v">{teacher.email || "—"}</span></div>

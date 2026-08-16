@@ -68,6 +68,16 @@ export function CroppableImageInput({ value, onChange, aspect = 1, round = false
             background: "var(--tc)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11,
           }}>✎</div>
         </div>
+      ) : preview ? (
+        <div onClick={pickFile} style={{ position: "relative", cursor: "pointer", borderRadius: round ? 999 : 12, overflow: "hidden", border: "1px solid var(--ln)" }}>
+          <img src={preview} alt={name} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
+          <div style={{
+            position: "absolute", bottom: 10, right: 10, background: "rgba(15,15,20,.7)", color: "#fff",
+            fontSize: 11.5, fontWeight: 600, padding: "5px 10px", borderRadius: 20, display: "flex", alignItems: "center", gap: 5,
+          }}>
+            ✎ Change photo
+          </div>
+        </div>
       ) : (
         <div
           onClick={pickFile}
@@ -77,14 +87,10 @@ export function CroppableImageInput({ value, onChange, aspect = 1, round = false
             display: "flex", flexDirection: "column", alignItems: "center", gap: 10,
           }}
         >
-          {preview ? (
-            <img src={preview} alt={name} style={{ width: 64, height: 64, borderRadius: round ? "50%" : 12, objectFit: "cover" }} />
-          ) : (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" strokeWidth="1.5">
-              <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M21 15l-4.5-4.5L9 18" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-          <div style={{ fontSize: 12.5, color: "var(--ink2)", fontWeight: 600 }}>{preview ? "Change photo" : hint}</div>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" strokeWidth="1.5">
+            <rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M21 15l-4.5-4.5L9 18" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <div style={{ fontSize: 12.5, color: "var(--ink2)", fontWeight: 600 }}>{hint}</div>
         </div>
       )}
 

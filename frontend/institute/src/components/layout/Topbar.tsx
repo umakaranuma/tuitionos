@@ -3,12 +3,16 @@ import React from "react";
 interface TopbarProps {
   title: string;
   subtitle?: string;
+  /** Optional leading avatar/photo — used by single-record detail pages
+      (a teacher, a student) to show who this page belongs to right next
+      to their name, instead of burying their photo further down. */
+  avatar?: React.ReactNode;
   right?: React.ReactNode;
   onBack?: () => void;
   backLabel?: string;
 }
 
-export function Topbar({ title, subtitle, right, onBack, backLabel = "Back" }: TopbarProps) {
+export function Topbar({ title, subtitle, avatar, right, onBack, backLabel = "Back" }: TopbarProps) {
   return (
     <div>
       {onBack && (
@@ -22,6 +26,7 @@ export function Topbar({ title, subtitle, right, onBack, backLabel = "Back" }: T
         </div>
       )}
       <div className="topbar">
+        {avatar}
         <div>
           <div className="topbar-title">{title}</div>
           {subtitle && <div className="topbar-sub">{subtitle}</div>}
