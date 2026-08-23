@@ -130,4 +130,9 @@ else:
 
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@tuitionos.com')
 
+# Base URL of the deployed institute-portal frontend, used to build links in
+# outgoing emails (welcome/reset-password). Defaults to the local dev server;
+# must be overridden in production or every emailed link points at localhost.
+INSTITUTE_APP_URL = os.environ.get('INSTITUTE_APP_URL', 'http://localhost:3001')
+
 AUTH_USER_MODEL = 'core.User'
