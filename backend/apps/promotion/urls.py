@@ -1,5 +1,10 @@
-﻿from django.urls import path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-router = DefaultRouter()
-urlpatterns = router.urls
+from .views import BatchPromotionMapViewSet
 
+router = DefaultRouter()
+router.register(r'', BatchPromotionMapViewSet, basename='promotion')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]

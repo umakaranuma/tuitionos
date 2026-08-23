@@ -14,3 +14,11 @@ docker-compose up -d
 docker-compose exec backend python manage.py migrate
 `
 See .docs/designsystems/TuitionOS_Project_Structure.md for full documentation.
+
+
+create superadmin
+python manage.py createsuperuser
+
+
+mail: tutionos.admin@gmail.com 
+password: Uma@1126

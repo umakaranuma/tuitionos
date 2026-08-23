@@ -1,11 +1,15 @@
-﻿from django.db import models
+from django.db import models
 from apps.academics.models import Batch
+from apps.institutes.models import Institute
 
 class BatchPromotionMap(models.Model):
-    source_batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='promotion_sources')
-    target_batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='promotion_targets')
+    institute = models.ForeignKey(Institute, on_delete=models.CASCADE, related_name='batch_promotion_maps', null=True)
+    batch_code = models.CharField(max_length=100)
     academic_year = models.PositiveIntegerField()
-    is_confirmed = models.BooleanField(default=False)
+    batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='mapped_promotions', null=True, blank=True)
+    is_passout = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    
     class Meta:
-        unique_together = ('source_batch', 'academic_year')
+        db_table = 'batch_promotion_maps'
+        unique_together = ('institute', 'batch_code', 'academic_year')

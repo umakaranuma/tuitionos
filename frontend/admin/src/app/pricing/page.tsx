@@ -1,86 +1,132 @@
+"use client";
+import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { useToast } from "@/components/ui/ToastProvider";
+import { api } from "@/lib/api";
 
-const milestones = [
-  { name: "Q1 — Launch", basic: 5, premium: 2, lkr: "27,000", usd: "~$87" },
-  { name: "Q2 — Growth", basic: 20, premium: 8, lkr: "108,000", usd: "~$348" },
-  { name: "Q3 — Scale", basic: 45, premium: 20, lkr: "255,000", usd: "~$823" },
-  { name: "Q4 — Target", basic: 55, premium: 20, lkr: "285,000", usd: "~$919" },
-  { name: "$2,000 goal ✓", basic: 80, premium: 30, lkr: "420,000", usd: "~$1,355", goal: true },
-];
-
-const CheckIcon = ({ color }: { color?: string }) => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={color || "var(--jd)"} strokeWidth="2">
-    <path d="M2 7l3 3 7-7"/>
-  </svg>
-);
-
-const CrossIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--ln)" strokeWidth="2">
-    <path d="M3 3l8 8M11 3l-8 8"/>
-  </svg>
-);
+type Settings = {
+  monthly_fee_solo: number;
+  monthly_fee_institute: number;
+  monthly_fee_institute_pro: number;
+  trial_days: number;
+  suspension_grace_days: number;
+};
 
 export default function PricingPage() {
+  const toast = useToast();
+  const [settings, setSettings] = useState<Settings>({
+    monthly_fee_solo: 0,
+    monthly_fee_institute: 0,
+    monthly_fee_institute_pro: 0,
+    trial_days: 0,
+    suspension_grace_days: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    api.get("/api/admin/settings").then(r => {
+      setSettings(r.data);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.put("/api/admin/settings", settings);
+      toast.success("Pricing & billing rules updated successfully.");
+    } catch {
+      toast.error("Couldn't save pricing settings. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <PageShell>
-      <Topbar title="Pricing" subtitle="Tier comparison · Revenue milestones" />
+      <Topbar title="Pricing & Plans" subtitle="Global SaaS configuration" right={
+        <button className="btn btn-p btn-sm" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      } />
       <div className="pb fi">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, maxWidth: 660, marginBottom: 28 }}>
-          {/* Basic */}
-          <div className="tier-c">
-            <div className="tier-nm">Basic</div>
-            <div style={{ margin: "10px 0 16px" }}>
-              <div className="tier-pr"><sup>LKR</sup>3,000<sub>/mo</sub></div>
+        {loading ? <div style={{ textAlign: "center", padding: 40, color: "var(--ink3)" }}>Loading...</div> : (
+          <div className="g2">
+            <div>
+              <div className="sec-hdr"><span className="sec-title">Subscription tiers</span></div>
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Solo Plan</div>
+                <div className="form-gap">
+                  <div>
+                    <label className="flbl">Monthly fee (LKR)</label>
+                    <input 
+                      type="number" 
+                      value={settings.monthly_fee_solo} 
+                      onChange={e => setSettings({...settings, monthly_fee_solo: Number(e.target.value)})} 
+                    />
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For single teachers. Up to 200 students per year, 1 subject.</div>
+                </div>
+              </div>
+
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Institute Plan</div>
+                <div className="form-gap">
+                  <div>
+                    <label className="flbl">Monthly fee (LKR)</label>
+                    <input 
+                      type="number" 
+                      value={settings.monthly_fee_institute} 
+                      onChange={e => setSettings({...settings, monthly_fee_institute: Number(e.target.value)})} 
+                    />
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>For growing institutes. Up to 200 students per year, unlimited subjects & batches.</div>
+                </div>
+              </div>
+
+              <div className="card">
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>Institute Pro Plan</div>
+                <div className="form-gap">
+                  <div>
+                    <label className="flbl">Monthly fee (LKR)</label>
+                    <input 
+                      type="number" 
+                      value={settings.monthly_fee_institute_pro} 
+                      onChange={e => setSettings({...settings, monthly_fee_institute_pro: Number(e.target.value)})} 
+                    />
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink3)" }}>Unlimited students and teachers. Notifications, timetabling, priority support.</div>
+                </div>
+              </div>
             </div>
-            <div className="tier-feat"><CheckIcon />Up to 200 students</div>
-            <div className="tier-feat"><CheckIcon />Up to 10 batches · 1 GB storage</div>
-            <div className="tier-feat"><CheckIcon />Attendance + fee tracking</div>
-            <div className="tier-feat"><CheckIcon />Attendance PDF reports</div>
-            <div className="tier-feat"><CrossIcon /><span style={{ color: "var(--ink3)" }}>No WhatsApp notifications</span></div>
-            <div className="tier-feat"><CrossIcon /><span style={{ color: "var(--ink3)" }}>No annual PDF blast</span></div>
-            <div style={{ marginTop: 16 }}>
-              <button className="btn btn-s" style={{ width: "100%" }}>Email support 72h</button>
+
+            <div>
+              <div className="sec-hdr"><span className="sec-title">Billing rules</span></div>
+              <div className="card" style={{ marginBottom: 14 }}>
+                <div className="form-gap">
+                  <div>
+                    <label className="flbl">Trial duration (days)</label>
+                    <input 
+                      type="number" 
+                      value={settings.trial_days} 
+                      onChange={e => setSettings({...settings, trial_days: Number(e.target.value)})} 
+                    />
+                  </div>
+                  <div>
+                    <label className="flbl">Suspension grace period (days)</label>
+                    <input 
+                      type="number" 
+                      value={settings.suspension_grace_days} 
+                      onChange={e => setSettings({...settings, suspension_grace_days: Number(e.target.value)})} 
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-
-          {/* Premium */}
-          <div className="tier-c feat">
-            <div className="tier-nm">Premium</div>
-            <div style={{ margin: "10px 0 16px" }}>
-              <div className="tier-pr"><sup>LKR</sup>6,000<sub>/mo</sub></div>
-            </div>
-            <div className="tier-feat"><CheckIcon />Unlimited students + batches</div>
-            <div className="tier-feat"><CheckIcon />5 GB storage · All PDF reports</div>
-            <div className="tier-feat"><CheckIcon />All 5 WhatsApp notifications</div>
-            <div className="tier-feat"><CheckIcon />Annual timetable PDF blast</div>
-            <div className="tier-feat"><CheckIcon />Year-end auto promotion + notify</div>
-            <div className="tier-feat"><CheckIcon />WhatsApp + email 24h support</div>
-            <div style={{ marginTop: 16 }}>
-              <button className="btn btn-p" style={{ width: "100%" }}>Recommended</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="sec-hdr"><span className="sec-title">Revenue milestones to $2,000 USD/mo</span></div>
-        <div className="tw" style={{ maxWidth: 660 }}>
-          <table>
-            <thead>
-              <tr><th>Milestone</th><th>Basic</th><th>Premium</th><th>MRR (LKR)</th><th>MRR (USD)</th></tr>
-            </thead>
-            <tbody>
-              {milestones.map((m) => (
-                <tr key={m.name} style={m.goal ? { background: "var(--tc-l)" } : {}}>
-                  <td style={m.goal ? { fontWeight: 700 } : {}}>{m.name}</td>
-                  <td className="mono" style={m.goal ? { fontWeight: 700 } : {}}>{m.basic}</td>
-                  <td className="mono" style={m.goal ? { fontWeight: 700 } : {}}>{m.premium}</td>
-                  <td className="mono" style={m.goal ? { fontWeight: 700 } : {}}>{m.lkr}</td>
-                  <td className="mono" style={m.goal ? { fontWeight: 700, color: "var(--tc-d)" } : {}}>{m.usd}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
     </PageShell>
   );

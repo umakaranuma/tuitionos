@@ -1,7 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
+import { useToast } from "@/components/ui/ToastProvider";
+import { api } from "@/lib/api";
 
 const featureFlags = [
   { key: "student_cap", label: "Basic: 200 student cap", sub: "Enforced at enrollment" },
@@ -21,51 +23,79 @@ const techStack = [
 ];
 
 export default function SettingsPage() {
+  const toast = useToast();
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     student_cap: true, sms_premium: true, open_reg: true,
   });
-  const [pricing, setPricing] = useState({ basic: "LKR 3,000", premium: "LKR 6,000", trial: "14 days" });
+  
+  const [settingsId, setSettingsId] = useState<number | null>(null);
+  const [monthlyFeeSolo, setMonthlyFeeSolo] = useState("");
+  const [monthlyFeeInstitute, setMonthlyFeeInstitute] = useState("");
+  const [monthlyFeePro, setMonthlyFeePro] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // Note: This endpoint is currently unauthenticated in the backend plan for ease of access, 
+    // it should be restricted to admin in production.
+    api.get("/api/institutes/settings").then(r => {
+      const data = Array.isArray(r.data) ? r.data : r.data.results;
+      if (data && data.length > 0) {
+        const s = data[0];
+        setSettingsId(s.id);
+        setMonthlyFeeSolo(s.monthly_fee_solo);
+        setMonthlyFeeInstitute(s.monthly_fee_institute);
+        setMonthlyFeePro(s.monthly_fee_institute_pro);
+      }
+    });
+  }, []);
+
+  const handleSave = async () => {
+    if (!settingsId) return;
+    setSaving(true);
+    try {
+      await api.patch(`/api/institutes/settings/${settingsId}`, {
+        monthly_fee_solo: monthlyFeeSolo,
+        monthly_fee_institute: monthlyFeeInstitute,
+        monthly_fee_institute_pro: monthlyFeePro,
+      });
+      toast.success("Platform settings updated successfully.");
+    } catch {
+      toast.error("Couldn't save settings. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <PageShell>
       <Topbar
         title="Settings"
         subtitle="Platform configuration"
-        right={<button className="btn btn-p btn-sm">Save changes</button>}
+        right={<button className="btn btn-p btn-sm" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save changes"}</button>}
       />
       <div className="pb fi">
         <div className="g2">
           <div>
+
             <div className="sb-settings">
-              <div className="sb-settings-t">Pricing</div>
-              <div className="sb-settings-d">Changes apply to next billing cycle</div>
+              <div className="sb-settings-t">Subscription Billing Amounts</div>
+              <div className="sb-settings-d">Monthly fees charged to institutes (LKR)</div>
+              
               <div className="fg" style={{ marginBottom: 10 }}>
-                <label>Basic tier (per month)</label>
-                <input
-                  value={pricing.basic}
-                  onChange={(e) => setPricing((p) => ({ ...p, basic: e.target.value }))}
-                  style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}
-                />
+                <label>Solo Plan</label>
+                <input type="number" value={monthlyFeeSolo} onChange={e => setMonthlyFeeSolo(e.target.value)} />
               </div>
               <div className="fg" style={{ marginBottom: 10 }}>
-                <label>Premium tier (per month)</label>
-                <input
-                  value={pricing.premium}
-                  onChange={(e) => setPricing((p) => ({ ...p, premium: e.target.value }))}
-                  style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 500 }}
-                />
+                <label>Institute Plan</label>
+                <input type="number" value={monthlyFeeInstitute} onChange={e => setMonthlyFeeInstitute(e.target.value)} />
               </div>
               <div className="fg">
-                <label>Free trial period</label>
-                <input
-                  value={pricing.trial}
-                  onChange={(e) => setPricing((p) => ({ ...p, trial: e.target.value }))}
-                  style={{ maxWidth: 100 }}
-                />
+                <label>Institute Pro Plan</label>
+                <input type="number" value={monthlyFeePro} onChange={e => setMonthlyFeePro(e.target.value)} />
               </div>
             </div>
 
-            <div className="sb-settings">
+            <div className="sb-settings" style={{ marginTop: 24 }}>
               <div className="sb-settings-t">Feature flags</div>
               <div className="sb-settings-d">Toggle features platform-wide</div>
               {featureFlags.map((f) => (

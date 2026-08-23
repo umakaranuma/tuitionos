@@ -4,5 +4,6 @@ RUN apt-get update && apt-get install -y pkg-config default-libmysqlclient-dev b
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
+RUN chmod +x docker-entrypoint.sh
 EXPOSE 8000
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["./docker-entrypoint.sh"]

@@ -1,4 +1,6 @@
 ﻿Django==5.0.4
+gunicorn==22.0.0
+whitenoise==6.6.0
 djangorestframework==3.15.1
 django-cors-headers==4.3.1
 django-celery-beat==2.6.0
@@ -10,6 +12,8 @@ Pillow==10.3.0
 WeasyPrint==61.2
 cryptography==42.0.5
 environs==11.0.0
-supabase==2.3.5
+django-storages==1.14.6
+boto3==1.43.72
 stripe==9.4.0
 requests==2.31.0
+pyotp==2.10.0

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface ModalProps {
   open: boolean;
@@ -11,6 +12,12 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, wide, children, footer }: ModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Close on Escape key
   useEffect(() => {
     if (!open) return;
@@ -19,10 +26,10 @@ export function Modal({ open, onClose, title, wide, children, footer }: ModalPro
     return () => document.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
+  return createPortal(
+    <div className="modal-backdrop" style={{ zIndex: 9999 }} onClick={onClose}>
       <div
         className={`modal-box${wide ? " wide" : ""}`}
         onClick={e => e.stopPropagation()}
@@ -39,6 +46,7 @@ export function Modal({ open, onClose, title, wide, children, footer }: ModalPro
         {/* Footer */}
         {footer && <div className="modal-ftr">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
