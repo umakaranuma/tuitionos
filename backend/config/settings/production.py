@@ -33,6 +33,12 @@ SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
+# Railway terminates TLS at its edge and forwards to this container over
+# plain HTTP — without this, Django can't tell the original request was
+# HTTPS and SECURE_SSL_REDIRECT above 301-redirects every single request
+# back to itself, silently turning POSTs into GETs when the client follows.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # R2 is required in production — Railway's disk is ephemeral, so without it
 # every upload vanishes on the next redeploy. base.py only wires it up when
 # the R2_* vars are present; here we fail loudly instead if they're missing,
