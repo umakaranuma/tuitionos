@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageShell } from "@/components/layout/PageShell";
 import { SearchSelect } from "@/components/ui/SearchSelect";
+import { api } from "@/lib/api";
 
 const districts = ["Jaffna", "Colombo", "Kandy", "Gampaha", "Vavuniya", "Kurunegala", "Matara", "Anuradhapura", "Southern", "Other"];
 const RESERVED = ["admin", "api", "www", "mail", "static", "media", "app", "login", "dashboard", "support"];
@@ -175,20 +176,10 @@ export default function AddInstitutePage() {
                   setLoading(true);
                   setError("");
                   try {
-                    const res = await fetch("http://localhost:8000/api/institutes", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(form)
-                    });
-                    
-                    if (res.ok) {
-                      setStep("success");
-                    } else {
-                      const data = await res.json();
-                      setError(data.error || "Failed to create institute");
-                    }
-                  } catch (err) {
-                    setError("Network error. Make sure the Django backend is running.");
+                    await api.post("/api/institutes", form);
+                    setStep("success");
+                  } catch (err: any) {
+                    setError(err.response?.data?.error || "Failed to create institute");
                   } finally {
                     setLoading(false);
                   }

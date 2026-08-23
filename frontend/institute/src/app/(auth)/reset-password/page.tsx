@@ -1,6 +1,7 @@
 "use client";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { api } from "@/lib/api";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -23,22 +24,11 @@ function ResetPasswordForm() {
     
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/reset-password/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid, token, new_password: newPw }),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        setSuccess(true);
-        setTimeout(() => router.push("/login"), 2000);
-      } else {
-        setError(data.error || "Invalid or expired reset link.");
-      }
-    } catch (err) {
-      setError("Network error. Please ensure the backend is running.");
+      await api.post("/api/reset-password/confirm", { uid, token, new_password: newPw });
+      setSuccess(true);
+      setTimeout(() => router.push("/login"), 2000);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Invalid or expired reset link.");
     } finally {
       setLoading(false);
     }
