@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/admin", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "institute",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/institute", "run", "dev"],
+      "port": 3001
+    }
+  ]
+}
