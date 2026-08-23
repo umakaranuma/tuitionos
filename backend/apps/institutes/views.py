@@ -142,8 +142,8 @@ class InstituteViewSet(viewsets.ModelViewSet):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         
-        reset_url = f"http://localhost:3001/reset-password?uid={uid}&token={token}"
-        
+        reset_url = f"{settings.INSTITUTE_APP_URL}/reset-password?uid={uid}&token={token}"
+
         # Send Welcome Email
         send_mail(
             subject=f"Welcome to TuitionOS - {institute.name}",

@@ -325,8 +325,8 @@ class AdminInstituteDetailView(APIView):
                 uid = urlsafe_base64_encode(force_bytes(user.pk))
                 token = default_token_generator.make_token(user)
                 
-                reset_url = f"http://localhost:3001/reset-password?uid={uid}&token={token}"
-                
+                reset_url = f"{settings.INSTITUTE_APP_URL}/reset-password?uid={uid}&token={token}"
+
                 send_mail(
                     subject=f"Welcome to TuitionOS - {inst.name}",
                     message=f"Hi {inst.owner_name},\n\nYour TuitionOS institute portal has been activated!\n\nTo get started, please set your password and log in by clicking the secure link below:\n\n{reset_url}\n\nWelcome aboard!\n- The TuitionOS Team",
@@ -362,8 +362,8 @@ class AdminInstituteDetailView(APIView):
                     uid = urlsafe_base64_encode(force_bytes(user.pk))
                     token = default_token_generator.make_token(user)
                     
-                    reset_url = f"http://localhost:3001/reset-password?uid={uid}&token={token}"
-                    
+                    reset_url = f"{settings.INSTITUTE_APP_URL}/reset-password?uid={uid}&token={token}"
+
                     send_mail(
                         subject=f"Welcome to TuitionOS - {inst.name}",
                         message=f"Hi {inst.owner_name},\n\nYour TuitionOS institute portal has been activated!\n\nTo get started, please set your password and log in by clicking the secure link below:\n\n{reset_url}\n\nWelcome aboard!\n- The TuitionOS Team",
