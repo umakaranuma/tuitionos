@@ -42,17 +42,22 @@ class InstituteViewSet(viewsets.ModelViewSet):
         if not all([name, owner_name, owner_email]):
             return Response({"error": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Handle Subdomain creation if omitted from frontend
+        # Subdomain is an internal implementation detail (hidden from the
+        # add-institute UI), so a collision here is never something the
+        # caller can fix by resubmitting — auto-uniquify instead of erroring.
+        # Previously this fallback only ran when the frontend sent no
+        # subdomain at all, but it always sends one (auto-generated
+        # client-side), so any collision hard-rejected the request even for
+        # two genuinely different institute names that happened to slugify
+        # the same way.
         if not subdomain:
             import re
-            base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-            subdomain = base_slug[:30]
-            if Institute.objects.filter(subdomain=subdomain).exists():
-                import uuid
-                subdomain = f"{subdomain[:25]}-{str(uuid.uuid4())[:4]}"
+            subdomain = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+        subdomain = subdomain[:30]
 
         if Institute.objects.filter(subdomain=subdomain).exists():
-            return Response({"error": "Institute with this subdomain already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            import uuid
+            subdomain = f"{subdomain[:25]}-{str(uuid.uuid4())[:4]}"
 
         if User.objects.filter(email=owner_email).exists():
             return Response({"error": "User with this email already exists"}, status=status.HTTP_400_BAD_REQUEST)
