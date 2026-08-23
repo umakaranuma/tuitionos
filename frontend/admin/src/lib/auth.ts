@@ -38,13 +38,13 @@ export function isLoggedIn(): boolean {
 export const getAdminDashboard = () => api.get("/api/admin/dashboard").then((r) => r.data);
 
 // ── Institutes ──
-export const getInstitutes = () => api.get("/api/institutes").then((r) => r.data);
+export const getInstitutes = () => api.get("/api/institutes/").then((r) => r.data);
 export const getInstituteDetail = (id: number) =>
   api.get(`/api/admin/institutes/${id}`).then((r) => r.data);
 export const updateInstitute = (id: number, data: any) =>
   api.patch(`/api/admin/institutes/${id}`, data).then((r) => r.data);
 export const createInstitute = (data: any) =>
-  api.post("/api/institutes", data).then((r) => r.data);
+  api.post("/api/institutes/", data).then((r) => r.data);
 
 // ── Invoices ──
 export const getInvoices = () => api.get("/api/admin/billing/invoices").then((r) => r.data);
