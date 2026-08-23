@@ -25,13 +25,14 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (error) => {
+    // Redirect on *every* 401, not just ones where a (now-invalid) token
+    // existed — a request with no token at all is just as unauthenticated,
+    // and used to fall through here silently, leaving whoever's looking at
+    // a protected page stuck on it instead of bounced to /login.
     if (error.response?.status === 401 && typeof window !== "undefined") {
-      const hadToken = localStorage.getItem("token");
-      if (hadToken) {
-        localStorage.removeItem("token");
-        if (window.location.pathname !== "/login") {
-          window.location.href = "/login";
-        }
+      localStorage.removeItem("token");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);
