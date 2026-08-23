@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/auth";
+import { api } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -57,20 +58,10 @@ export default function LoginPage() {
     setError("");
     
     try {
-      const response = await fetch("http://localhost:8000/api/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: forgotEmail }),
-      });
-      
-      if (response.ok) {
-        setForgotSent(true);
-      } else {
-        const data = await response.json();
-        setError(data.error || "Failed to send reset link.");
-      }
-    } catch (err) {
-      setError("Network error. Is the backend running?");
+      await api.post("/api/reset-password", { email: forgotEmail });
+      setForgotSent(true);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to send reset link.");
     } finally {
       setLoading(false);
     }

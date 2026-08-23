@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { QRCodeSVG } from "qrcode.react";
+import { api } from "@/lib/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -21,25 +22,14 @@ export default function AdminLoginPage() {
     setLoading(true);
     
     try {
-      const response = await fetch("http://localhost:8000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password })
-      });
-      const data = await response.json();
-      
-      if (!response.ok) {
-        setError(data.error || "Invalid credentials");
-        setLoading(false);
-        return;
-      }
-      
+      const { data } = await api.post("/api/login", { email, password });
+
       if (!data.user.is_fynux_admin) {
         setError("Unauthorized: You do not have admin privileges.");
         setLoading(false);
         return;
       }
-      
+
       if (data.requires_2fa) {
         if (data.setup_uri) setSetupUri(data.setup_uri);
         setStep("2fa");
@@ -47,9 +37,9 @@ export default function AdminLoginPage() {
         localStorage.setItem("token", data.token);
         router.push("/dashboard");
       }
-      setLoading(false); 
-    } catch (err) {
-      setError("Network error. Make sure the backend is running.");
+      setLoading(false);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Invalid credentials");
       setLoading(false);
     }
   };
@@ -58,21 +48,11 @@ export default function AdminLoginPage() {
     if (totpCode.length !== 6) { setError("Enter a 6-digit code from your authenticator app."); return; }
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, totp_code: totpCode })
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.error || "Invalid 2FA code");
-        setLoading(false);
-        return;
-      }
+      const { data } = await api.post("/api/login", { email, password, totp_code: totpCode });
       localStorage.setItem("token", data.token);
       router.push("/dashboard");
-    } catch (err) {
-      setError("Network error.");
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Invalid 2FA code");
       setLoading(false);
     }
   };
