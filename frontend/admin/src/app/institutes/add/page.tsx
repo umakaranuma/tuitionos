@@ -176,7 +176,7 @@ export default function AddInstitutePage() {
                   setLoading(true);
                   setError("");
                   try {
-                    await api.post("/api/institutes", form);
+                    await api.post("/api/institutes/", form);
                     setStep("success");
                   } catch (err: any) {
                     setError(err.response?.data?.error || "Failed to create institute");

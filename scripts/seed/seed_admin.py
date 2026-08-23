@@ -36,7 +36,7 @@ User = get_user_model()
 
 username = os.environ.get("SEED_ADMIN_USERNAME", "admin")
 email = os.environ.get("SEED_ADMIN_EMAIL", "admin@tuitionos.lk")
-password = os.environ.get("Admin@1126")
+password = os.environ.get("SEED_ADMIN_PASSWORD")
 
 if not password:
     if os.environ.get("DJANGO_SETTINGS_MODULE") == "config.settings.production":
