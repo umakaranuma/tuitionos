@@ -16,7 +16,7 @@ const INSTITUTE_APP_URL = process.env.NEXT_PUBLIC_INSTITUTE_APP_URL ?? "https://
 // next.config.ts) instead of a "/#id" hash — e.g. /pricing instead of
 // /#pricing. Scrolling to the section is then done manually in the effect
 // below, since there's no real hash for the browser to jump to.
-const ROUTE_SECTIONS = ["features", "pricing"];
+const ROUTE_SECTIONS = ["features", "pricing", "demo"];
 
 type PlanTier = "solo" | "institute" | "pro";
 
@@ -318,7 +318,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-[14.5px] font-medium text-[var(--ink2)]">
             <Link href="/features" className="hover:text-[var(--tc)] transition-colors">Features</Link>
             <Link href="/pricing" className="hover:text-[var(--tc)] transition-colors">Pricing</Link>
-            <a href="#demo" className="hover:text-[var(--tc)] transition-colors">Request Demo</a>
+            <Link href="/demo" className="hover:text-[var(--tc)] transition-colors">Request Demo</Link>
             <a href={`${INSTITUTE_APP_URL}/login`} className="btn btn-s px-5 py-2 !text-[13.5px]">Institute Login</a>
           </div>
         </div>
@@ -345,7 +345,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-8">
                 <Link href="/features" className="btn btn-p w-full sm:w-auto text-lg px-8 py-4">Explore the Portal</Link>
-                <a href="#demo" className="btn btn-s w-full sm:w-auto text-lg px-8 py-4">Request a Live Demo</a>
+                <Link href="/demo" className="btn btn-s w-full sm:w-auto text-lg px-8 py-4">Request a Live Demo</Link>
               </div>
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-[13px] text-[var(--ink3)] font-medium">
                 {["Attendance", "Fees", "Timetable", "Exams", "Parent Alerts"].map(t => (
@@ -542,7 +542,7 @@ export default function LandingPage() {
         </section>
 
         {/* Demo Section */}
-        <section id="demo" className="py-16 lg:py-20 px-6">
+        <section id="demo" className="scroll-mt-20 py-16 lg:py-20 px-6">
           <div className="max-w-3xl mx-auto bg-white border border-[var(--ln)] rounded-3xl p-8 lg:p-10 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[var(--tc-d)] to-[var(--tc-l)]" />
             <h3 className="font-serif text-3xl font-bold text-[var(--ink)] mb-3">Request your demo</h3>
@@ -602,7 +602,7 @@ export default function LandingPage() {
           <p className="text-white/75 text-lg mb-8">Explore every screen above, then pick the plan that fits — or talk to us first, whichever you prefer.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/pricing" className="btn text-lg px-8 py-4 bg-white text-[var(--tc-d)] hover:bg-white/90 transition-colors">View Pricing</Link>
-            <a href="#demo" className="btn text-lg px-8 py-4 bg-white/10 text-white border border-white/25 hover:bg-white/20 transition-colors">Request a Demo</a>
+            <Link href="/demo" className="btn text-lg px-8 py-4 bg-white/10 text-white border border-white/25 hover:bg-white/20 transition-colors">Request a Demo</Link>
           </div>
         </Reveal>
       </section>
@@ -628,7 +628,7 @@ export default function LandingPage() {
           <div>
             <div className="text-xs font-bold text-white/40 tracking-wider uppercase mb-3">Company</div>
             <div className="flex flex-col gap-2.5 text-sm text-white/70">
-              <a href="#demo" className="hover:text-white transition-colors">Request a Demo</a>
+              <Link href="/demo" className="hover:text-white transition-colors">Request a Demo</Link>
               <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
               <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
             </div>
