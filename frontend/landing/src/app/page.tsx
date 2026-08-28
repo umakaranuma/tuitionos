@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef, ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { sendDemoRequest } from "@/lib/mailService";
 
 // Was hardcoded to http://localhost:3001/login in every "Institute Login"
 // link — dead on the deployed site since a visitor's browser has nothing
 // listening on localhost:3001. Configurable per environment like the other
-// frontends' NEXT_PUBLIC_API_BASE_URL.
-const INSTITUTE_APP_URL = process.env.NEXT_PUBLIC_INSTITUTE_APP_URL ?? "http://localhost:3001";
+// frontends' NEXT_PUBLIC_API_BASE_URL; defaults to the real deployed
+// institute portal so the button works even before Vercel's env var is set.
+const INSTITUTE_APP_URL = process.env.NEXT_PUBLIC_INSTITUTE_APP_URL ?? "https://tuitionos-institute.vercel.app";
 
 // Section ids that get their own clean URL (via the rewrites in
 // next.config.ts) instead of a "/#id" hash — e.g. /pricing instead of
@@ -254,6 +256,10 @@ function FeatureInteractive({ onZoom }: { onZoom: (img: string, title: string) =
 }
 
 export default function LandingPage() {
+  const [form, setForm] = useState({ name: "", institute: "", email: "", phone: "" });
+  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const [lightbox, setLightbox] = useState<{ img: string; title: string } | null>(null);
   const pathname = usePathname();
 
@@ -263,6 +269,21 @@ export default function LandingPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      await sendDemoRequest(form);
+      setSubmitted(true);
+      setErrorMsg("");
+    } catch (error) {
+      setErrorMsg("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // /pricing and /features are rewritten (see next.config.ts) to serve this
   // same page, so there's no real browser hash to jump to — scroll to the
@@ -297,6 +318,7 @@ export default function LandingPage() {
           <div className="hidden md:flex items-center gap-8 text-[14.5px] font-medium text-[var(--ink2)]">
             <Link href="/features" className="hover:text-[var(--tc)] transition-colors">Features</Link>
             <Link href="/pricing" className="hover:text-[var(--tc)] transition-colors">Pricing</Link>
+            <a href="#demo" className="hover:text-[var(--tc)] transition-colors">Request Demo</a>
             <a href={`${INSTITUTE_APP_URL}/login`} className="btn btn-s px-5 py-2 !text-[13.5px]">Institute Login</a>
           </div>
         </div>
@@ -323,7 +345,7 @@ export default function LandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-8">
                 <Link href="/features" className="btn btn-p w-full sm:w-auto text-lg px-8 py-4">Explore the Portal</Link>
-                <Link href="/pricing" className="btn btn-s w-full sm:w-auto text-lg px-8 py-4">View Pricing</Link>
+                <a href="#demo" className="btn btn-s w-full sm:w-auto text-lg px-8 py-4">Request a Live Demo</a>
               </div>
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-x-5 gap-y-2 text-[13px] text-[var(--ink3)] font-medium">
                 {["Attendance", "Fees", "Timetable", "Exams", "Parent Alerts"].map(t => (
@@ -518,6 +540,58 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* Demo Section */}
+        <section id="demo" className="py-16 lg:py-20 px-6">
+          <div className="max-w-3xl mx-auto bg-white border border-[var(--ln)] rounded-3xl p-8 lg:p-10 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[var(--tc-d)] to-[var(--tc-l)]" />
+            <h3 className="font-serif text-3xl font-bold text-[var(--ink)] mb-3">Request your demo</h3>
+            <p className="text-[var(--ink3)] mb-8">We'll set up a personalized walkthrough of the platform for your institute.</p>
+
+            {submitted ? (
+              <div className="bg-[var(--tc-l)] border border-[var(--tc)] rounded-2xl p-8 text-center text-[var(--tc-d)]">
+                <div className="text-4xl mb-4">🎉</div>
+                <h4 className="text-xl font-bold mb-2">Request Received!</h4>
+                <p>Our team will contact you within 24 hours to schedule your demo.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                <div>
+                  <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Your Name</label>
+                  <input required type="text" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="e.g. John Doe" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Institute Name</label>
+                  <input required type="text" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="e.g. Excellence Academy" value={form.institute} onChange={e=>setForm({...form,institute:e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Email Address</label>
+                    <input required type="email" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="john@example.com" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-[13.5px] font-semibold text-[var(--ink2)] mb-2">Phone Number</label>
+                    <input required type="tel" className="w-full bg-[var(--cr)] border border-[var(--ln)] rounded-xl px-4 py-3 outline-none focus:border-[var(--tc)] transition-colors" placeholder="+94 77 000 0000" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} />
+                  </div>
+                </div>
+
+                {errorMsg && (
+                  <div className="bg-[#fceaea] border border-[#f5c5c5] rounded-xl px-4 py-3 text-[13.5px] text-[#b83030] font-medium flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="7" cy="7" r="6"/><path d="M7 4.5v3M7 9.5h.01"/>
+                    </svg>
+                    {errorMsg}
+                  </div>
+                )}
+
+                <button type="submit" disabled={isSubmitting} className={`btn btn-p w-full py-4 text-lg mt-2 shadow-lg shadow-[rgba(79,70,229,0.2)] ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""}`}>
+                  {isSubmitting ? "Sending..." : "Book Demo Call"}
+                </button>
+                <p className="text-center text-xs text-[var(--ink3)] mt-2">By submitting this form, you agree to our Terms of Service and Privacy Policy.</p>
+              </form>
+            )}
+          </div>
+        </section>
       </main>
 
       {/* Closing CTA band */}
@@ -528,7 +602,7 @@ export default function LandingPage() {
           <p className="text-white/75 text-lg mb-8">Explore every screen above, then pick the plan that fits — or talk to us first, whichever you prefer.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/pricing" className="btn text-lg px-8 py-4 bg-white text-[var(--tc-d)] hover:bg-white/90 transition-colors">View Pricing</Link>
-            <a href={`${INSTITUTE_APP_URL}/login`} className="btn text-lg px-8 py-4 bg-white/10 text-white border border-white/25 hover:bg-white/20 transition-colors">Institute Login</a>
+            <a href="#demo" className="btn text-lg px-8 py-4 bg-white/10 text-white border border-white/25 hover:bg-white/20 transition-colors">Request a Demo</a>
           </div>
         </Reveal>
       </section>
@@ -554,6 +628,7 @@ export default function LandingPage() {
           <div>
             <div className="text-xs font-bold text-white/40 tracking-wider uppercase mb-3">Company</div>
             <div className="flex flex-col gap-2.5 text-sm text-white/70">
+              <a href="#demo" className="hover:text-white transition-colors">Request a Demo</a>
               <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
               <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
             </div>
