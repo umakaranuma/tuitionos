@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend/institute", "run", "dev"],
       "port": 3001
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend/landing", "run", "dev", "--", "-p", "3002"],
+      "port": 3002
     }
   ]
 }
