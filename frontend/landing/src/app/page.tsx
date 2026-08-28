@@ -267,8 +267,16 @@ export default function LandingPage() {
   // /pricing and /features are rewritten (see next.config.ts) to serve this
   // same page, so there's no real browser hash to jump to — scroll to the
   // matching section ourselves whenever the route resolves to one.
+  //
+  // Deliberately reads window.location.pathname instead of trusting the
+  // `pathname` value above directly: per Next's own docs, a page reached
+  // through a rewrite reports the server-rendered *source* path (here "/")
+  // on first hydration, not the browser's real URL — so on a hard reload of
+  // /pricing, `pathname` reads "/" and this would silently never scroll.
+  // `pathname` is still the effect's dependency so it re-fires correctly on
+  // subsequent client-side <Link> navigations too.
   useEffect(() => {
-    const id = pathname.replace(/^\//, "");
+    const id = window.location.pathname.replace(/^\//, "");
     if (!ROUTE_SECTIONS.includes(id)) return;
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   }, [pathname]);
